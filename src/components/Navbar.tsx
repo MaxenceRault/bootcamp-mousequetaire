@@ -1,17 +1,11 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { Avatar } from "@/components/ui/Avatar";
 import { buttonClassName } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
+import { NavbarAccount } from "@/components/NavbarAccount";
 
-export type NavbarUser = {
-  username: string;
-  displayName: string;
-  avatarUrl: string | null;
-};
-
-// Barre du haut. Visiteur : bouton « Se connecter ». Connecté : avatar + menu du compte.
-export async function Navbar({ user }: { user: NavbarUser | null }) {
+// Barre du haut. La zone compte (visiteur / connecté) dépend de la session du navigateur : voir NavbarAccount.
+export async function Navbar() {
   const t = await getTranslations("Navbar");
 
   return (
@@ -52,49 +46,10 @@ export async function Navbar({ user }: { user: NavbarUser | null }) {
             </Link>
           </nav>
 
-          {user ? <AccountMenu user={user} /> : (
-            <Link href="/login" className={buttonClassName("sm")}>
-              {t("login")}
-            </Link>
-          )}
+          <NavbarAccount />
         </div>
       </div>
     </header>
   );
 }
 
-// Menu déroulant du compte : s'ouvre au survol ou au focus clavier (sans JavaScript).
-async function AccountMenu({ user }: { user: NavbarUser }) {
-  const t = await getTranslations("Navbar");
-
-  return (
-    <div className="group relative">
-      <button
-        type="button"
-        aria-label={t("accountMenu")}
-        aria-haspopup="true"
-        className="flex items-center gap-2 rounded-lg p-1 transition hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-accent/25 focus-visible:outline-none"
-      >
-        <Avatar src={user.avatarUrl} alt="" size={28} />
-        <Icon name="chevronDown" className="size-4 text-ink-soft" />
-      </button>
-
-      <div className="absolute top-full right-0 z-50 hidden w-48 pt-1.5 group-focus-within:block group-hover:block">
-        <div className="rounded-lg border border-line bg-surface py-1.5 shadow-lg">
-          <div className="mb-1 border-b border-line px-3 py-1.5">
-            <p className="font-display text-label-lg text-ink">{user.displayName}</p>
-            <p className="text-body-sm text-ink-soft/70">@{user.username}</p>
-          </div>
-          <Link href="/profile" className="flex items-center gap-2 px-3 py-2 text-body-md text-ink-soft transition hover:bg-canvas hover:text-ink">
-            <Icon name="bookmark" className="size-4" />
-            {t("savedTrips")}
-          </Link>
-          <Link href="/profile" className="flex items-center gap-2 px-3 py-2 text-body-md text-ink-soft transition hover:bg-canvas hover:text-ink">
-            <Icon name="settings" className="size-4" />
-            {t("settings")}
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}

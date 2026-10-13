@@ -57,7 +57,7 @@
       "title": "Content de vous revoir",
       "subtitle": "Connectez-vous pour accéder à vos itinéraires IA, vos cartes et vos guides enregistrés.",
       "forgot": "Mot de passe oublié ?",
-      "remember": "Se souvenir de cet appareil pendant 30 jours",
+      "remember": "Rester connecté sur cet appareil",
       "submit": "Se connecter",
       "switchPrompt": "Pas encore de compte ?",
       "switchLink": "Créer un compte"
@@ -75,6 +75,14 @@
       "submit": "Envoyer le lien",
       "switchPrompt": "Vous vous en souvenez ?",
       "switchLink": "Retour à la connexion"
+    },
+    "errors": {
+      "INVALID_CREDENTIALS": "Identifiants invalides.",
+      "EMAIL_TAKEN": "Un compte existe déjà avec cette adresse email.",
+      "INVALID_INPUT": "Vérifiez les champs du formulaire.",
+      "TOO_MANY_REQUESTS": "Trop de tentatives. Réessayez dans quelques minutes.",
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
+      "PASSWORD_MISMATCH": "Les mots de passe ne correspondent pas."
     }
   }
 }

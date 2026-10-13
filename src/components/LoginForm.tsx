@@ -1,20 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import type { FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
+import { FormError } from "@/components/ui/FormError";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { postAuth, saveSession } from "@/lib/session";
 
 export function LoginForm() {
   const t = useTranslations("Auth");
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    // Interface seule : l'appel à l'API de connexion sera branché à une étape suivante.
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const remember = form.get("remember") === "on";
+
+    setPending(true);
+    setError(null);
+    const result = await postAuth("/api/auth/login", {
+      email: form.get("email"),
+      password: form.get("password"),
+      remember,
+    });
+    setPending(false);
+
+    if ("error" in result) return setError(t(`errors.${result.error}`));
+    saveSession(result.token, result.user, remember);
+    router.push("/");
   }
 
   return (
@@ -56,7 +76,9 @@ export function LoginForm() {
         {t("login.remember")}
       </Checkbox>
 
-      <Button type="submit" className="mt-1 w-full">
+      <FormError>{error}</FormError>
+
+      <Button type="submit" disabled={pending} className="mt-1 w-full">
         {t("login.submit")}
       </Button>
     </form>

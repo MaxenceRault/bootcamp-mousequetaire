@@ -1,20 +1,24 @@
 import Image from "next/image";
+import { Blobatar } from "@blobatar/react";
 
 type AvatarProps = {
   src: string | null;
+  // Identifiant stable de l'utilisateur (pseudo) : sans photo, il génère toujours le même blobatar.
+  name: string;
   alt: string;
   // Taille en pixels (carré).
   size: number;
 };
 
-// Photo de profil carrée, 8px d'arrondi. Sans photo : carré neutre.
-export function Avatar({ src, alt, size }: AvatarProps) {
+// Photo de profil carrée, 8px d'arrondi. Sans photo : blobatar généré à partir du pseudo.
+export function Avatar({ src, name, alt, size }: AvatarProps) {
   if (!src) {
     return (
-      <span
-        aria-hidden="true"
-        style={{ width: size, height: size }}
-        className="block shrink-0 rounded-lg bg-surface-muted"
+      <Blobatar
+        name={name}
+        size={size}
+        alt={alt}
+        className="shrink-0 rounded-lg bg-surface-muted ring-1 ring-line"
       />
     );
   }
