@@ -29,7 +29,7 @@
     },
     "empty": "Aucun post pour le moment.",
     "error": "Impossible de charger les posts. Réessayez plus tard.",
-    "askAi": "Demander à l'IA"
+    "newPost": "Nouveau post"
   },
   "TravelCard": {
     "cta": "Voir / Demander à l'IA"
@@ -84,5 +84,40 @@
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
       "PASSWORD_MISMATCH": "Les mots de passe ne correspondent pas."
     }
+  },
+  "PostEditor": {
+    "metaTitle": "Nouveau récit",
+    "heading": "Nouveau récit de voyage",
+    "fields": {
+      "title": "Titre",
+      "titlePlaceholder": "Où êtes-vous allé ? Ex. Aube silencieuse dans la bambouseraie d'Arashiyama",
+      "destination": "Destination",
+      "destinationPlaceholder": "Ville ou pays…",
+      "destinationPick": "Choisissez une destination dans la liste.",
+      "timeline": "Dates du voyage",
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "archetype": "Type de récit",
+      "archetypePlaceholder": "Choisir un type",
+      "shortDescription": "Description courte",
+      "shortDescriptionPlaceholder": "Une phrase d'accroche sur votre voyage…",
+      "longDescription": "Description longue",
+      "longDescriptionPlaceholder": "Racontez votre voyage…"
+    },
+    "placesError": "Impossible de charger les lieux. Réessayez.",
+    "photo": {
+      "title": "Photo de couverture",
+      "add": "Ajouter une photo",
+      "hint": "JPEG, PNG ou WebP",
+      "previewAlt": "Aperçu de la photo de couverture",
+      "remove": "Retirer la photo"
+    },
+    "tags": {
+      "title": "Tags",
+      "inputLabel": "Ajouter un lieu en tag",
+      "placeholder": "Ville ou pays…",
+      "remove": "Retirer le tag {name}"
+    },
+    "submit": "Publier le récit"
   }
 }

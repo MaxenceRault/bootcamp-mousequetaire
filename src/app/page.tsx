@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { TravelCard } from "@/components/TravelCard";
-import { Button } from "@/components/ui/Button";
+import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { getFeedPosts, POST_CATEGORIES, type FeedPost, type PostCategory } from "@/lib/posts";
@@ -37,16 +37,20 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </div>
       </main>
 
-      {/* Interface seule : ouvrira le drawer du chat RAG (AIChatDrawer). */}
-      <Button
-        aria-label={t("askAi")}
-        className="group fixed right-4 bottom-4 z-50 gap-0 px-3.5 shadow-lg md:right-6 md:bottom-6"
+      {/* Bouton flottant : ouvre l'éditeur pour publier un nouveau post. */}
+      <Link
+        href="/post/new"
+        aria-label={t("newPost")}
+        className={buttonClassName(
+          "md",
+          "group fixed right-4 bottom-4 z-50 gap-0 px-3.5 shadow-lg md:right-6 md:bottom-6",
+        )}
       >
-        <Icon name="sparkles" className="size-5" />
+        <Icon name="add" className="size-5" />
         <span className="max-w-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-xs group-focus-visible:ml-2 group-focus-visible:max-w-xs">
-          {t("askAi")}
+          {t("newPost")}
         </span>
-      </Button>
+      </Link>
 
       <Footer />
     </>

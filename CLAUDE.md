@@ -22,6 +22,7 @@ src/
 │   ├── layout.tsx             # Layout global (Navbar + Footer + Fonts)
 │   ├── page.tsx               # Homepage (Feed + Hero Search)
 │   ├── post/[id]/page.tsx     # Détail d'un post de voyage
+│   ├── post/new/page.tsx      # Éditeur de récit (création d'un post)
 │   ├── profile/page.tsx       # Tableau de bord utilisateur
 │   ├── planner/page.tsx       # Planification (Calendrier + Checklist)
 │   ├── login/page.tsx         # Auth : connexion / inscription / mot de passe oublié (?view=)
@@ -29,6 +30,7 @@ src/
 │   └── api/
 │       ├── auth/login/route.ts    # POST connexion → auth.controller
 │       ├── auth/register/route.ts # POST inscription → auth.controller
+│       ├── locations/route.ts # GET ?q= recherche de villes / pays (country-state-city) → location.controller
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
 ├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (ex. post.schema.ts)
 ├── services/                  # Couche SERVICE : logique métier (ex. post.service.ts)
@@ -37,11 +39,12 @@ src/
 ├── i18n/
 │   └── request.ts             # Config next-intl (locale + chargement des messages)
 ├── components/
-│   ├── ui/                    # Design system : Button, Input, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar
+│   ├── ui/                    # Design system : Button, Input, Textarea, Autocomplete, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar
 │   ├── Navbar.tsx             # Barre du haut (version visiteur / connecté)
 │   ├── NavbarAccount.tsx      # Zone compte de la Navbar (client : lit la session du navigateur)
 │   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
+│   ├── PostEditorForm.tsx     # Formulaire de l'éditeur de récit (client)
 │   ├── LoginForm.tsx          # Formulaire de connexion (client)
 │   ├── RegisterForm.tsx       # Formulaire d'inscription (client)
 │   ├── ForgotPasswordForm.tsx # Formulaire mot de passe oublié (client)
