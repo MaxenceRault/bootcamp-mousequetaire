@@ -11,9 +11,11 @@
     "metaTitle": "Connexion",
     "fields": {
       "name": "Nom",
+      "namePlaceholder": "Kyky DeBondy",
       "email": "Adresse email",
       "emailPlaceholder": "vous@exemple.com",
       "password": "Mot de passe",
+      "passwordPlaceholder": "••••••••",
       "confirmPassword": "Confirmer le mot de passe"
     },
     "login": {

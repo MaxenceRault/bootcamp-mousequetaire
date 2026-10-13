@@ -19,7 +19,14 @@ export function RegisterForm() {
     // method="post" : si le JS n'est pas encore chargé, le mot de passe ne part jamais dans l'URL.
     <form method="post" onSubmit={handleSubmit} className="flex flex-col gap-4">
       <Field id="register-name" label={t("fields.name")}>
-        <Input id="register-name" name="name" type="text" autoComplete="name" required />
+        <Input
+          id="register-name"
+          name="name"
+          type="text"
+          autoComplete="name"
+          placeholder={t("fields.namePlaceholder")}
+          required
+        />
       </Field>
 
       <Field id="register-email" label={t("fields.email")}>
@@ -38,6 +45,7 @@ export function RegisterForm() {
           id="register-password"
           name="password"
           autoComplete="new-password"
+          placeholder={t("fields.passwordPlaceholder")}
           required
         />
       </Field>
@@ -47,6 +55,7 @@ export function RegisterForm() {
           id="register-confirm-password"
           name="confirmPassword"
           autoComplete="new-password"
+          placeholder={t("fields.passwordPlaceholder")}
           required
         />
       </Field>

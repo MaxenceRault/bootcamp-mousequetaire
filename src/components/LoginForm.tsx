@@ -47,6 +47,7 @@ export function LoginForm() {
           id="login-password"
           name="password"
           autoComplete="current-password"
+          placeholder={t("fields.passwordPlaceholder")}
           required
         />
       </Field>

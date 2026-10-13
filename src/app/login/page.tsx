@@ -38,7 +38,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const t = await getTranslations("Metadata");
 
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-10 md:px-8">
+    <main className="relative isolate flex flex-1 items-center justify-center overflow-hidden px-4 py-10 md:px-8">
+      {/* Fond décoratif : le collage couvre tout l'écran, puis il est assombri et flouté.
+          Zoomé de 5 % pour rogner sa bordure blanche (le surplus est masqué par overflow-hidden). */}
+      <div aria-hidden="true" className="absolute inset-0 -z-10 scale-105 bg-[url(/login-bg.png)] bg-cover bg-center" />
+      <div aria-hidden="true" className="absolute inset-0 -z-10 bg-ink/60 backdrop-blur-sm" />
       <Card className="w-full max-w-115 p-6 md:p-10">
         <div className="mb-6 flex items-center justify-center gap-1">
           <span aria-hidden="true" className="size-2.5 rounded-full bg-accent" />
