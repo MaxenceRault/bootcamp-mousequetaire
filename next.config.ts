@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  images: {
+    // Photos des posts et avatars de la seed.
+    remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com", pathname: "/photo-**" }],
+  },
   turbopack: {
     rules: {
       "*.css": {
