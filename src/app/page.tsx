@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { Footer } from "@/components/Footer";
-import { Navbar, type NavbarUser } from "@/components/Navbar";
+import { Navbar } from "@/components/Navbar";
 import { TravelCard } from "@/components/TravelCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -17,10 +17,6 @@ const categorySchema = z.enum(POST_CATEGORIES);
 export default async function Home({ searchParams }: PageProps<"/">) {
   const t = await getTranslations("Home");
 
-  // Pas encore de login : visiteur par défaut. À remplacer par l'utilisateur issu du JWT
-  // quand l'authentification sera branchée (la Navbar affiche alors le menu du compte).
-  const user: NavbarUser | null = null;
-
   return (
     <>
       {/* Fond décoratif flouté, fixe pendant le défilement. */}
@@ -29,7 +25,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <div className="absolute inset-0 bg-linear-to-b from-surface/40 via-canvas/60 to-canvas/80" />
       </div>
 
-      <Navbar user={user} />
+      <Navbar />
 
       <main className="relative w-full flex-1 pt-24 pb-20">
         <div className="mx-auto max-w-190 px-4 md:px-6">

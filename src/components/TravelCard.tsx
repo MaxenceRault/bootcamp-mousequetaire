@@ -31,7 +31,7 @@ export async function TravelCard({ post, now, preload = false }: TravelCardProps
       <article>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <Avatar src={post.author.avatarUrl} alt="" size={40} />
+            <Avatar src={post.author.avatarUrl} name={post.author.username} alt="" size={40} />
             <div className="min-w-0">
               <p className="mb-1 font-display text-label-lg text-ink">{post.author.displayName}</p>
               <p className="flex flex-wrap items-center gap-1 text-body-sm text-ink-soft/70">

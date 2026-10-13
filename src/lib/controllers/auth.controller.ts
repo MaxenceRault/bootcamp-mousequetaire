@@ -32,7 +32,8 @@ export async function loginController(request: Request) {
   if (!body.success) return errorResponse(400, "INVALID_INPUT");
 
   try {
-    const result = await login(body.data.email, body.data.password, body.data.remember);
+    // remember ne change pas la durée du token (1h) : il choisit seulement le stockage côté client.
+    const result = await login(body.data.email, body.data.password);
     return Response.json(result);
   } catch (error) {
     return handleError(error);

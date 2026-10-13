@@ -9,6 +9,8 @@ import {
 } from "@/lib/repositories/user.repository";
 
 const SALT_ROUNDS = 12;
+// Durée de vie du token : l'utilisateur doit se reconnecter au bout d'1 heure.
+const TOKEN_TTL = "1h";
 const DUMMY_HASH = "$2b$12$5URWFGCO7h71Yp5EeqSYCuXKHN5/t8AqSI/rOUG9kjnDcqbw5EInm";
 
 export class AuthError extends Error {
@@ -19,14 +21,14 @@ export class AuthError extends Error {
 
 export type AuthResult = { token: string; user: PublicUser };
 
-export async function login(email: string, password: string, remember: boolean): Promise<AuthResult> {
+export async function login(email: string, password: string): Promise<AuthResult> {
   const user = await findUserByEmail(email);
   const valid = await bcrypt.compare(password, user?.password_hash ?? DUMMY_HASH);
 
   if (!user || !user.password_hash || !valid) throw new AuthError("INVALID_CREDENTIALS");
 
   const { id, username, display_name, avatar_url } = user;
-  return createSession({ id, username, display_name, avatar_url }, remember);
+  return createSession({ id, username, display_name, avatar_url });
 }
 
 export async function register(name: string, email: string, password: string): Promise<AuthResult> {
@@ -39,11 +41,11 @@ export async function register(name: string, email: string, password: string): P
     password_hash: await bcrypt.hash(password, SALT_ROUNDS),
   });
 
-  return createSession(user, false);
+  return createSession(user);
 }
 
-async function createSession(user: PublicUser, remember: boolean): Promise<AuthResult> {
-  const token = await signToken(user.id, remember ? "30d" : "1d");
+async function createSession(user: PublicUser): Promise<AuthResult> {
+  const token = await signToken(user.id, TOKEN_TTL);
   return { token, user };
 }
 

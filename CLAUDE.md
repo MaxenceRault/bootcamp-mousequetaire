@@ -39,6 +39,7 @@ src/
 ├── components/
 │   ├── ui/                    # Design system : Button, Input, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar
 │   ├── Navbar.tsx             # Barre du haut (version visiteur / connecté)
+│   ├── NavbarAccount.tsx      # Zone compte de la Navbar (client : lit la session du navigateur)
 │   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
 │   ├── LoginForm.tsx          # Formulaire de connexion (client)
