@@ -1,18 +1,41 @@
 "use client";
 
-import type { FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
+import { FormError } from "@/components/ui/FormError";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { postAuth, saveSession } from "@/lib/session";
 
 export function RegisterForm() {
   const t = useTranslations("Auth");
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    // Interface seule : l'appel à l'API d'inscription sera branché à une étape suivante.
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = new FormData(event.currentTarget);
+
+    if (form.get("password") !== form.get("confirmPassword")) {
+      return setError(t("errors.PASSWORD_MISMATCH"));
+    }
+
+    setPending(true);
+    setError(null);
+    const result = await postAuth("/api/auth/register", {
+      name: form.get("name"),
+      email: form.get("email"),
+      password: form.get("password"),
+    });
+    setPending(false);
+
+    if ("error" in result) return setError(t(`errors.${result.error}`));
+    saveSession(result.token, result.user, false);
+    router.push("/");
   }
 
   return (
@@ -46,6 +69,8 @@ export function RegisterForm() {
           name="password"
           autoComplete="new-password"
           placeholder={t("fields.passwordPlaceholder")}
+          minLength={8}
+          maxLength={72}
           required
         />
       </Field>
@@ -60,7 +85,9 @@ export function RegisterForm() {
         />
       </Field>
 
-      <Button type="submit" className="mt-1 w-full">
+      <FormError>{error}</FormError>
+
+      <Button type="submit" disabled={pending} className="mt-1 w-full">
         {t("register.submit")}
       </Button>
     </form>

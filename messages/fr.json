@@ -75,6 +75,14 @@
       "submit": "Envoyer le lien",
       "switchPrompt": "Vous vous en souvenez ?",
       "switchLink": "Retour à la connexion"
+    },
+    "errors": {
+      "INVALID_CREDENTIALS": "Identifiants invalides.",
+      "EMAIL_TAKEN": "Un compte existe déjà avec cette adresse email.",
+      "INVALID_INPUT": "Vérifiez les champs du formulaire.",
+      "TOO_MANY_REQUESTS": "Trop de tentatives. Réessayez dans quelques minutes.",
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
+      "PASSWORD_MISMATCH": "Les mots de passe ne correspondent pas."
     }
   }
 }
