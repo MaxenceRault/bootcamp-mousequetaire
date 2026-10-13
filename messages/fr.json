@@ -1,0 +1,45 @@
+{
+  "Metadata": {
+    "title": "Brb",
+    "description": "Blog et planificateur de voyage grâce aux posts et avis des voyageurs"
+  },
+  "PasswordInput": {
+    "show": "Afficher le mot de passe",
+    "hide": "Masquer le mot de passe"
+  },
+  "Auth": {
+    "metaTitle": "Connexion",
+    "fields": {
+      "name": "Nom",
+      "namePlaceholder": "Kyky DeBondy",
+      "email": "Adresse email",
+      "emailPlaceholder": "vous@exemple.com",
+      "password": "Mot de passe",
+      "passwordPlaceholder": "••••••••",
+      "confirmPassword": "Confirmer le mot de passe"
+    },
+    "login": {
+      "title": "Content de vous revoir",
+      "subtitle": "Connectez-vous pour accéder à vos itinéraires IA, vos cartes et vos guides enregistrés.",
+      "forgot": "Mot de passe oublié ?",
+      "remember": "Se souvenir de cet appareil pendant 30 jours",
+      "submit": "Se connecter",
+      "switchPrompt": "Pas encore de compte ?",
+      "switchLink": "Créer un compte"
+    },
+    "register": {
+      "title": "Créer un compte",
+      "subtitle": "Rejoignez la communauté pour partager vos voyages et planifier les prochains.",
+      "submit": "Créer mon compte",
+      "switchPrompt": "Déjà un compte ?",
+      "switchLink": "Se connecter"
+    },
+    "forgot": {
+      "title": "Mot de passe oublié",
+      "subtitle": "Saisissez votre email : nous vous enverrons un lien pour réinitialiser votre mot de passe.",
+      "submit": "Envoyer le lien",
+      "switchPrompt": "Vous vous en souvenez ?",
+      "switchLink": "Retour à la connexion"
+    }
+  }
+}

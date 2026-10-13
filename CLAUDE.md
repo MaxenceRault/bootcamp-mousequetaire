@@ -1,6 +1,6 @@
 # TripPlanner IA
 
-Projet fil rouge : blog et planificateur de voyage basé sur les posts et avis des voyageurs. Next.js (App Router) + TypeScript strict + Tailwind CSS v4, gestionnaire de paquets **npm**.
+Projet fil rouge : blog et planificateur de voyage basé sur les posts et avis des voyageurs. Nom de l'app : **Brb** (BeRightBack). Next.js (App Router) + TypeScript strict + Tailwind CSS v4, gestionnaire de paquets **npm**.
 
 ## Commandes
 
@@ -15,6 +15,8 @@ Vérifier `npm run lint` et `npm run build` avant de considérer une tâche term
 ## Architecture — à respecter
 
 ```
+messages/
+└── fr.json                    # Textes de l'interface (i18n, seule langue pour l'instant)
 src/
 ├── app/
 │   ├── layout.tsx             # Layout global (Navbar + Footer + Fonts)
@@ -22,12 +24,18 @@ src/
 │   ├── post/[id]/page.tsx     # Détail d'un post de voyage
 │   ├── profile/page.tsx       # Tableau de bord utilisateur
 │   ├── planner/page.tsx       # Planification (Calendrier + Checklist)
+│   ├── login/page.tsx         # Auth : connexion / inscription / mot de passe oublié (?view=)
 │   └── api/
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
+├── i18n/
+│   └── request.ts             # Config next-intl (locale + chargement des messages)
 ├── components/
-│   ├── ui/                    # Design system : composants atomiques (Button, Input, Card…)
+│   ├── ui/                    # Design system : Button, Input, PasswordInput, Label, Field, Checkbox, Card
 │   ├── Navbar.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
+│   ├── LoginForm.tsx          # Formulaire de connexion (client)
+│   ├── RegisterForm.tsx       # Formulaire d'inscription (client)
+│   ├── ForgotPasswordForm.tsx # Formulaire mot de passe oublié (client)
 │   └── AIChatDrawer.tsx       # Drawer du chat RAG
 └── lib/
     └── ai.ts                  # Helpers Gemini & embeddings
@@ -38,9 +46,15 @@ src/
 - Pas de Supabase ni de route de seed pour l'instant.
 - Imports via l'alias `@/` (→ `src/`).
 
+## Internationalisation
+
+- `next-intl`, français uniquement pour l'instant, sans préfixe de langue dans l'URL.
+- Aucun texte visible par l'utilisateur en dur dans les composants : tout passe par `messages/fr.json`, via `getTranslations` (composants serveur) ou `useTranslations` (composants client). Une clé par namespace de page/composant (ex. `Metadata`, `Login`).
+
 ## Design system
 
 - Dès qu'un même élément d'UI (bouton, champ, carte, badge, modal…) apparaît dans plusieurs composants, l'extraire dans `src/components/ui/` et réutiliser ce composant partout. Pas de duplication de classes Tailwind pour un même élément.
+- Référence : design system « Kinetic Horizon » (maquettes Stitch). Thème clair uniquement.
 - Couleurs, rayons et espacements passent par les tokens définis dans `src/app/globals.css` (`@theme`), pas par des valeurs codées en dur dispersées dans les composants.
 - Avant de créer un composant, vérifier qu'un équivalent n'existe pas déjà dans `ui/`.
 
