@@ -30,26 +30,32 @@ src/
 ├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (ex. post.schema.ts)
 ├── services/                  # Couche SERVICE : logique métier (ex. post.service.ts)
 ├── repositories/              # Couche REPOSITORY : accès base de données (ex. post.repository.ts)
-├── utils/
-│   └── supabase/              # Clients Supabase (client, server, middleware)
-├── proxy.ts                   # Middleware Next 16 (vérification d'auth des routes privées)
+├── proxy.ts                   # Middleware Next 16 (vérification d'auth des routes privées) — à créer avec l'auth
 ├── i18n/
 │   └── request.ts             # Config next-intl (locale + chargement des messages)
 ├── components/
-│   ├── ui/                    # Design system : Button, Input, PasswordInput, Label, Field, Checkbox, Card
-│   ├── Navbar.tsx
+│   ├── ui/                    # Design system : Button, Input, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar
+│   ├── Navbar.tsx             # Barre du haut (version visiteur / connecté)
+│   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
 │   ├── LoginForm.tsx          # Formulaire de connexion (client)
 │   ├── RegisterForm.tsx       # Formulaire d'inscription (client)
 │   ├── ForgotPasswordForm.tsx # Formulaire mot de passe oublié (client)
 │   └── AIChatDrawer.tsx       # Drawer du chat RAG
 └── lib/
-    └── ai.ts                  # Helpers Gemini & embeddings
+    ├── ai.ts                  # Helpers Gemini & embeddings
+    ├── posts.ts               # Accès aux posts du feed (seul point à brancher sur l'API back-end)
+    └── demo-posts.ts          # Données de démo du feed, en attendant l'API
+supabase/
+└── migrations/                # SQL du schéma (à exécuter dans le SQL Editor de Supabase)
+scripts/
+└── seed.mts                   # Seed manuel : npm run seed (clé secrète, local uniquement)
 ```
 
 - Ne pas créer de dossier ou de fichier hors de cette structure sans le demander d'abord. Si un nouveau fichier est nécessaire, le placer au bon endroit (page → `app/`, composant → `components/`, endpoint → `app/api/`, schéma Zod → `schemas/`, logique métier → `services/`, accès BDD → `repositories/`, helpers/clients externes → `lib/`) et le signaler.
 - Les fichiers existent mais sont vides : ne les remplir que lorsqu'on travaille sur la fonctionnalité concernée. Ne pas inventer d'UI, de textes, de données ou de logique qui n'ont pas été demandés.
-- Base de données : Supabase. Les clients de `src/utils/supabase/` ne sont importés que par `repositories/`. Pas de route de seed pour l'instant.
+- Base de données : Supabase, **pas branchée dans l'app pour l'instant** (clients et `proxy.ts` retirés). En attendant, le feed lit les données de démo de `src/lib/demo-posts.ts` via `src/lib/posts.ts`. Une fois branchée, les clients Supabase iront dans `src/utils/supabase/` et ne seront importés que par `repositories/`.
+- Schéma de la base (tables `users` et `post`, RLS en lecture seule) dans `supabase/migrations/`. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app. `SUPABASE_SECRET_KEY` n'est lue que par ce script.
 - Imports via l'alias `@/` (→ `src/`).
 
 ## Architecture en couches (back) — à respecter

@@ -3,6 +3,41 @@
     "title": "Brb",
     "description": "Blog et planificateur de voyage grâce aux posts et avis des voyageurs"
   },
+  "Navbar": {
+    "brand": "Brb",
+    "home": "Brb, retour à l'accueil",
+    "searchLabel": "Rechercher une destination avec l'IA",
+    "searchPlaceholder": "Où aller ? Demandez à l'IA des itinéraires, des hébergements ou des pépites cachées…",
+    "askAi": "Demander à l'IA",
+    "mainNav": "Navigation principale",
+    "explore": "Explorer",
+    "plan": "Planifier",
+    "login": "Se connecter",
+    "accountMenu": "Menu du compte",
+    "savedTrips": "Voyages enregistrés",
+    "settings": "Paramètres"
+  },
+  "Home": {
+    "title": "Les derniers voyages de la communauté",
+    "categoriesLabel": "Filtrer par catégorie",
+    "categories": {
+      "all": "Tendances",
+      "culture": "Pépites culturelles",
+      "coast": "Littoral",
+      "food": "Gastronomie",
+      "ai_curated": "Sélection IA"
+    },
+    "empty": "Aucun post pour le moment.",
+    "error": "Impossible de charger les posts. Réessayez plus tard.",
+    "askAi": "Demander à l'IA"
+  },
+  "TravelCard": {
+    "cta": "Voir / Demander à l'IA"
+  },
+  "Footer": {
+    "brand": "Brb",
+    "rights": "© 2026 Brb. Tous droits réservés."
+  },
   "PasswordInput": {
     "show": "Afficher le mot de passe",
     "hide": "Masquer le mot de passe"
