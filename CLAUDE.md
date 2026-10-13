@@ -25,8 +25,14 @@ src/
 │   ├── profile/page.tsx       # Tableau de bord utilisateur
 │   ├── planner/page.tsx       # Planification (Calendrier + Checklist)
 │   ├── login/page.tsx         # Auth : connexion / inscription / mot de passe oublié (?view=)
-│   └── api/
+│   └── api/                   # Couche CONTROLLER (route handlers)
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
+├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (ex. post.schema.ts)
+├── services/                  # Couche SERVICE : logique métier (ex. post.service.ts)
+├── repositories/              # Couche REPOSITORY : accès base de données (ex. post.repository.ts)
+├── utils/
+│   └── supabase/              # Clients Supabase (client, server, middleware)
+├── proxy.ts                   # Middleware Next 16 (vérification d'auth des routes privées)
 ├── i18n/
 │   └── request.ts             # Config next-intl (locale + chargement des messages)
 ├── components/
@@ -41,10 +47,35 @@ src/
     └── ai.ts                  # Helpers Gemini & embeddings
 ```
 
-- Ne pas créer de dossier ou de fichier hors de cette structure sans le demander d'abord. Si un nouveau fichier est nécessaire, le placer au bon endroit (page → `app/`, composant → `components/`, logique/clients → `lib/`) et le signaler.
+- Ne pas créer de dossier ou de fichier hors de cette structure sans le demander d'abord. Si un nouveau fichier est nécessaire, le placer au bon endroit (page → `app/`, composant → `components/`, endpoint → `app/api/`, schéma Zod → `schemas/`, logique métier → `services/`, accès BDD → `repositories/`, helpers/clients externes → `lib/`) et le signaler.
 - Les fichiers existent mais sont vides : ne les remplir que lorsqu'on travaille sur la fonctionnalité concernée. Ne pas inventer d'UI, de textes, de données ou de logique qui n'ont pas été demandés.
-- Pas de Supabase ni de route de seed pour l'instant.
+- Base de données : Supabase. Les clients de `src/utils/supabase/` ne sont importés que par `repositories/`. Pas de route de seed pour l'instant.
 - Imports via l'alias `@/` (→ `src/`).
+
+## Architecture en couches (back) — à respecter
+
+```
+CLIENT / FRONTEND
+   │  requête HTTP (ex. POST /api/posts)
+   ▼
+CONTROLLER   app/api/**/route.ts, Server Actions, Server Components
+   │  DTO (types inférés des schémas Zod)
+   ▼
+SERVICE      services/*.service.ts
+   │  entités / paramètres de requête
+   ▼
+REPOSITORY   repositories/*.repository.ts
+   │  client Supabase (requêtes paramétrées)
+   ▼
+DATABASE     Supabase (Postgres)
+```
+
+- **Controller** : valide la requête avec le schéma Zod (`schemas/`), extrait les données (params, body, searchParams), vérifie l'auth, appelle le service adapté, puis renvoie la réponse HTTP (200, 400, 401, 404…) avec un message générique en cas d'erreur. Aucune logique métier, aucun accès direct à la base.
+- **Service** : contient la logique et les règles métier (calculs, transformations, vérification que l'utilisateur est propriétaire de la ressource, orchestration de plusieurs opérations). Sait *quoi* faire, pas *comment* c'est stocké : n'importe ni Supabase ni rien de HTTP (`Request`, `NextResponse`, cookies, en-têtes).
+- **Repository** : seul endroit qui parle à la base. Uniquement du CRUD via le client Supabase (jamais de SQL concaténé), colonnes sélectionnées explicitement (jamais de hash ni de champ interne renvoyé vers le haut). Aucune règle métier.
+- Les dépendances ne vont que vers le bas et sans sauter de couche : controller → service → repository → base. Un controller n'appelle jamais un repository directement ; un repository n'appelle jamais un service.
+- Un fichier par ressource et par couche : `schemas/post.schema.ts`, `services/post.service.ts`, `repositories/post.repository.ts`.
+- Les composants `"use client"` n'importent jamais `services/`, `repositories/` ni `utils/supabase/server.ts` : ils passent par une route API ou une Server Action.
 
 ## Internationalisation
 
