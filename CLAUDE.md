@@ -21,7 +21,8 @@ src/
 ├── app/
 │   ├── layout.tsx             # Layout global (Navbar + Footer + Fonts)
 │   ├── page.tsx               # Homepage (Feed + Hero Search)
-│   ├── post/[id]/page.tsx     # Détail d'un post de voyage
+│   ├── post/[id]/page.tsx     # Détail d'un récit : /post/<id>
+│   ├── tags/page.tsx          # Récits d'un lieu : /tags?country=FR[&state=IDF&city=Montesson] (destination ou tag)
 │   ├── post/new/page.tsx      # Éditeur de récit (création d'un post)
 │   ├── profile/page.tsx       # Tableau de bord utilisateur
 │   ├── planner/page.tsx       # Planification (Calendrier + Checklist)
@@ -49,6 +50,8 @@ src/
 │   ├── NavbarAccount.tsx      # Zone compte de la Navbar (client : lit la session du navigateur)
 │   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
+│   ├── ShareButton.tsx        # Partage du lien (menu natif ou copie dans le presse-papiers)
+│   ├── StoryCard.tsx          # Carte d'un récit dans une grille (profil, page d'un lieu)
 │   ├── PostEditorForm.tsx     # Formulaire de l'éditeur de récit (client)
 │   ├── ProfileView.tsx        # Page profil (client : charge /api/v1/users/me avec le token)
 │   ├── ProfileEditForm.tsx    # Formulaire de modification du profil (PATCH /api/v1/users/me)

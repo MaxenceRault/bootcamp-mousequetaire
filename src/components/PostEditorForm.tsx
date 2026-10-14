@@ -89,7 +89,8 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
       if (result.error === "UNAUTHORIZED") return router.push("/login");
       return setError(API_ERRORS.find((code) => code === result.error) ?? "INTERNAL_ERROR");
     }
-    router.push("/");
+    // Ouvre le récit publié.
+    router.push(`/post/${result.data.id}`);
   }
 
   return (

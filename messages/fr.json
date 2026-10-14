@@ -80,6 +80,31 @@
   "ApiDocs": {
     "metaTitle": "Documentation API"
   },
+  "Post": {
+    "back": "Retour aux récits",
+    "breadcrumb": "Fil d'Ariane",
+    "share": "Partager",
+    "linkCopied": "Lien copié",
+    "readingTime": "{minutes} min de lecture",
+    "writtenBy": "Écrit par {name}",
+    "tagsLabel": "Lieux du récit",
+    "tripInfo": "Infos du voyage",
+    "destination": "Destination",
+    "dates": "Dates",
+    "duration": "Durée",
+    "durationValue": "{days, plural, one {# jour} other {# jours}}",
+    "archetype": "Type de récit",
+    "aiTitle": "Itinéraire IA",
+    "aiText": "Bientôt, Gemini pourra transformer ce récit en itinéraire personnalisé, prêt à ajouter à votre planificateur.",
+    "openPlanner": "Ouvrir le planificateur"
+  },
+  "Tags": {
+    "metaTitle": "Récits : {place}",
+    "back": "Retour aux récits",
+    "title": "Récits : {place}",
+    "count": "{count, plural, =0 {Aucun récit} one {# récit} other {# récits}}",
+    "empty": "Aucun récit pour ce lieu pour l'instant."
+  },
   "TravelCard": {
     "cta": "Voir / Demander à l'IA"
   },

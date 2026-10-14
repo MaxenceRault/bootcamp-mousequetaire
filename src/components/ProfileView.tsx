@@ -1,16 +1,15 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { ProfileEditForm, type EditableProfile } from "@/components/ProfileEditForm";
+import { StoryCard } from "@/components/StoryCard";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button, buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { countryName, flagEmoji } from "@/lib/country";
 import { apiFetch, updateSessionUser } from "@/lib/session";
 
 type Story = {
@@ -212,8 +211,6 @@ function Stat({ label, icon, children }: { label: string; icon: IconName; childr
 
 function StoriesGrid({ stories }: { stories: Story[] }) {
   const t = useTranslations("Profile");
-  const format = useFormatter();
-  const locale = useLocale();
 
   if (stories.length === 0) return <EmptyState>{t("empty.stories")}</EmptyState>;
 
@@ -221,35 +218,7 @@ function StoriesGrid({ stories }: { stories: Story[] }) {
     <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {stories.map((story) => (
         <li key={story.id}>
-          <Link href={`/post/${story.id}`} className="group block h-full">
-            <Card className="h-full overflow-hidden shadow-xs transition group-hover:shadow-md">
-              <div className="relative aspect-4/3 overflow-hidden bg-surface-muted">
-                {/* unoptimized : l'hébergement des photos n'est pas encore choisi, on ne peut pas
-                    déclarer l'hôte dans next.config (remotePatterns). */}
-                <Image
-                  src={story.photo_url}
-                  alt={story.photo_alt}
-                  fill
-                  unoptimized
-                  className="object-cover transition duration-500 group-hover:scale-105"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 p-4">
-                <h3 className="font-display text-label-lg text-ink">{story.title}</h3>
-                <p className="flex flex-wrap items-center gap-1.5 text-body-sm text-ink-soft/70">
-                  <span>
-                    {story.destination_city ?? countryName(story.destination_country_code, locale)}{" "}
-                    <span aria-hidden="true">{flagEmoji(story.destination_country_code)}</span>
-                  </span>
-                  <span aria-hidden="true">•</span>
-                  {/* Date du voyage (début du séjour). */}
-                  <time dateTime={story.start_date}>
-                    {format.dateTime(new Date(story.start_date), { month: "short", year: "numeric" })}
-                  </time>
-                </p>
-              </div>
-            </Card>
-          </Link>
+          <StoryCard story={story} />
         </li>
       ))}
     </ul>
