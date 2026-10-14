@@ -29,6 +29,8 @@ const envSchema = z.object({
   RATE_LIMIT_POST_CREATE_WINDOW_SECONDS: seconds.default(60 * 60),
   RATE_LIMIT_FEED_MAX: count.default(120),
   RATE_LIMIT_FEED_WINDOW_SECONDS: seconds.default(60),
+  RATE_LIMIT_POST_EDIT_MAX: count.default(30),
+  RATE_LIMIT_POST_EDIT_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_PROFILE_UPDATE_MAX: count.default(10),
   RATE_LIMIT_PROFILE_UPDATE_WINDOW_SECONDS: seconds.default(15 * 60),
 });
@@ -41,7 +43,7 @@ export type ServerConfig = {
   jwtSecret: string;
   jwtExpiresIn: string;
   bcryptSaltRounds: number;
-  rateLimits: Record<"login" | "register" | "locations" | "feed" | "postCreate" | "profileUpdate", RateLimit>;
+  rateLimits: Record<"login" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "profileUpdate", RateLimit>;
 };
 
 let config: ServerConfig | null = null;
@@ -72,6 +74,7 @@ export function getConfig(): ServerConfig {
       locations: rateLimit(env.RATE_LIMIT_LOCATIONS_MAX, env.RATE_LIMIT_LOCATIONS_WINDOW_SECONDS),
       feed: rateLimit(env.RATE_LIMIT_FEED_MAX, env.RATE_LIMIT_FEED_WINDOW_SECONDS),
       postCreate: rateLimit(env.RATE_LIMIT_POST_CREATE_MAX, env.RATE_LIMIT_POST_CREATE_WINDOW_SECONDS),
+      postEdit: rateLimit(env.RATE_LIMIT_POST_EDIT_MAX, env.RATE_LIMIT_POST_EDIT_WINDOW_SECONDS),
       profileUpdate: rateLimit(env.RATE_LIMIT_PROFILE_UPDATE_MAX, env.RATE_LIMIT_PROFILE_UPDATE_WINDOW_SECONDS),
     },
   };

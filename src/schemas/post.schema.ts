@@ -73,3 +73,13 @@ export const feedQuerySchema = z
     limit: z.coerce.number().int().min(1).max(FEED_MAX_LIMIT).optional(),
   })
   .strict();
+
+// Id d'un post dans l'URL (/api/v1/posts/{id}) : entier positif, borné à l'entier max de Postgres.
+export const postIdSchema = z.coerce.number().int().positive().max(2_147_483_647);
+
+// Corps de PATCH /api/v1/posts/{id} : seule la visibilité est modifiable pour l'instant.
+export const updatePostSchema = z
+  .object({
+    hidden: z.boolean(),
+  })
+  .strict();

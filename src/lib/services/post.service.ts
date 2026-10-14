@@ -2,12 +2,16 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { POST_ARCHETYPES, type FeedPage, type FeedPost, type PostArchetype } from "@/lib/posts";
 import {
+  deleteAuthorPost,
   deletePost,
   deletePostPhoto,
   findArchetypeIdBySlug,
   findFeedPosts,
+  findPostOwnership,
   insertPost,
   insertPostTags,
+  photoPathFromUrl,
+  updatePostVisibility,
   uploadPostPhoto,
   upsertTags,
   type FeedPostRow,
@@ -19,7 +23,7 @@ import { getStateName, placeExists } from "@/lib/services/location.service";
 export const FEED_PAGE_SIZE = 10;
 
 export class PostError extends Error {
-  constructor(public readonly code: "INVALID_INPUT") {
+  constructor(public readonly code: "INVALID_INPUT" | "NOT_FOUND") {
     super(code);
   }
 }
@@ -158,4 +162,29 @@ function toFeedPost(row: FeedPostRow): FeedPost[] {
       },
     },
   ];
+}
+
+// Seul l'auteur peut modifier son post. Post inexistant ou d'un autre auteur : même erreur NOT_FOUND,
+// pour ne pas révéler l'existence des posts des autres.
+async function requireOwnPost(postId: number, userId: string) {
+  const post = await findPostOwnership(postId);
+  if (!post || post.author_id !== userId) throw new PostError("NOT_FOUND");
+  return post;
+}
+
+// Masquer (hidden = true) ou réafficher un post : un post masqué disparaît du feed public.
+export async function setPostHidden(userId: string, postId: number, hidden: boolean) {
+  await requireOwnPost(postId, userId);
+  if (!(await updatePostVisibility(postId, userId, hidden))) throw new PostError("NOT_FOUND");
+  return { id: postId, hidden };
+}
+
+// Suppression définitive : le post, ses liens post_tag (cascade) et sa photo dans le bucket.
+export async function deleteOwnPost(userId: string, postId: number) {
+  const post = await requireOwnPost(postId, userId);
+  if (!(await deleteAuthorPost(postId, userId))) throw new PostError("NOT_FOUND");
+
+  // Le post est déjà supprimé : un échec sur la photo ne doit pas faire échouer la requête.
+  const photoPath = photoPathFromUrl(post.photo_url);
+  if (photoPath) await deletePostPhoto(photoPath).catch(() => {});
 }

@@ -31,6 +31,7 @@ src/
 │       ├── auth/login/route.ts    # POST /api/v1/auth/login → auth.controller
 │       ├── auth/register/route.ts # POST /api/v1/auth/register → auth.controller
 │       ├── posts/route.ts         # GET (public, feed paginé par curseur) / POST (multipart + Bearer) /api/v1/posts → post.controller
+│       ├── posts/[id]/route.ts    # PATCH (masquer / réafficher) / DELETE /api/v1/posts/{id} — auteur uniquement → post.controller
 │       ├── locations/route.ts     # GET /api/v1/locations?q= recherche de villes / pays (country-state-city) → location.controller
 │       ├── users/me/route.ts  # GET / PATCH /api/v1/users/me (profil connecté) → user.controller
 │       ├── openapi.json/route.ts # GET /api/v1/openapi.json : spécification OpenAPI (dev uniquement)
@@ -83,7 +84,7 @@ supabase/                      # Scripts SQL à exécuter dans le SQL Editor
 - Ne pas créer de dossier ou de fichier hors de cette structure sans le demander d'abord. Si un nouveau fichier est nécessaire, le placer au bon endroit (page → `app/`, composant → `components/`, endpoint → `app/api/v1/`, schéma Zod → `schemas/`, logique métier → `services/`, accès BDD → `repositories/`, helpers/clients externes → `lib/`) et le signaler.
 - Les fichiers existent mais sont vides : ne les remplir que lorsqu'on travaille sur la fonctionnalité concernée. Ne pas inventer d'UI, de textes, de données ou de logique qui n'ont pas été demandés.
 - Base de données : Supabase, via le client serveur `src/utils/supabase/admin.ts` (clé secrète), importé uniquement par `repositories/`. Le feed de la homepage lit la table `post` (Server Component → `post.service` → `post.repository`), pagination par curseur (id du dernier post affiché).
-- Schéma de la base (tables `users`, `post`, `archetype`, `tag`, `post_tag`, RLS en lecture seule ; bucket Storage `post-photos` public en lecture) dans `supabase/migrations/`. Une migration s'exécute **une seule fois** : tout changement de schéma passe par un nouveau fichier daté, jamais en modifiant ou relançant un ancien. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app. `SUPABASE_SECRET_KEY` n'est lue que par ce script.
+- Schéma de la base (tables `users`, `post` — dont `is_hidden` : post masqué par son auteur, exclu du feed et de la lecture publique —, `archetype`, `tag`, `post_tag`, RLS en lecture seule ; bucket Storage `post-photos` public en lecture) dans `supabase/migrations/`. Une migration s'exécute **une seule fois** : tout changement de schéma passe par un nouveau fichier daté, jamais en modifiant ou relançant un ancien. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app. `SUPABASE_SECRET_KEY` n'est lue que par ce script.
 - Architecture back : route → controller → service → repository → base. Pas d'accès base hors des repositories.
 - Documentation API : toute nouvelle route sous `/api/v1/` est ajoutée dans `src/lib/openapi.ts` (visible sur `/api-docs` en dev). Les schémas Zod des requêtes vont dans `schemas/` pour être réutilisés par la doc.
 - **Nommage en anglais** : tables, colonnes, types, variables, fonctions, fichiers et routes (ex. `short_description`, `start_date`, `archetype_id`). Seuls les textes affichés (`messages/fr.json`) et les commentaires sont en français.

@@ -93,10 +93,11 @@ export type PostSummary = {
   destination_city: string | null;
   start_date: string;
   created_at: string;
+  is_hidden: boolean;
 };
 
 const SUMMARY_COLUMNS =
-  "id, title, photo_url, photo_alt, destination_country_code, destination_state_code, destination_city, start_date, created_at";
+  "id, title, photo_url, photo_alt, destination_country_code, destination_state_code, destination_city, start_date, created_at, is_hidden";
 
 // Posts d'un auteur, du plus récent au plus ancien, avec le nombre total.
 export async function findPostsByAuthor(
@@ -154,6 +155,7 @@ export async function findFeedPosts({
   let query = createAdminClient()
     .from("post")
     .select(FEED_COLUMNS)
+    .eq("is_hidden", false)
     .order("id", { ascending: false })
     .limit(limit);
 
@@ -163,4 +165,49 @@ export async function findFeedPosts({
   const { data, error } = await query;
   if (error) throw error;
   return data as unknown as FeedPostRow[];
+}
+
+// Auteur et photo d'un post (vérification du propriétaire avant modification), null s'il n'existe pas.
+export async function findPostOwnership(id: number): Promise<{ author_id: string; photo_url: string } | null> {
+  const { data, error } = await createAdminClient()
+    .from("post")
+    .select("author_id, photo_url")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+// Le filtre author_id double la vérification du service : un post d'un autre auteur n'est jamais touché.
+export async function updatePostVisibility(id: number, authorId: string, hidden: boolean): Promise<boolean> {
+  const { data, error } = await createAdminClient()
+    .from("post")
+    .update({ is_hidden: hidden })
+    .eq("id", id)
+    .eq("author_id", authorId)
+    .select("id");
+
+  if (error) throw error;
+  return data.length > 0;
+}
+
+export async function deleteAuthorPost(id: number, authorId: string): Promise<boolean> {
+  const { data, error } = await createAdminClient()
+    .from("post")
+    .delete()
+    .eq("id", id)
+    .eq("author_id", authorId)
+    .select("id");
+
+  if (error) throw error;
+  return data.length > 0;
+}
+
+// Chemin d'une photo dans le bucket à partir de son URL publique ; null si elle est hébergée ailleurs
+// (ex. photos Unsplash des données de démo).
+export function photoPathFromUrl(url: string): string | null {
+  const marker = `/storage/v1/object/public/${PHOTO_BUCKET}/`;
+  const index = url.indexOf(marker);
+  return index === -1 ? null : decodeURIComponent(url.slice(index + marker.length));
 }

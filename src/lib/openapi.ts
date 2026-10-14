@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { loginSchema, registerSchema } from "@/schemas/auth.schema";
-import { createPostSchema, FEED_MAX_LIMIT } from "@/schemas/post.schema";
+import { createPostSchema, FEED_MAX_LIMIT, updatePostSchema } from "@/schemas/post.schema";
 import { updateProfileSchema } from "@/schemas/user.schema";
 import { POST_ARCHETYPES } from "@/lib/posts";
 
@@ -56,6 +56,7 @@ const postSummary = {
     destination_city: { type: "string", nullable: true },
     start_date: { type: "string", format: "date" },
     created_at: { type: "string", format: "date-time" },
+    is_hidden: { type: "boolean", description: "Masqué par l'auteur : absent du feed public" },
   },
 };
 
@@ -117,6 +118,8 @@ const unauthorized = error("Token absent, invalide, falsifié ou expiré", ["UNA
 const tooManyRequests = error("Trop de requêtes : limite atteinte (réglable par variables RATE_LIMIT_*, voir .env.example)", [
   "TOO_MANY_REQUESTS",
 ]);
+// Même réponse pour un post inexistant ou appartenant à un autre utilisateur (on ne révèle rien).
+const notFound = error("Post introuvable ou appartenant à un autre utilisateur", ["NOT_FOUND"]);
 const internalError = error("Erreur serveur (détail uniquement dans les logs serveur)", ["INTERNAL_ERROR"]);
 
 export function buildOpenApiDocument() {
@@ -211,6 +214,41 @@ export function buildOpenApiDocument() {
             401: unauthorized,
             411: error("En-tête Content-Length absent", ["LENGTH_REQUIRED"]),
             413: error("Corps de requête trop lourd", ["PAYLOAD_TOO_LARGE"]),
+            429: tooManyRequests,
+            500: internalError,
+          },
+        },
+      },
+      "/posts/{id}": {
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer", minimum: 1 } }],
+        patch: {
+          tags: ["Posts"],
+          summary: "Masquer ou réafficher mon post",
+          description: "Un post masqué disparaît du feed public mais reste visible par son auteur dans son profil.",
+          security: [{ bearerAuth: [] }],
+          requestBody: requestBody(updatePostSchema),
+          responses: {
+            200: json("Visibilité mise à jour", {
+              type: "object",
+              properties: { id: { type: "integer" }, hidden: { type: "boolean" } },
+            }),
+            400: invalidInput,
+            401: unauthorized,
+            404: notFound,
+            429: tooManyRequests,
+            500: internalError,
+          },
+        },
+        delete: {
+          tags: ["Posts"],
+          summary: "Supprimer définitivement mon post",
+          description: "Supprime le post, ses liens vers les tags et sa photo du bucket.",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            204: { description: "Post supprimé (pas de contenu)" },
+            400: invalidInput,
+            401: unauthorized,
+            404: notFound,
             429: tooManyRequests,
             500: internalError,
           },
