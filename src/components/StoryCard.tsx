@@ -28,6 +28,8 @@ export type StoryCardData = {
 type StoryCardProps = {
   story: StoryCardData;
   hidden?: boolean;
+  // Masqué en attente de modération (badge différent).
+  pendingReview?: boolean;
   // Hors du lien : pas de bouton dans un <a>.
   actions?: ReactNode;
 };
@@ -35,7 +37,7 @@ type StoryCardProps = {
 // Référencé par aria-describedby dans les boutons d'actions.
 export const storyTitleId = (id: number) => `story-title-${id}`;
 
-export function StoryCard({ story, hidden = false, actions }: StoryCardProps) {
+export function StoryCard({ story, hidden = false, pendingReview = false, actions }: StoryCardProps) {
   const t = useTranslations("StoryCard");
   const format = useFormatter();
   const locale = useLocale();
@@ -53,8 +55,8 @@ export function StoryCard({ story, hidden = false, actions }: StoryCardProps) {
           />
           {hidden && (
             <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-lg bg-ink/80 px-2 py-1 font-display text-label-sm text-surface">
-              <Icon name="visibilityOff" className="size-3.5" />
-              {t("hidden")}
+              <Icon name={pendingReview ? "clock" : "visibilityOff"} className="size-3.5" />
+              {pendingReview ? t("pendingReview") : t("hidden")}
             </span>
           )}
         </div>

@@ -2,6 +2,12 @@ import "server-only";
 import { getDb } from "@/utils/db";
 
 // false si cet utilisateur avait déjà signalé ce post.
+// Signalement du système (reporter_id null), ex. modération automatique indisponible.
+export async function insertSystemReport(postId: number, reason: string) {
+  const db = await getDb();
+  await db.query("insert into post_report (post_id, reporter_id, reason) values ($1, null, $2)", [postId, reason]);
+}
+
 export async function insertReport(postId: number, reporterId: string, reason: string | null): Promise<boolean> {
   const db = await getDb();
   const { rowCount } = await db.query(
@@ -20,7 +26,8 @@ export type ReportedPostRow = {
   author: { id: string; username: string; display_name: string };
   report_count: number;
   last_reported_at: string;
-  reasons: { reason: string | null; reporter: string; created_at: string }[];
+  // reporter null : signalement du système.
+  reasons: { reason: string | null; reporter: string | null; created_at: string }[];
 };
 
 export async function findOpenReports(limit: number): Promise<ReportedPostRow[]> {
@@ -32,7 +39,7 @@ export async function findOpenReports(limit: number): Promise<ReportedPostRow[]>
        max(r.created_at) as last_reported_at,
        (select json_agg(x) from (
           select r2.reason, ru.username as reporter, r2.created_at
-          from post_report r2 join users ru on ru.id = r2.reporter_id
+          from post_report r2 left join users ru on ru.id = r2.reporter_id
           where r2.post_id = p.id and r2.status = 'open'
           order by r2.created_at desc limit 10
         ) x) as reasons

@@ -168,7 +168,8 @@ export function updateSessionUser(user: SessionUser) {
   window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
-export type ApiResult<T> = { data: T } | { error: string };
+// reasons : détail facultatif d'un refus (ex. motifs de modération).
+export type ApiResult<T> = { data: T } | { error: string; reasons?: string[] };
 
 // Access token refusé (401) : renouvelé une fois, puis l'appel est rejoué.
 export async function apiFetch<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<ApiResult<T>> {
@@ -184,7 +185,10 @@ export async function apiFetch<T>(path: string, init: { method?: string; body?: 
   }
 
   const data = await response?.json().catch(() => null);
-  if (!response?.ok) return { error: String(data?.error ?? "INTERNAL_ERROR") };
+  if (!response?.ok) {
+    const reasons = Array.isArray(data?.reasons) ? data.reasons.map(String) : undefined;
+    return { error: String(data?.error ?? "INTERNAL_ERROR"), ...(reasons ? { reasons } : {}) };
+  }
   return { data: data as T };
 }
 

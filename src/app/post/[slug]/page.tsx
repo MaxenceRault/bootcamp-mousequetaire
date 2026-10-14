@@ -7,6 +7,7 @@ import { cache, Suspense, type ReactNode } from "react";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
+import { PostComments } from "@/components/PostComments";
 import { PostReactions } from "@/components/PostReactions";
 import { ReportButton } from "@/components/ReportButton";
 import { RoleBadge } from "@/components/RoleBadge";
@@ -17,6 +18,7 @@ import { Card } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { flagEmoji, placeHref } from "@/lib/country";
 import { getPostDetail, getPostSlug, type PostDetail } from "@/lib/services/post.service";
+import { listComments } from "@/lib/services/comment.service";
 import { getLikeCount } from "@/lib/services/reaction.service";
 import { postIdSchema, postSlugSchema } from "@/schemas/post.schema";
 
@@ -70,7 +72,7 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
   // Les liens déjà partagés restent valides.
   if ("redirectTo" in resolved) permanentRedirect(resolved.redirectTo);
   const { post } = resolved;
-  const likeCount = await getLikeCount(post.id);
+  const [likeCount, comments] = await Promise.all([getLikeCount(post.id), listComments(post.id).catch(() => [])]);
 
   const t = await getTranslations("Post");
   const format = await getFormatter();
@@ -184,7 +186,7 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
                     key={index}
                     className={
                       index === 0
-                        ? "text-body-xl text-ink first-letter:float-left first-letter:pr-3 first-letter:font-display first-letter:text-5xl first-letter:leading-none first-letter:text-accent"
+                        ? "flow-root text-body-xl text-ink first-letter:float-left first-letter:pr-3 first-letter:font-display first-letter:text-5xl first-letter:leading-none first-letter:text-accent"
                         : undefined
                     }
                   >
@@ -221,6 +223,7 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
                 </div>
               </footer>
             </article>
+            <PostComments postId={post.id} initialComments={comments} />
           </Card>
 
           <aside className="flex flex-col gap-6 lg:sticky lg:top-24 lg:col-span-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
@@ -27,7 +28,8 @@ const TITLE_MAX = 100;
 const PHOTO_ALT_MAX = 200;
 const SHORT_DESCRIPTION_MAX = 252;
 const PHOTO_TYPES = "image/jpeg,image/png,image/webp";
-const API_ERRORS = ["INVALID_INPUT", "TOO_MANY_REQUESTS", "PAYLOAD_TOO_LARGE", "INTERNAL_ERROR"] as const;
+const API_ERRORS = ["INVALID_INPUT", "TOO_MANY_REQUESTS", "PAYLOAD_TOO_LARGE", "CONTENT_REJECTED", "INTERNAL_ERROR"] as const;
+const MODERATION_REASONS = ["sexual", "violence", "hate", "insult", "politics", "blasphemy", "other"] as const;
 type ApiError = (typeof API_ERRORS)[number];
 
 export function PostEditorForm({ archetypes }: PostEditorFormProps) {
@@ -36,7 +38,9 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
   const photoInput = useRef<HTMLInputElement>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+  const [reasons, setReasons] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
+  const [pendingReview, setPendingReview] = useState(false);
 
   // Confort uniquement : la vraie protection est la vérification du JWT par l'API.
   useEffect(() => {
@@ -66,13 +70,16 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
 
     setPending(true);
     setError(null);
-    const result = await apiFetch<{ id: number; slug: string }>("/api/v1/posts", { method: "POST", body });
+    const result = await apiFetch<{ id: number; slug: string; pendingReview: boolean }>("/api/v1/posts", { method: "POST", body });
     setPending(false);
 
     if ("error" in result) {
       if (result.error === "UNAUTHORIZED") return router.push("/login");
+      setReasons((result.reasons ?? []).filter((reason) => (MODERATION_REASONS as readonly string[]).includes(reason)));
       return setError(API_ERRORS.find((code) => code === result.error) ?? "INTERNAL_ERROR");
     }
+    // Masqué en attente de modération : la page du récit n'existe pas encore pour le public.
+    if (result.data.pendingReview) return setPendingReview(true);
     router.push(`/post/${result.data.slug}`);
   }
 
@@ -182,10 +189,29 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
       </section>
 
       <div className="flex flex-col items-end gap-3">
-        <FormError>{error && t(`errors.${error}`)}</FormError>
-        <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-          {t("submit")}
-        </Button>
+        <FormError>
+          {error &&
+            [
+              t(`errors.${error}`),
+              error === "CONTENT_REJECTED" && reasons.length > 0
+                ? t("moderation.reasons", {
+                    list: reasons.map((reason) => t(`moderation.${reason as (typeof MODERATION_REASONS)[number]}`)).join(", "),
+                  })
+                : "",
+            ].join(" ")}
+        </FormError>
+        {pendingReview ? (
+          <p role="status" className="text-body-md text-ink-soft">
+            {t("moderation.pendingReview")}{" "}
+            <Link href="/profile" className="font-medium text-accent hover:underline">
+              {t("moderation.profileLink")}
+            </Link>
+          </p>
+        ) : (
+          <Button type="submit" disabled={pending} className="w-full sm:w-auto">
+            {pending ? t("moderation.checking") : t("submit")}
+          </Button>
+        )}
       </div>
     </form>
   );

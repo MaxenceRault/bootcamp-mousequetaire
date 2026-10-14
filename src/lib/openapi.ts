@@ -19,6 +19,7 @@ import {
   adminUpdateUserSchema,
 } from "@/schemas/admin.schema";
 import { createArchetypeSchema, updateArchetypeSchema } from "@/schemas/archetype.schema";
+import { createCommentSchema } from "@/schemas/comment.schema";
 import { profileImageSchema, updateProfileSchema } from "@/schemas/user.schema";
 
 // Générés depuis les schémas Zod des controllers : la doc suit la validation.
@@ -711,6 +712,47 @@ export function buildOpenApiDocument() {
             429: tooManyRequests,
             500: internalError,
           },
+        },
+      },
+      "/posts/{id}/comments": {
+        get: {
+          tags: ["Posts"],
+          summary: "Commentaires d'un récit (public)",
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer", minimum: 1 } }],
+          responses: {
+            200: json("Du plus ancien au plus récent (200 max)", { type: "object", properties: { comments: { type: "array", items: { type: "object" } } } }),
+            400: invalidInput,
+            404: error("Récit introuvable ou masqué", ["NOT_FOUND"]),
+            500: internalError,
+          },
+        },
+        post: {
+          tags: ["Posts"],
+          summary: "Commenter un récit",
+          description: "Connecté et non banni. Texte vérifié par la modération IA (refus → 422 avec les motifs).",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer", minimum: 1 } }],
+          requestBody: requestBody(createCommentSchema),
+          responses: {
+            201: json("Commentaire créé", { type: "object", properties: { comment: { type: "object" } } }),
+            400: invalidInput,
+            401: unauthorized,
+            403: error("Compte banni", ["FORBIDDEN"]),
+            404: error("Récit introuvable ou masqué", ["NOT_FOUND"]),
+            422: error("Refusé par la modération (motifs dans reasons)", ["CONTENT_REJECTED"]),
+            429: tooManyRequests,
+            500: internalError,
+          },
+        },
+      },
+      "/posts/{id}/comments/{commentId}": {
+        delete: {
+          tags: ["Posts"],
+          summary: "Supprimer un commentaire",
+          description: "Par son auteur, ou par un admin (action inscrite au journal).",
+          security: [{ bearerAuth: [] }],
+          parameters: ["id", "commentId"].map((name) => ({ name, in: "path", required: true, schema: { type: "integer", minimum: 1 } })),
+          responses: { 204: { description: "Supprimé" }, 400: invalidInput, 401: unauthorized, 404: error("Introuvable ou pas à vous", ["NOT_FOUND"]), 500: internalError },
         },
       },
       "/admin/dashboard": {

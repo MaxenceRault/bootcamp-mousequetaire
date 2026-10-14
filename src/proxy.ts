@@ -17,6 +17,8 @@ export async function proxy(request: NextRequest) {
 
   // Le feed (GET /api/v1/posts) est public.
   if (request.method === "GET" && pathname === "/api/v1/posts") return NextResponse.next();
+  // Les commentaires d'un récit se lisent sans compte.
+  if (request.method === "GET" && /^\/api\/v1\/posts\/\d+\/comments$/.test(pathname)) return NextResponse.next();
 
   if (!(await getUserIdFromRequest(request))) {
     return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });

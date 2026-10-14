@@ -19,6 +19,9 @@ export type NewPost = {
   start_date: string;
   end_date: string;
   archetype_id: number;
+  is_hidden: boolean;
+  // En attente de modération : masqué, seul un admin peut le publier.
+  pending_review: boolean;
 };
 
 export type NewTag = {
@@ -33,8 +36,8 @@ export async function insertPost(post: NewPost): Promise<{ id: number; slug: str
   const result = await db
     .query<{ id: number; slug: string }>(
       `insert into post (author_id, title, photo_url, photo_alt, short_description, long_description,
-         destination_country_code, destination_state_code, destination_city, start_date, end_date, archetype_id)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         destination_country_code, destination_state_code, destination_city, start_date, end_date, archetype_id, is_hidden, pending_review)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        returning id, slug`,
       [
         post.author_id,
@@ -49,6 +52,8 @@ export async function insertPost(post: NewPost): Promise<{ id: number; slug: str
         post.start_date,
         post.end_date,
         post.archetype_id,
+        post.is_hidden,
+        post.pending_review,
       ],
     )
     .catch((error: { code?: string; constraint?: string }) => {
@@ -118,6 +123,7 @@ export type PostSummary = {
   start_date: string;
   created_at: string;
   is_hidden: boolean;
+  pending_review: boolean;
 };
 
 const SUMMARY_COLUMNS = [
@@ -132,6 +138,7 @@ const SUMMARY_COLUMNS = [
   "start_date",
   "created_at",
   "is_hidden",
+  "pending_review",
 ];
 
 const prefixed = (alias: string, columns: string[]) => columns.map((column) => `${alias}.${column}`).join(", ");
@@ -347,10 +354,12 @@ export async function findFeedPosts({
   return rows;
 }
 
-export async function findPostOwnership(id: number): Promise<{ author_id: string; photo_url: string } | null> {
+export async function findPostOwnership(
+  id: number,
+): Promise<{ author_id: string; photo_url: string; pending_review: boolean } | null> {
   const db = await getDb();
-  const { rows } = await db.query<{ author_id: string; photo_url: string }>(
-    "select author_id, photo_url from post where id = $1",
+  const { rows } = await db.query<{ author_id: string; photo_url: string; pending_review: boolean }>(
+    "select author_id, photo_url, pending_review from post where id = $1",
     [id],
   );
   return rows[0] ?? null;
@@ -359,7 +368,8 @@ export async function findPostOwnership(id: number): Promise<{ author_id: string
 // Double la vérification du service : un post d'un autre auteur n'est jamais touché.
 export async function updatePostVisibility(id: number, authorId: string, hidden: boolean): Promise<boolean> {
   const db = await getDb();
-  const { rowCount } = await db.query("update post set is_hidden = $3 where id = $1 and author_id = $2", [
+  // Jamais de réaffichage par l'auteur d'un post en attente de modération.
+  const { rowCount } = await db.query("update post set is_hidden = $3 where id = $1 and author_id = $2 and (not pending_review or $3)", [
     id,
     authorId,
     hidden,
@@ -495,7 +505,11 @@ export async function findPostsForAdmin({
 
 export async function updatePostVisibilityById(id: number, hidden: boolean): Promise<boolean> {
   const db = await getDb();
-  const { rowCount } = await db.query("update post set is_hidden = $2 where id = $1", [id, hidden]);
+  // Réaffiché par un admin : la modération est validée.
+  const { rowCount } = await db.query(
+    "update post set is_hidden = $2, pending_review = pending_review and $2 where id = $1",
+    [id, hidden],
+  );
   return rowCount === 1;
 }
 
@@ -504,4 +518,16 @@ export async function deletePostById(id: number): Promise<string | null> {
   const db = await getDb();
   const { rows } = await db.query<{ photo_url: string }>("delete from post where id = $1 returning photo_url", [id]);
   return rows[0]?.photo_url ?? null;
+}
+
+export type CoverPhoto = { slug: string; photo_url: string };
+
+// Couvertures de posts visibles tirées au hasard (bannière de l'accueil).
+export async function findRandomCoverPhotos(limit: number): Promise<CoverPhoto[]> {
+  const db = await getDb();
+  const { rows } = await db.query<CoverPhoto>(
+    "select slug, photo_url from post where not is_hidden order by random() limit $1",
+    [limit],
+  );
+  return rows;
 }

@@ -56,6 +56,9 @@ export async function createPostController(request: Request) {
   try {
     return Response.json(await createPost(userId, body.data), { status: 201 });
   } catch (error) {
+    if (error instanceof PostError && error.code === "CONTENT_REJECTED") {
+      return Response.json({ error: error.code, reasons: error.reasons }, { status: 422 });
+    }
     if (error instanceof PostError) return errorResponse(400, error.code);
     return internalError(error);
   }
@@ -108,7 +111,10 @@ async function authorizePostEdit(
 }
 
 function postEditError(error: unknown) {
-  if (error instanceof PostError) return errorResponse(error.code === "NOT_FOUND" ? 404 : 400, error.code);
+  if (error instanceof PostError) {
+    const status = error.code === "NOT_FOUND" ? 404 : error.code === "PENDING_REVIEW" ? 403 : 400;
+    return errorResponse(status, error.code);
+  }
   return internalError(error);
 }
 

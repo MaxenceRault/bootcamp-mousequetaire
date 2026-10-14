@@ -30,6 +30,7 @@ src/
 │   ├── profile/page.tsx       # Tableau de bord utilisateur
 │   ├── admin/page.tsx         # Administration (rôle admin) : modération, rôles, types de récit, réglages IA, journal
 │   ├── planner/page.tsx       # Planificateur : mes voyages + génération par l'IA
+│   ├── planner/[id]/print/page.tsx # Planning imprimable (export PDF via l'impression du navigateur)
 │   ├── planner/[id]/page.tsx  # Planning d'un voyage (note de saison, jours, activités, checklist, budget, discussion avec l'IA)
 │   ├── login/page.tsx         # Auth : connexion / inscription / mot de passe oublié (?view=)
 │   ├── api-docs/page.tsx      # Swagger UI (dev uniquement, 404 en production)
@@ -65,6 +66,10 @@ src/
 │   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
 │   ├── TripContextBar.tsx     # Barre destination · dates · type de récit (éditeur de récit + planificateur)
+│   ├── HomeHero.tsx           # Bannière de l'accueil : couvertures de récits en fondu + slogan
+│   ├── NavbarLinks.tsx        # Liens principaux (page active), en ligne ou dans le menu mobile
+│   ├── NavbarMobileMenu.tsx   # Menu burger (< md) : recherche + liens
+│   ├── TripPrint.tsx          # Document imprimable du planning (export PDF)
 │   ├── PlannerHome.tsx        # Liste des voyages + formulaire de génération (client)
 │   ├── AdminView.tsx          # Page d'administration (client, onglets) → /api/v1/admin/*
 │   ├── ReportButton.tsx       # « Signaler » un récit (page détail)
@@ -86,6 +91,8 @@ src/
 │   └── AIChatDrawer.tsx       # Drawer du chat RAG
 └── lib/
     ├── ai.ts                  # Gemini 2.5 Flash-Lite sur Vertex AI (auth IAM, sortie JSON imposée)
+    ├── tripExport.ts          # Export CSV du planning (côté navigateur)
+    ├── useDismiss.ts          # Fermeture d'un menu au clic extérieur / Échap
     ├── roles.ts               # Rôles des utilisateurs (USER_ROLES) : traveler, globetrotter, dreamer, patron (badges) et admin
     └── posts.ts               # Types du feed (FeedPost, FeedPage) et type de récit (Archetype : slug + libellé)
 db/
@@ -201,6 +208,8 @@ Seuls les must-have sont exigés : ne pas implémenter les nice-to-have (OAuth/O
 - Chat RAG : traiter la question utilisateur et le contenu des posts comme non fiables (injection de prompt), limiter la taille des entrées.
 - IA (planificateur, chat) : Gemini via Vertex AI (`src/lib/ai.ts`), authentifié par IAM comme la base : aucune clé API (variables `GCP_PROJECT_ID`, `VERTEX_LOCATION`). Réponse du modèle = donnée non fiable, toujours revalidée par Zod. Tout appel à l'IA passe d'abord par `consumeAiCall` (`ai-quota.service.ts`) : **15 appels par jour et par utilisateur** (admins illimités, compteur en base `ai_usage`, jour de Paris), plafond global et interrupteur réglables par l'admin (`app_settings`), compte banni refusé.
 - Planificateur : départ à n'importe quelle date future, durée de 1 mois maximum **à partir du départ choisi** (`TRIP_MAX_DAYS`). La génération tient compte de la saison (mois du voyage) : météo moyenne, risques (typhons, mousson…), affluence et prix, résumés dans `trip.season_note`.
+- **Modération des récits** (`moderation.service.ts`) : avant toute publication, Gemini vérifie la photo et les textes (sexuel, violence, haine, insultes, politique, blasphème). Refus → rien n'est enregistré (ni bucket ni base), motifs affichés. IA coupée ou en panne → récit publié **masqué** et signalé dans la file de modération (signalement système, `reporter_id` null) ; l'admin le valide avec « Valider et publier ».
+- **Commentaires** (`post_comment`) : lecture publique (exception GET dans `proxy.ts`), écriture réservée aux connectés non bannis, modérés par l'IA (publiés si l'IA est indisponible). Suppression par l'auteur ou un admin (journal).
 - **Administration** : seul le rôle `admin` donne des droits ; les autres rôles sont des badges. Le rôle est **relu en base à chaque requête** (`requireAdmin`), jamais lu dans le JWT ni dans la session du navigateur (le lien « Administration » de la Navbar n'est qu'un affichage). Un admin ne peut ni se rétrograder, ni se bannir, ni se supprimer, ni bannir / supprimer un autre admin sans l'avoir rétrogradé. Toute action admin modifiante est inscrite au journal `admin_action`. La liste des utilisateurs de l'admin n'expose jamais d'email ni de hash.
 - **Bannissement** : connexion refusée (`ACCOUNT_BANNED`, révélé seulement après un mot de passe correct), refresh refusé, sessions révoquées ; l'access token en cours reste valide au plus 1 h, mais l'IA, les signalements et l'admin relisent le compte en base.
 - Discussion IA d'un voyage (`/trips/[id]/messages`) : enthousiaste pour toute envie liée au voyage (l'IA cherche où et quand la caser), impassible sur le reste. Trois barrières contre l'injection (`trip.service.ts`) : 1) filtre d'entrée déterministe (`ATTACK_PATTERNS` : « ignore tes instructions », jailbreak, balises / champs du prompt…) → refus sans appeler l'IA ; 2) consignes du modèle (contenu utilisateur = données, règles confidentielles, illégal refusé) ; 3) filtre de sortie (`INSTRUCTION_MARKERS`) → une réponse qui laisse fuiter les consignes est bloquée. Tout changement du prompt se vérifie avec une batterie d'attaques (injection directe, via un récit, jailbreak, fuite, données d'autres utilisateurs). Hors sujet non renvoyé dans l'historique, message ≤ 500 caractères, historique court, 30 messages/heure/utilisateur et 50 par voyage. Les activités proposées par l'IA ne rejoignent le planning qu'après un « oui » de l'utilisateur.
