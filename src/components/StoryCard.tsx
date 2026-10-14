@@ -10,6 +10,7 @@ import { countryName, flagEmoji } from "@/lib/country";
 export type StoryCardData = {
   id: number;
   title: string;
+  slug: string;
   photo_url: string;
   photo_alt: string;
   destination_country_code: string;
@@ -44,7 +45,7 @@ export function StoryCard({ story, hidden = false, actions }: StoryCardProps) {
 
   return (
     <Card className="group flex h-full flex-col overflow-hidden shadow-xs transition hover:shadow-md">
-      <Link href={`/post/${story.id}`} className="block flex-1">
+      <Link href={`/post/${story.slug}`} className="block flex-1">
         <div className="relative aspect-4/3 overflow-hidden bg-surface-muted">
           <Image
             src={story.photo_url}

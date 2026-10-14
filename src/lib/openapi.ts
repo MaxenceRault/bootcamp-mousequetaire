@@ -59,6 +59,7 @@ const postSummary = {
   type: "object",
   properties: {
     id: { type: "integer" },
+    slug: { type: "string", description: "URL du récit : /post/{slug}" },
     title: { type: "string" },
     photo_url: { type: "string" },
     photo_alt: { type: "string" },
@@ -76,6 +77,7 @@ const feedPost = {
   type: "object",
   properties: {
     id: { type: "integer" },
+    slug: { type: "string", example: "okinawa-et-ile-zamami", description: "URL du récit : /post/{slug}" },
     title: { type: "string" },
     shortDescription: { type: "string" },
     location: { type: "string", nullable: true, description: "Ville, sinon région ; null pour un pays entier" },
@@ -419,7 +421,13 @@ export function buildOpenApiDocument() {
           security: [{ bearerAuth: [] }],
           requestBody: multipartBody(createPostSchema),
           responses: {
-            201: json("Récit publié", { type: "object", properties: { id: { type: "integer" } } }),
+            201: json("Récit publié", {
+              type: "object",
+              properties: {
+                id: { type: "integer" },
+                slug: { type: "string", example: "okinawa-et-ile-zamami", description: "URL du récit : /post/{slug}" },
+              },
+            }),
             400: invalidInput,
             401: unauthorized,
             411: error("En-tête Content-Length absent", ["LENGTH_REQUIRED"]),

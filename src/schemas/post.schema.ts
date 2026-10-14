@@ -107,3 +107,10 @@ export const searchQuerySchema = z
   .string()
   .transform((value) => value.replace(/\s+/g, " ").trim())
   .pipe(z.string().min(2).max(100));
+
+// Slug d'un post dans l'URL (/post/okinawa-et-ile-zamami) : mêmes règles que la contrainte SQL post_slug_format.
+export const postSlugSchema = z
+  .string()
+  .max(120)
+  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+  .refine((slug) => !/^[0-9]+$/.test(slug));

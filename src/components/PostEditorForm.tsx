@@ -71,7 +71,7 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
 
     setPending(true);
     setError(null);
-    const result = await apiFetch<{ id: number }>("/api/v1/posts", { method: "POST", body });
+    const result = await apiFetch<{ id: number; slug: string }>("/api/v1/posts", { method: "POST", body });
     setPending(false);
 
     if ("error" in result) {
@@ -80,7 +80,7 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
       return setError(API_ERRORS.find((code) => code === result.error) ?? "INTERNAL_ERROR");
     }
     // Ouvre le récit publié.
-    router.push(`/post/${result.data.id}`);
+    router.push(`/post/${result.data.slug}`);
   }
 
   return (

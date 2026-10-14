@@ -32,29 +32,44 @@ export async function findArchetypeIdBySlug(slug: string): Promise<number | null
   return rows[0]?.id ?? null;
 }
 
-export async function insertPost(post: NewPost): Promise<number> {
+// Le slug est généré par la base (trigger post_fill_slug, à partir du titre).
+// Renvoie l'id et le slug du post créé, ou null si le slug vient d'être pris par un post créé au même instant.
+export async function insertPost(post: NewPost): Promise<{ id: number; slug: string } | null> {
   const db = await getDb();
-  const { rows } = await db.query<{ id: number }>(
-    `insert into post (author_id, title, photo_url, photo_alt, short_description, long_description,
-       destination_country_code, destination_state_code, destination_city, start_date, end_date, archetype_id)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-     returning id`,
-    [
-      post.author_id,
-      post.title,
-      post.photo_url,
-      post.photo_alt,
-      post.short_description,
-      post.long_description,
-      post.destination_country_code,
-      post.destination_state_code,
-      post.destination_city,
-      post.start_date,
-      post.end_date,
-      post.archetype_id,
-    ],
-  );
-  return rows[0].id;
+  const result = await db
+    .query<{ id: number; slug: string }>(
+      `insert into post (author_id, title, photo_url, photo_alt, short_description, long_description,
+         destination_country_code, destination_state_code, destination_city, start_date, end_date, archetype_id)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       returning id, slug`,
+      [
+        post.author_id,
+        post.title,
+        post.photo_url,
+        post.photo_alt,
+        post.short_description,
+        post.long_description,
+        post.destination_country_code,
+        post.destination_state_code,
+        post.destination_city,
+        post.start_date,
+        post.end_date,
+        post.archetype_id,
+      ],
+    )
+    .catch((error: { code?: string; constraint?: string }) => {
+      // 23505 = violation d'unicité ; seule celle du slug est attendue (sinon l'erreur remonte).
+      if (error.code === "23505" && error.constraint === "post_slug_key") return null;
+      throw error;
+    });
+  return result?.rows[0] ?? null;
+}
+
+// Slug d'un post visible à partir de son id (anciens liens /post/30), null s'il n'existe pas ou est masqué.
+export async function findPostSlugById(id: number): Promise<string | null> {
+  const db = await getDb();
+  const { rows } = await db.query<{ slug: string }>("select slug from post where id = $1 and not is_hidden", [id]);
+  return rows[0]?.slug ?? null;
 }
 
 // Suppression (nettoyage si la création échoue en cours de route) ; post_tag suit en cascade.
@@ -103,6 +118,7 @@ export async function deletePostPhoto(path: string) {
 export type PostSummary = {
   id: number;
   title: string;
+  slug: string;
   photo_url: string;
   photo_alt: string;
   destination_country_code: string;
@@ -116,6 +132,7 @@ export type PostSummary = {
 const SUMMARY_COLUMNS = [
   "id",
   "title",
+  "slug",
   "photo_url",
   "photo_alt",
   "destination_country_code",
@@ -155,6 +172,7 @@ export async function findPostsByAuthor(
 export type PostDetailRow = {
   id: number;
   title: string;
+  slug: string;
   photo_url: string;
   photo_alt: string;
   short_description: string;
@@ -170,10 +188,13 @@ export type PostDetailRow = {
   post_tag: { tag: { country_code: string; state_code: string | null; city: string | null } }[];
 };
 
-export async function findPostById(id: number): Promise<PostDetailRow | null> {
+// Recherche par slug (URL /post/okinawa-et-ile-zamami) ou par id. « column » vient de ce type fermé,
+// jamais de l'utilisateur ; la valeur reste passée en paramètre $1.
+export async function findPostDetail(key: { slug: string } | { id: number }): Promise<PostDetailRow | null> {
+  const [column, value] = "slug" in key ? ["slug", key.slug] : ["id", key.id];
   const db = await getDb();
   const { rows } = await db.query<PostDetailRow>(
-    `select p.id, p.title, p.photo_url, p.photo_alt, p.short_description, p.long_description,
+    `select p.id, p.title, p.slug, p.photo_url, p.photo_alt, p.short_description, p.long_description,
        p.destination_country_code, p.destination_state_code, p.destination_city, p.start_date, p.end_date, p.created_at,
        json_build_object('slug', a.slug) as archetype,
        ${AUTHOR_JSON} as author,
@@ -187,8 +208,8 @@ export async function findPostById(id: number): Promise<PostDetailRow | null> {
      from post p
      join archetype a on a.id = p.archetype_id
      join users u on u.id = p.author_id
-     where p.id = $1 and not p.is_hidden`,
-    [id],
+     where p.${column} = $1 and not p.is_hidden`,
+    [value],
   );
   return rows[0] ?? null;
 }
@@ -291,6 +312,7 @@ export async function findPostsForTrip(
 export type FeedPostRow = {
   id: number;
   title: string;
+  slug: string;
   short_description: string;
   photo_url: string;
   photo_alt: string;
@@ -313,7 +335,7 @@ export type FeedPostRow = {
 // Posts visibles du plus récent au plus ancien. Pagination par curseur : beforeId = id du dernier post
 // déjà affiché (les ids sont croissants dans le temps). Filtre facultatif sur le slug du type de récit.
 // Colonnes et jointures d'une ligne du feed (partagées par le feed et la recherche).
-const FEED_SELECT = `select p.id, p.title, p.short_description, p.photo_url, p.photo_alt,
+const FEED_SELECT = `select p.id, p.title, p.slug, p.short_description, p.photo_url, p.photo_alt,
        p.destination_country_code, p.destination_state_code, p.destination_city, p.created_at,
        (select count(*)::int from post_like l where l.post_id = p.id) as like_count,
        json_build_object('slug', a.slug) as archetype,

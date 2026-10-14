@@ -9,7 +9,8 @@ import {
   findArchetypeIdBySlug,
   findFeedPosts,
   findPostOwnership,
-  findPostById,
+  findPostDetail,
+  findPostSlugById,
   findPostIdsByPlace,
   findPostSummariesByIds,
   insertPost,
@@ -35,7 +36,10 @@ export class PostError extends Error {
   }
 }
 
-export async function createPost(authorId: string, input: CreatePostInput): Promise<{ id: number }> {
+// Nombre d'essais si deux posts du même titre sont créés au même instant (même slug calculé par la base).
+const SLUG_ATTEMPTS = 3;
+
+export async function createPost(authorId: string, input: CreatePostInput): Promise<{ id: number; slug: string }> {
   const destination = { country: input.destinationCountry, state: input.destinationState, city: input.destinationCity };
   const tags = uniquePlaces(input.tags);
 
@@ -54,7 +58,7 @@ export async function createPost(authorId: string, input: CreatePostInput): Prom
 
   // Photo (Cloud Storage) et lignes en base ne peuvent pas partager une transaction : en cas d'échec, on défait ce qui a été créé.
   try {
-    const postId = await insertPost({
+    const fields = {
       author_id: authorId,
       title: input.title,
       photo_url: photoUrl,
@@ -67,7 +71,15 @@ export async function createPost(authorId: string, input: CreatePostInput): Prom
       start_date: input.startDate,
       end_date: input.endDate,
       archetype_id: archetypeId,
-    });
+    };
+
+    // Le slug (unique, tiré du titre) est généré par la base ; il ne change plus ensuite.
+    let created: { id: number; slug: string } | null = null;
+    for (let attempt = 0; attempt < SLUG_ATTEMPTS && !created; attempt++) {
+      created = await insertPost(fields);
+    }
+    if (!created) throw new Error("slug libre introuvable");
+    const postId = created.id;
 
     try {
       if (tags.length > 0) {
@@ -81,7 +93,7 @@ export async function createPost(authorId: string, input: CreatePostInput): Prom
       throw error;
     }
 
-    return { id: postId };
+    return created;
   } catch (error) {
     await deletePostPhoto(photoPath).catch(() => {});
     throw error;
@@ -131,6 +143,7 @@ function toFeedPost(row: FeedPostRow): FeedPost[] {
     {
       id: row.id,
       title: row.title,
+      slug: row.slug,
       shortDescription: row.short_description,
       // Ville, sinon nom de la région (describePlace) ; null pour un pays entier.
       location: city ?? describePlace({ country, state }).state,
@@ -180,6 +193,7 @@ export async function deleteOwnPost(userId: string, postId: number) {
 export type PostDetail = {
   id: number;
   title: string;
+  slug: string;
   photoUrl: string;
   photoAlt: string;
   shortDescription: string;
@@ -201,9 +215,9 @@ export type PostDetail = {
 const WORDS_PER_MINUTE = 200;
 const DAY_MS = 86_400_000;
 
-// Post complet pour la page détail ; null s'il n'existe pas ou s'il est masqué par son auteur.
-export async function getPostDetail(id: number): Promise<PostDetail | null> {
-  const row = await findPostById(id);
+// Post complet pour la page détail (par son slug) ; null s'il n'existe pas ou s'il est masqué par son auteur.
+export async function getPostDetail(slug: string): Promise<PostDetail | null> {
+  const row = await findPostDetail({ slug });
   if (!row) return null;
 
   const words = `${row.short_description} ${row.long_description}`.split(/\s+/).filter(Boolean).length;
@@ -216,6 +230,7 @@ export async function getPostDetail(id: number): Promise<PostDetail | null> {
   return {
     id: row.id,
     title: row.title,
+    slug: row.slug,
     photoUrl: row.photo_url,
     photoAlt: row.photo_alt,
     shortDescription: row.short_description,
@@ -276,4 +291,9 @@ export async function searchPosts(query: string): Promise<FeedPost[]> {
   }));
   const rows = await searchFeedPosts({ text: query, places, limit: SEARCH_LIMIT });
   return rows.flatMap(toFeedPost);
+}
+
+// Slug d'un post visible à partir de son id : redirection des anciens liens /post/30. null si introuvable.
+export function getPostSlug(id: number): Promise<string | null> {
+  return findPostSlugById(id);
 }
