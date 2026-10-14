@@ -3,14 +3,15 @@ import { Blobatar } from "@blobatar/react";
 
 type AvatarProps = {
   src: string | null;
-  // Identifiant stable de l'utilisateur (pseudo) : sans photo, il génère toujours le même blobatar.
+  // Identifiant stable de l'utilisateur (son id) : sans photo, il génère toujours le même blobatar,
+  // même si l'utilisateur change de pseudo.
   name: string;
   alt: string;
   // Taille en pixels (carré).
   size: number;
 };
 
-// Photo de profil carrée, 8px d'arrondi. Sans photo : blobatar généré à partir du pseudo.
+// Photo de profil carrée, 8px d'arrondi. Sans photo : blobatar généré à partir de l'id.
 export function Avatar({ src, name, alt, size }: AvatarProps) {
   if (!src) {
     return (

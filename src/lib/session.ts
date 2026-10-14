@@ -3,6 +3,8 @@ export type SessionUser = {
   username: string;
   display_name: string;
   avatar_url: string | null;
+  // Absent dans les sessions ouvertes avant l'ajout du choix d'avatar.
+  avatar_seed?: string | null;
 };
 
 const TOKEN_KEY = "brb_token";
@@ -81,10 +83,35 @@ export async function postAuth(path: string, body: unknown) {
   return { token: data.token as string, user: data.user as SessionUser };
 }
 
-// Appel d'une route d'API privée : ajoute « Authorization: Bearer <token> » si une session existe.
-export function fetchWithAuth(path: string, init: RequestInit = {}) {
+// Met à jour l'utilisateur stocké (ex. après modification du profil), sans toucher au token.
+export function updateSessionUser(user: SessionUser) {
+  const storage = localStorage.getItem(TOKEN_KEY) ? localStorage : sessionStorage;
+  storage.setItem(USER_KEY, JSON.stringify(user));
+  window.dispatchEvent(new Event(SESSION_EVENT));
+}
+
+export type ApiResult<T> = { data: T } | { error: string };
+
+// Appel d'une route API privée avec « Authorization: Bearer <token> ».
+// body : objet envoyé en JSON, ou FormData envoyé tel quel en multipart (ex. upload de photo).
+// Session invalide ou expirée (401) : la session locale est effacée.
+export async function apiFetch<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<ApiResult<T>> {
   const token = getToken();
-  const headers = new Headers(init.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  return fetch(path, { ...init, headers });
+  if (!token) return { error: "UNAUTHORIZED" };
+
+  const isMultipart = init.body instanceof FormData;
+  const response = await fetch(path, {
+    method: init.method ?? "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Multipart : pas de Content-Type, le navigateur l'ajoute avec la frontière (boundary).
+      ...(init.body === undefined || isMultipart ? {} : { "Content-Type": "application/json" }),
+    },
+    body: init.body === undefined ? undefined : isMultipart ? (init.body as FormData) : JSON.stringify(init.body),
+  }).catch(() => null);
+
+  const data = await response?.json().catch(() => null);
+  if (response?.status === 401) clearSession();
+  if (!response?.ok) return { error: String(data?.error ?? "INTERNAL_ERROR") };
+  return { data: data as T };
 }

@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
+import { countryName, flagEmoji } from "@/lib/country";
 import type { FeedPost } from "@/lib/posts";
 
 type TravelCardProps = {
@@ -15,29 +16,24 @@ type TravelCardProps = {
   preload?: boolean;
 };
 
-// Drapeau emoji à partir du code pays ISO (ex. « JP » → 🇯🇵).
-function flagEmoji(countryCode: string) {
-  return String.fromCodePoint(...[...countryCode].map((char) => 0x1f1e6 + char.charCodeAt(0) - 65));
-}
-
 // Carte d'un post dans le feed.
 export async function TravelCard({ post, now, preload = false }: TravelCardProps) {
   const t = await getTranslations("TravelCard");
   const format = await getFormatter();
-  const countryName = new Intl.DisplayNames([await getLocale()], { type: "region" }).of(post.countryCode);
+  const country = countryName(post.countryCode, await getLocale());
 
   return (
     <Card className="p-4 shadow-xs transition hover:border-ink-soft/25 sm:p-6">
       <article>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <Avatar src={post.author.avatarUrl} name={post.author.username} alt="" size={40} />
+            <Avatar src={post.author.avatarUrl} name={post.author.id} alt="" size={40} />
             <div className="min-w-0">
               <p className="mb-1 font-display text-label-lg text-ink">{post.author.displayName}</p>
               <p className="flex flex-wrap items-center gap-1 text-body-sm text-ink-soft/70">
                 <span>
                   {post.location}{" "}
-                  <span role="img" aria-label={countryName}>
+                  <span role="img" aria-label={country}>
                     {flagEmoji(post.countryCode)}
                   </span>
                 </span>

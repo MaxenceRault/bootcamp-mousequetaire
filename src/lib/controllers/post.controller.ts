@@ -1,7 +1,7 @@
 import "server-only";
 import { getUserIdFromRequest } from "@/lib/jwt";
 import { isRateLimited } from "@/lib/rateLimit";
-import { createPostSchema, PHOTO_MAX_BYTES } from "@/lib/schemas/post.schema";
+import { createPostSchema, PHOTO_MAX_BYTES } from "@/schemas/post.schema";
 import { createPost, PostError } from "@/lib/services/post.service";
 
 const MAX_BODY_BYTES = PHOTO_MAX_BYTES + 1024 * 1024;

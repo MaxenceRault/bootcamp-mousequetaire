@@ -9,7 +9,7 @@ import {
   uploadPostPhoto,
   upsertTags,
 } from "@/lib/repositories/post.repository";
-import type { CreatePostInput, PlaceInput } from "@/lib/schemas/post.schema";
+import type { CreatePostInput, PlaceInput } from "@/schemas/post.schema";
 import { placeExists } from "@/lib/services/location.service";
 
 export class PostError extends Error {

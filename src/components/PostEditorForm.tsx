@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/Label";
 import { FIELD_CLASS_NAME, Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import type { PostArchetype } from "@/lib/posts";
-import { clearSession, fetchWithAuth, getSessionSnapshot } from "@/lib/session";
+import { apiFetch, getSessionSnapshot } from "@/lib/session";
 
 
 // Lieu renvoyé par GET /api/v1/locations?q=… (pays, ou ville avec sa région et son pays).
@@ -81,17 +81,13 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
 
     setPending(true);
     setError(null);
-    const response = await fetchWithAuth("/api/v1/posts", { method: "POST", body }).catch(() => null);
-    const data = await response?.json().catch(() => null);
+    const result = await apiFetch<{ id: number }>("/api/v1/posts", { method: "POST", body });
     setPending(false);
 
-    // Token absent, expiré ou falsifié : session effacée, retour à la connexion.
-    if (response?.status === 401) {
-      clearSession();
-      return router.push("/login");
-    }
-    if (!response?.ok) {
-      return setError(API_ERRORS.find((code) => code === data?.error) ?? "INTERNAL_ERROR");
+    if ("error" in result) {
+      // Token absent, expiré ou falsifié (apiFetch a déjà effacé la session) : retour à la connexion.
+      if (result.error === "UNAUTHORIZED") return router.push("/login");
+      return setError(API_ERRORS.find((code) => code === result.error) ?? "INTERNAL_ERROR");
     }
     router.push("/");
   }
@@ -116,7 +112,7 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
 
       {/* 2. Barre de contexte : destination, dates, type de récit */}
       <Card className="grid grid-cols-1 gap-2 p-2 md:grid-cols-3">
-        <ContextField icon="location" label={t("fields.destination")} htmlFor="post-destination">
+        <ContextField icon="pin" label={t("fields.destination")} htmlFor="post-destination">
           <DestinationField />
         </ContextField>
 

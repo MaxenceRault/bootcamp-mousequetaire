@@ -31,11 +31,12 @@ src/
 │       ├── auth/register/route.ts # POST /api/v1/auth/register → auth.controller
 │       ├── posts/route.ts         # POST /api/v1/posts (multipart + Bearer) création d'un post → post.controller
 │       ├── locations/route.ts     # GET /api/v1/locations?q= recherche de villes / pays (country-state-city) → location.controller
+│       ├── users/me/route.ts  # GET / PATCH /api/v1/users/me (profil connecté) → user.controller
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
-├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (ex. post.schema.ts)
+├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (user.schema.ts, post.schema.ts)
 ├── services/                  # Couche SERVICE : logique métier (ex. post.service.ts)
 ├── repositories/              # Couche REPOSITORY : accès base de données (ex. post.repository.ts)
-├── proxy.ts                   # Middleware Next 16 (vérification d'auth des routes privées) — à créer avec l'auth
+├── proxy.ts                   # Middleware Next 16 : refuse sans token valide les routes API privées (/api/v1/users/*, /api/v1/posts/*)
 ├── i18n/
 │   └── request.ts             # Config next-intl (locale + chargement des messages)
 ├── components/
@@ -45,6 +46,8 @@ src/
 │   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
 │   ├── PostEditorForm.tsx     # Formulaire de l'éditeur de récit (client)
+│   ├── ProfileView.tsx        # Page profil (client : charge /api/v1/users/me avec le token)
+│   ├── ProfileEditForm.tsx    # Formulaire de modification du profil (PATCH /api/v1/users/me)
 │   ├── LoginForm.tsx          # Formulaire de connexion (client)
 │   ├── RegisterForm.tsx       # Formulaire d'inscription (client)
 │   ├── ForgotPasswordForm.tsx # Formulaire mot de passe oublié (client)
@@ -59,12 +62,12 @@ scripts/
 └── seed.mts                   # Seed manuel : npm run seed (clé secrète, local uniquement)
 ├── lib/
 │   ├── controllers/           # HTTP : validation Zod, rate limit, appel du service, réponse
-│   ├── schemas/               # Schémas Zod `.strict()` partagés (ex. post.schema.ts)
 │   ├── services/              # Règles métier (hash, JWT, règles d'inscription)
 │   ├── repositories/          # Accès base de données (Supabase) uniquement
 │   ├── jwt.ts                 # Signature / vérification JWT (jose)
 │   ├── rateLimit.ts           # Rate limit en mémoire
-│   ├── session.ts             # Côté client : stockage du token, appel API auth, fetchWithAuth (Bearer)
+│   ├── session.ts             # Côté client : stockage du token, appels API (apiFetch ajoute le Bearer)
+│   ├── country.ts             # Drapeau emoji à partir du code pays
 │   └── ai.ts                  # Helpers Gemini & embeddings
 └── utils/supabase/            # Clients Supabase (admin.ts = clé secrète, serveur uniquement)
 supabase/                      # Scripts SQL à exécuter dans le SQL Editor

@@ -21,14 +21,14 @@ export async function verifyToken(token: string) {
   return payload.sub ?? null;
 }
 
-// Id de l'utilisateur à partir de l'en-tête « Authorization: Bearer <token> »,
-// ou null si l'en-tête est absent, mal formé, ou si le token est invalide / expiré / falsifié.
-export async function getUserIdFromRequest(request: Request) {
-  const match = request.headers.get("authorization")?.match(/^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/);
-  if (!match) return null;
+// Id de l'utilisateur à partir de l'en-tête « Authorization: Bearer <token> ».
+// null si l'en-tête est absent, ou si le token est invalide, falsifié ou expiré.
+export async function getUserIdFromRequest(request: Request): Promise<string | null> {
+  const [scheme, token] = request.headers.get("authorization")?.split(" ") ?? [];
+  if (scheme !== "Bearer" || !token) return null;
 
   try {
-    return await verifyToken(match[1]);
+    return await verifyToken(token);
   } catch {
     return null;
   }

@@ -27,8 +27,8 @@ export async function login(email: string, password: string): Promise<AuthResult
 
   if (!user || !user.password_hash || !valid) throw new AuthError("INVALID_CREDENTIALS");
 
-  const { id, username, display_name, avatar_url } = user;
-  return createSession({ id, username, display_name, avatar_url });
+  const { id, username, display_name, avatar_url, avatar_seed } = user;
+  return createSession({ id, username, display_name, avatar_url, avatar_seed });
 }
 
 export async function register(name: string, email: string, password: string): Promise<AuthResult> {
