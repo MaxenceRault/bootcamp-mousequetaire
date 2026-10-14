@@ -146,8 +146,12 @@ Seuls les must-have sont exigés : ne pas implémenter les nice-to-have (OAuth/O
 10. **Audit avant soutenance** — Repasser cette checklist point par point et tester l'injection d'erreurs (entrées invalides, token absent/expiré/falsifié, champs inconnus, SQL/XSS) avant la soutenance du vendredi.
 
 ### Règles complémentaires
-- Secrets (JWT, clé Gemini…) uniquement dans `.env*` (ignoré par git) et lus côté serveur. Jamais dans une variable `NEXT_PUBLIC_*` ni dans un composant `"use client"`.
-- Toute variable d'environnement lue par l'app ou un script est listée dans `.env.example` (seul fichier `.env*` versionné) avec une valeur d'exemple, à quoi elle sert et quel fichier la lit. Jamais de vraie valeur dedans. Côté serveur, on les lit uniquement via `getConfig()` (`src/lib/config.ts`), jamais `process.env` directement (sauf `NODE_ENV` et les scripts de `scripts/`). Les réglages de sécurité (durée du token, coût bcrypt, rate limits) y passent aussi, avec une valeur par défaut sûre.
+- **Variables sensibles : toujours dans le `.env` (`.env.local`, ignoré par git), jamais en dur dans le code.** Sont sensibles :
+  - les **secrets** : clés et mots de passe (`SUPABASE_SECRET_KEY`, `JWT_SECRET`, future clé Gemini…) ;
+  - les **réglages de sécurité** : durée du token (`JWT_EXPIRES_IN`), coût bcrypt (`BCRYPT_SALT_ROUNDS`), rate limits (`RATE_LIMIT_*`), et tout nouveau réglage du même type (URL autorisée par CORS…).
+  Les secrets sont lus côté serveur uniquement : jamais dans une variable `NEXT_PUBLIC_*`, ni dans un composant `"use client"`, ni dans un log, une réponse d'API ou un commit. Une valeur de secret ne doit jamais apparaître dans le code, même en valeur par défaut.
+  Restent dans le code (pas dans le `.env`) : les limites de données qui doivent rester identiques aux contraintes SQL de `supabase/migrations/` (longueur du titre, des descriptions, taille max de la photo, nombre de tags…).
+- Toute variable d'environnement lue par l'app ou un script est listée dans `.env.example` (seul fichier `.env*` versionné) avec une valeur d'exemple, à quoi elle sert et quel fichier la lit. Jamais de vraie valeur dedans. Côté serveur, on les lit uniquement via `getConfig()` (`src/lib/config.ts`), jamais `process.env` directement (sauf `NODE_ENV` et les scripts de `scripts/`). Un réglage de sécurité peut avoir une valeur par défaut sûre dans `config.ts` ; un secret, jamais (variable obligatoire, validée par Zod).
 - Ne jamais renvoyer au client plus de données que nécessaire (pas de hash, pas de champs internes).
 - Pas de `dangerouslySetInnerHTML` sur du contenu utilisateur.
 - Chat RAG : traiter la question utilisateur et le contenu des posts comme non fiables (injection de prompt), limiter la taille des entrées.
