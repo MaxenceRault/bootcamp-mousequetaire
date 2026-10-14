@@ -25,7 +25,7 @@ export function LoginForm() {
 
     setPending(true);
     setError(null);
-    const result = await postAuth("/api/auth/login", {
+    const result = await postAuth("/api/v1/auth/login", {
       email: form.get("email"),
       password: form.get("password"),
       remember,
