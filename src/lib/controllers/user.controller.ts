@@ -1,5 +1,7 @@
 import "server-only";
+import { getConfig } from "@/lib/config";
 import { getUserIdFromRequest } from "@/lib/jwt";
+import { isRateLimited } from "@/lib/rateLimit";
 import { getMyProfile, ProfileError, updateMyProfile } from "@/lib/services/user.service";
 import { updateProfileSchema } from "@/schemas/user.schema";
 
@@ -19,6 +21,12 @@ export async function getMeController(request: Request) {
 export async function updateMeController(request: Request) {
   const userId = await getUserIdFromRequest(request);
   if (!userId) return errorResponse(401, "UNAUTHORIZED");
+
+  // Par utilisateur : limite les écritures en boucle et la recherche de pseudos pris (409).
+  const { max, windowMs } = getConfig().rateLimits.profileUpdate;
+  if (isRateLimited(`users:update:${userId}`, max, windowMs)) {
+    return errorResponse(429, "TOO_MANY_REQUESTS");
+  }
 
   const body = updateProfileSchema.safeParse(await readJson(request));
   if (!body.success) return errorResponse(400, "INVALID_INPUT");

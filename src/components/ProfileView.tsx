@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { ProfileEditForm, type EditableProfile } from "@/components/ProfileEditForm";
-import { StoryCard } from "@/components/StoryCard";
+import { StoryCard, storyTitleId } from "@/components/StoryCard";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button, buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -22,6 +22,8 @@ type Story = {
   destination_city: string | null;
   start_date: string;
   created_at: string;
+  // Masqué par l'auteur : absent du feed public, visible ici seulement.
+  is_hidden: boolean;
 };
 
 type ProfileData = { user: EditableProfile; stories: Story[]; storyCount: number };
@@ -59,15 +61,43 @@ export function ProfileView() {
     return <p className="py-16 text-center text-body-md text-ink-soft">{t("loadError")}</p>;
   }
 
+  // Met à jour le profil affiché après une action (sans recharger la page).
+  function updateProfile(change: (profile: ProfileData) => ProfileData) {
+    setState((current) => (current.status === "ready" ? { status: "ready", profile: change(current.profile) } : current));
+  }
+
   return (
     <Profile
       profile={state.profile}
-      onUserChange={(user) => setState({ status: "ready", profile: { ...state.profile, user } })}
+      onUserChange={(user) => updateProfile((profile) => ({ ...profile, user }))}
+      onStoryHiddenChange={(id, hidden) =>
+        updateProfile((profile) => ({
+          ...profile,
+          stories: profile.stories.map((story) => (story.id === id ? { ...story, is_hidden: hidden } : story)),
+        }))
+      }
+      onStoryDeleted={(id) =>
+        updateProfile((profile) => ({
+          ...profile,
+          stories: profile.stories.filter((story) => story.id !== id),
+          storyCount: profile.storyCount - 1,
+        }))
+      }
     />
   );
 }
 
-function Profile({ profile, onUserChange }: { profile: ProfileData; onUserChange: (user: EditableProfile) => void }) {
+type StoryActions = {
+  onStoryHiddenChange: (id: number, hidden: boolean) => void;
+  onStoryDeleted: (id: number) => void;
+};
+
+function Profile({
+  profile,
+  onUserChange,
+  onStoryHiddenChange,
+  onStoryDeleted,
+}: { profile: ProfileData; onUserChange: (user: EditableProfile) => void } & StoryActions) {
   const t = useTranslations("Profile");
   const format = useFormatter();
   const [editing, setEditing] = useState(false);
@@ -179,7 +209,13 @@ function Profile({ profile, onUserChange }: { profile: ProfileData; onUserChange
         </div>
 
         <div role="tabpanel" id="profile-tabpanel" aria-labelledby={`profile-tab-${tab}`}>
-          {tab === "stories" && <StoriesGrid stories={profile.stories} />}
+          {tab === "stories" && (
+            <StoriesGrid
+              stories={profile.stories}
+              onStoryHiddenChange={onStoryHiddenChange}
+              onStoryDeleted={onStoryDeleted}
+            />
+          )}
           {tab === "itineraries" && (
             <EmptyState>
               {t("empty.itineraries")}
@@ -209,7 +245,7 @@ function Stat({ label, icon, children }: { label: string; icon: IconName; childr
   );
 }
 
-function StoriesGrid({ stories }: { stories: Story[] }) {
+function StoriesGrid({ stories, ...actions }: { stories: Story[] } & StoryActions) {
   const t = useTranslations("Profile");
 
   if (stories.length === 0) return <EmptyState>{t("empty.stories")}</EmptyState>;
@@ -217,11 +253,101 @@ function StoriesGrid({ stories }: { stories: Story[] }) {
   return (
     <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {stories.map((story) => (
-        <li key={story.id}>
-          <StoryCard story={story} />
-        </li>
+        <ProfileStory key={story.id} story={story} {...actions} />
       ))}
     </ul>
+  );
+}
+
+// Codes d'erreur de PATCH / DELETE /api/v1/posts/{id} traduits dans Profile.errors ; les autres → INTERNAL_ERROR.
+const STORY_ERRORS = ["NOT_FOUND", "TOO_MANY_REQUESTS", "INTERNAL_ERROR"] as const;
+type StoryError = (typeof STORY_ERRORS)[number];
+
+// Récit du profil : carte partagée (StoryCard) + actions de l'auteur (masquer / afficher, supprimer).
+function ProfileStory({ story, onStoryHiddenChange, onStoryDeleted }: { story: Story } & StoryActions) {
+  const t = useTranslations("Profile");
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [error, setError] = useState<StoryError | null>(null);
+  const titleId = storyTitleId(story.id);
+
+  // Erreur commune : session expirée → connexion (apiFetch a déjà effacé la session).
+  function handleError(code: string) {
+    if (code === "UNAUTHORIZED") return router.replace("/login");
+    setError(STORY_ERRORS.find((known) => known === code) ?? "INTERNAL_ERROR");
+  }
+
+  async function toggleHidden() {
+    setPending(true);
+    setError(null);
+    const result = await apiFetch<{ id: number; hidden: boolean }>(`/api/v1/posts/${story.id}`, {
+      method: "PATCH",
+      body: { hidden: !story.is_hidden },
+    });
+    setPending(false);
+
+    if ("error" in result) return handleError(result.error);
+    onStoryHiddenChange(story.id, result.data.hidden);
+  }
+
+  async function remove() {
+    setPending(true);
+    setError(null);
+    const result = await apiFetch<null>(`/api/v1/posts/${story.id}`, { method: "DELETE" });
+    setPending(false);
+
+    // Déjà supprimé (ex. depuis un autre onglet) : on le retire aussi de la grille.
+    if ("error" in result && result.error !== "NOT_FOUND") return handleError(result.error);
+    onStoryDeleted(story.id);
+  }
+
+  return (
+    <li>
+      <StoryCard
+        story={story}
+        hidden={story.is_hidden}
+        actions={
+          <>
+            {/* aria-describedby : le lecteur d'écran annonce le titre du récit concerné. */}
+            {confirmingDelete ? (
+              <>
+                <p className="w-full text-body-sm text-ink">{t("stories.confirmDelete")}</p>
+                <Button size="sm" variant="danger" disabled={pending} onClick={remove} aria-describedby={titleId}>
+                  {t("stories.confirmDeleteYes")}
+                </Button>
+                <Button size="sm" variant="secondary" disabled={pending} onClick={() => setConfirmingDelete(false)}>
+                  {t("form.cancel")}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button size="sm" variant="secondary" disabled={pending} onClick={toggleHidden} aria-describedby={titleId}>
+                  <Icon name={story.is_hidden ? "visibility" : "visibilityOff"} className="size-4" />
+                  {story.is_hidden ? t("stories.show") : t("stories.hide")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={pending}
+                  onClick={() => {
+                    setError(null);
+                    setConfirmingDelete(true);
+                  }}
+                  aria-describedby={titleId}
+                >
+                  <Icon name="delete" className="size-4 text-error" />
+                  {t("stories.delete")}
+                </Button>
+              </>
+            )}
+            <p role="status" aria-live="polite" className="w-full text-body-sm text-error empty:hidden">
+              {error && t(`errors.${error}`)}
+            </p>
+          </>
+        }
+      />
+    </li>
   );
 }
 

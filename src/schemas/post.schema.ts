@@ -62,9 +62,28 @@ export const createPostSchema = z
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 export type PlaceInput = z.infer<typeof placeSchema>;
 
-// Id d'un post dans l'URL (/post/5) : entier positif, sans zéro initial ni autre caractère.
+// Paramètres de GET /api/v1/posts (feed public, chargement infini).
+export const FEED_MAX_LIMIT = 20;
+
+export const feedQuerySchema = z
+  .object({
+    archetype: z.enum(POST_ARCHETYPES).optional(),
+    // Id du dernier post déjà affiché ; borné à l'entier max de Postgres (colonne integer).
+    cursor: z.coerce.number().int().positive().max(2_147_483_647).optional(),
+    limit: z.coerce.number().int().min(1).max(FEED_MAX_LIMIT).optional(),
+  })
+  .strict();
+
+// Id d'un post dans l'URL (/post/5, /api/v1/posts/5) : entier positif, sans zéro initial ni autre caractère.
 export const postIdSchema = z
   .string()
   .regex(/^[1-9][0-9]{0,9}$/)
   .transform(Number)
   .pipe(z.number().int().max(2_147_483_647));
+
+// Corps de PATCH /api/v1/posts/{id} : seule la visibilité est modifiable pour l'instant.
+export const updatePostSchema = z
+  .object({
+    hidden: z.boolean(),
+  })
+  .strict();

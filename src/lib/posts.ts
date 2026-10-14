@@ -1,5 +1,3 @@
-import { DEMO_POSTS } from "@/lib/demo-posts";
-
 // Types de récit : servent d'onglets au feed et de choix dans l'éditeur.
 // Doivent rester identiques aux slugs de la table archetype (db/migrations/).
 // Libellés affichés : namespace « Archetypes » de messages/fr.json.
@@ -11,38 +9,26 @@ export const POST_ARCHETYPES = [
 ] as const;
 export type PostArchetype = (typeof POST_ARCHETYPES)[number];
 
+// Post tel qu'affiché dans une carte du feed (TravelCard).
 export type FeedPost = {
-  id: string;
+  id: number;
   title: string;
-  content: string;
-  location: string;
+  shortDescription: string;
+  // Ville, sinon région ; null si la destination est un pays entier (la carte affiche alors le pays).
+  location: string | null;
   countryCode: string;
-  tag: string | null;
-  highlight: string | null;
-  imageUrl: string;
-  imageAlt: string;
+  archetype: PostArchetype;
+  photoUrl: string;
+  photoAlt: string;
   createdAt: Date;
   author: {
     id: string;
     username: string;
     displayName: string;
     avatarUrl: string | null;
+    avatarSeed: string | null;
   };
 };
 
-const FEED_LIMIT = 20;
-
-// Posts les plus récents, filtrés par type de récit si besoin.
-// Temporaire : lit les données de démo locales. À remplacer par l'appel à l'API back-end
-// (même signature, pour que la page et les composants n'aient pas à changer).
-export async function getFeedPosts(archetype?: PostArchetype): Promise<FeedPost[]> {
-  const now = Date.now();
-
-  return DEMO_POSTS.filter((post) => !archetype || post.archetype === archetype)
-    .map(({ hoursAgo, ...post }) => ({
-      ...post,
-      createdAt: new Date(now - hoursAgo * 3_600_000),
-    }))
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, FEED_LIMIT);
-}
+// Une page du feed. nextCursor : id à passer pour charger la suite (null = plus rien à charger).
+export type FeedPage = { posts: FeedPost[]; nextCursor: number | null };

@@ -1,24 +1,34 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { POST_ARCHETYPES, type FeedPage, type FeedPost, type PostArchetype } from "@/lib/posts";
 import {
+  deleteAuthorPost,
   deletePost,
   deletePostPhoto,
   findArchetypeIdBySlug,
+  findFeedPosts,
+  findPostOwnership,
   findPostById,
   findPostIdsByPlace,
   findPostSummariesByIds,
   insertPost,
   insertPostTags,
+  photoPathFromUrl,
+  updatePostVisibility,
   uploadPostPhoto,
   upsertTags,
+  type FeedPostRow,
   type PlaceFilter,
   type PostSummaryWithAuthor,
 } from "@/lib/repositories/post.repository";
 import type { CreatePostInput, PlaceInput } from "@/schemas/post.schema";
 import { describePlace, placeExists, type PlaceNames } from "@/lib/services/location.service";
 
+// Nombre de posts chargés à la fois dans le feed (première page puis chaque « suite »).
+export const FEED_PAGE_SIZE = 10;
+
 export class PostError extends Error {
-  constructor(public readonly code: "INVALID_INPUT") {
+  constructor(public readonly code: "INVALID_INPUT" | "NOT_FOUND") {
     super(code);
   }
 }
@@ -110,6 +120,81 @@ function uniquePlaces(places: PlaceInput[]) {
   });
 }
 
+// Une page du feed. cursor : id du dernier post déjà affiché (absent pour la première page).
+export async function getFeedPage({
+  archetype,
+  cursor,
+  limit = FEED_PAGE_SIZE,
+}: {
+  archetype?: PostArchetype;
+  cursor?: number;
+  limit?: number;
+}): Promise<FeedPage> {
+  // Un post de plus que demandé : s'il existe, il y a une suite à charger.
+  const rows = await findFeedPosts({ archetype, beforeId: cursor, limit: limit + 1 });
+  const page = rows.slice(0, limit);
+
+  return {
+    posts: page.flatMap(toFeedPost),
+    nextCursor: rows.length > limit ? page[page.length - 1].id : null,
+  };
+}
+
+function toFeedPost(row: FeedPostRow): FeedPost[] {
+  const archetype = POST_ARCHETYPES.find((slug) => slug === row.archetype.slug);
+  // Type de récit inconnu de l'app (ajouté en base sans mettre à jour POST_ARCHETYPES) : post ignoré.
+  if (!archetype) return [];
+
+  const { destination_country_code: country, destination_state_code: state, destination_city: city } = row;
+
+  return [
+    {
+      id: row.id,
+      title: row.title,
+      shortDescription: row.short_description,
+      // Ville, sinon nom de la région (describePlace) ; null pour un pays entier.
+      location: city ?? describePlace({ country, state }).state,
+      countryCode: country,
+      archetype,
+      photoUrl: row.photo_url,
+      photoAlt: row.photo_alt,
+      createdAt: new Date(row.created_at),
+      author: {
+        id: row.author.id,
+        username: row.author.username,
+        displayName: row.author.display_name,
+        avatarUrl: row.author.avatar_url,
+        avatarSeed: row.author.avatar_seed,
+      },
+    },
+  ];
+}
+
+// Seul l'auteur peut modifier son post. Post inexistant ou d'un autre auteur : même erreur NOT_FOUND,
+// pour ne pas révéler l'existence des posts des autres.
+async function requireOwnPost(postId: number, userId: string) {
+  const post = await findPostOwnership(postId);
+  if (!post || post.author_id !== userId) throw new PostError("NOT_FOUND");
+  return post;
+}
+
+// Masquer (hidden = true) ou réafficher un post : un post masqué disparaît du feed public.
+export async function setPostHidden(userId: string, postId: number, hidden: boolean) {
+  await requireOwnPost(postId, userId);
+  if (!(await updatePostVisibility(postId, userId, hidden))) throw new PostError("NOT_FOUND");
+  return { id: postId, hidden };
+}
+
+// Suppression définitive : le post, ses liens post_tag (cascade) et sa photo dans le bucket.
+export async function deleteOwnPost(userId: string, postId: number) {
+  const post = await requireOwnPost(postId, userId);
+  if (!(await deleteAuthorPost(postId, userId))) throw new PostError("NOT_FOUND");
+
+  // Le post est déjà supprimé : un échec sur la photo ne doit pas faire échouer la requête.
+  const photoPath = photoPathFromUrl(post.photo_url);
+  if (photoPath) await deletePostPhoto(photoPath).catch(() => {});
+}
+
 export type PostDetail = {
   id: number;
   title: string;
@@ -134,7 +219,7 @@ export type PostDetail = {
 const WORDS_PER_MINUTE = 200;
 const DAY_MS = 86_400_000;
 
-// Post complet pour la page détail ; null s'il n'existe pas.
+// Post complet pour la page détail ; null s'il n'existe pas ou s'il est masqué par son auteur.
 export async function getPostDetail(id: number): Promise<PostDetail | null> {
   const row = await findPostById(id);
   if (!row) return null;

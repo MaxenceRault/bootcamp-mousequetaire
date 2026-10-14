@@ -1,13 +1,14 @@
 import "server-only";
 import { SignJWT, jwtVerify } from "jose";
+import { getConfig } from "@/lib/config";
 
 function getSecret() {
-  const secret = process.env.JWT_SECRET;
-  if (!secret || secret.length < 32) throw new Error("JWT_SECRET manquant ou trop court");
-  return new TextEncoder().encode(secret);
+  // Présence et longueur (≥ 32) vérifiées par getConfig.
+  return new TextEncoder().encode(getConfig().jwtSecret);
 }
 
-export function signToken(userId: string, expiresIn: string) {
+// Durée de vie : JWT_EXPIRES_IN (ex. « 1h »), passé l'utilisateur doit se reconnecter.
+export function signToken(userId: string, expiresIn = getConfig().jwtExpiresIn) {
   return new SignJWT()
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(userId)

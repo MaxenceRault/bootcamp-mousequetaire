@@ -110,6 +110,7 @@ export type PostSummary = {
   destination_city: string | null;
   start_date: string;
   created_at: string;
+  is_hidden: boolean;
 };
 
 const SUMMARY_COLUMNS = [
@@ -122,6 +123,7 @@ const SUMMARY_COLUMNS = [
   "destination_city",
   "start_date",
   "created_at",
+  "is_hidden",
 ];
 
 // Colonnes préfixées par l'alias de table (requêtes avec jointure).
@@ -148,7 +150,7 @@ export async function findPostsByAuthor(
   return { posts: posts.rows, total: count.rows[0].total };
 }
 
-// Post complet pour la page détail.
+// Post complet pour la page détail (null s'il n'existe pas ou s'il est masqué par son auteur).
 export type PostDetailRow = {
   id: number;
   title: string;
@@ -184,7 +186,7 @@ export async function findPostById(id: number): Promise<PostDetailRow | null> {
      from post p
      join archetype a on a.id = p.archetype_id
      join users u on u.id = p.author_id
-     where p.id = $1`,
+     where p.id = $1 and not p.is_hidden`,
     [id],
   );
   return rows[0] ?? null;
@@ -192,17 +194,20 @@ export async function findPostById(id: number): Promise<PostDetailRow | null> {
 
 export type PlaceFilter = { country: string; state?: string; city?: string };
 
-// Ids des posts liés à un lieu : destination OU tag dans ce lieu.
+// Ids des posts visibles (non masqués) liés à un lieu : destination OU tag dans ce lieu.
 // Hiérarchique : un pays inclut ses régions et ses villes, une région inclut ses villes.
 export async function findPostIdsByPlace({ country, state, city }: PlaceFilter): Promise<number[]> {
   const db = await getDb();
   const { rows } = await db.query<{ id: number }>(
     `select id from post
-      where destination_country_code = $1
+      where not is_hidden
+        and destination_country_code = $1
         and ($2::text is null or destination_state_code = $2)
         and ($3::text is null or destination_city = $3)
      union
-     select pt.post_id from post_tag pt join tag t on t.id = pt.tag_id
+     select pt.post_id from post_tag pt
+       join tag t on t.id = pt.tag_id
+       join post p on p.id = pt.post_id and not p.is_hidden
       where t.country_code = $1
         and ($2::text is null or t.state_code = $2)
         and ($3::text is null or t.city = $3)`,
@@ -223,10 +228,95 @@ export async function findPostSummariesByIds(ids: number[], limit: number): Prom
   const { rows } = await db.query<PostSummaryWithAuthor>(
     `select ${prefixed("p", SUMMARY_COLUMNS)}, ${AUTHOR_JSON} as author
      from post p join users u on u.id = p.author_id
-     where p.id = any($1::int[])
+     where p.id = any($1::int[]) and not p.is_hidden
      order by p.created_at desc
      limit $2`,
     [ids, limit],
   );
   return rows;
+}
+
+// Ligne du feed : post + slug du type de récit + profil public de l'auteur (jamais email ni hash).
+export type FeedPostRow = {
+  id: number;
+  title: string;
+  short_description: string;
+  photo_url: string;
+  photo_alt: string;
+  destination_country_code: string;
+  destination_state_code: string | null;
+  destination_city: string | null;
+  created_at: string;
+  archetype: { slug: string };
+  author: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+    avatar_seed: string | null;
+  };
+};
+
+// Posts visibles du plus récent au plus ancien. Pagination par curseur : beforeId = id du dernier post
+// déjà affiché (les ids sont croissants dans le temps). Filtre facultatif sur le slug du type de récit.
+export async function findFeedPosts({
+  archetype,
+  beforeId,
+  limit,
+}: {
+  archetype?: string;
+  beforeId?: number;
+  limit: number;
+}): Promise<FeedPostRow[]> {
+  const db = await getDb();
+  const { rows } = await db.query<FeedPostRow>(
+    `select p.id, p.title, p.short_description, p.photo_url, p.photo_alt,
+       p.destination_country_code, p.destination_state_code, p.destination_city, p.created_at,
+       json_build_object('slug', a.slug) as archetype,
+       ${AUTHOR_JSON} as author
+     from post p
+     join archetype a on a.id = p.archetype_id
+     join users u on u.id = p.author_id
+     where not p.is_hidden
+       and ($1::text is null or a.slug = $1)
+       and ($2::int is null or p.id < $2)
+     order by p.id desc
+     limit $3`,
+    [archetype ?? null, beforeId ?? null, limit],
+  );
+  return rows;
+}
+
+// Auteur et photo d'un post (vérification du propriétaire avant modification), null s'il n'existe pas.
+export async function findPostOwnership(id: number): Promise<{ author_id: string; photo_url: string } | null> {
+  const db = await getDb();
+  const { rows } = await db.query<{ author_id: string; photo_url: string }>(
+    "select author_id, photo_url from post where id = $1",
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+// Le filtre author_id double la vérification du service : un post d'un autre auteur n'est jamais touché.
+export async function updatePostVisibility(id: number, authorId: string, hidden: boolean): Promise<boolean> {
+  const db = await getDb();
+  const { rowCount } = await db.query("update post set is_hidden = $3 where id = $1 and author_id = $2", [
+    id,
+    authorId,
+    hidden,
+  ]);
+  return (rowCount ?? 0) > 0;
+}
+
+export async function deleteAuthorPost(id: number, authorId: string): Promise<boolean> {
+  const db = await getDb();
+  const { rowCount } = await db.query("delete from post where id = $1 and author_id = $2", [id, authorId]);
+  return (rowCount ?? 0) > 0;
+}
+
+// Chemin d'une photo dans le bucket à partir de son URL publique ; null si elle est hébergée ailleurs
+// (ex. photos Unsplash des données de démo).
+export function photoPathFromUrl(url: string): string | null {
+  const prefix = publicUrl(PHOTO_BUCKET, "");
+  return url.startsWith(prefix) ? decodeURIComponent(url.slice(prefix.length)) : null;
 }
