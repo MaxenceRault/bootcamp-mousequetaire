@@ -64,7 +64,7 @@ src/
 supabase/
 └── migrations/                # SQL du schéma (à exécuter dans le SQL Editor de Supabase)
 scripts/
-└── seed.mts                   # Seed manuel : npm run seed (clé secrète, local uniquement)
+└── seed.mts                   # Seed manuel : npm run seed (clé secrète, local uniquement) — 5 comptes démo sans mot de passe, 10 posts + tags ; relançable, ne touche jamais aux vrais comptes
 ├── lib/
 │   ├── controllers/           # HTTP : validation Zod, rate limit, appel du service, réponse
 │   ├── services/              # Règles métier (hash, JWT, règles d'inscription)
