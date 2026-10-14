@@ -31,6 +31,8 @@ src/
 │   └── api/v1/                # Couche CONTROLLER (route handlers), toutes les routes sous /api/v1/
 │       ├── auth/login/route.ts    # POST /api/v1/auth/login → auth.controller
 │       ├── auth/register/route.ts # POST /api/v1/auth/register → auth.controller
+│       ├── auth/refresh/route.ts  # POST /api/v1/auth/refresh (rotation du refresh token) → auth.controller
+│       ├── auth/logout/route.ts   # POST /api/v1/auth/logout (révoque la session) → auth.controller
 │       ├── posts/route.ts         # POST /api/v1/posts (multipart + Bearer) création d'un post → post.controller
 │       ├── locations/route.ts     # GET /api/v1/locations?q= recherche de villes / pays (country-state-city) → location.controller
 │       ├── users/me/route.ts  # GET / PATCH /api/v1/users/me (profil connecté) → user.controller
@@ -74,7 +76,7 @@ scripts/
 │   ├── repositories/          # Accès base de données (Cloud SQL) et Cloud Storage uniquement
 │   ├── jwt.ts                 # Signature / vérification JWT (jose)
 │   ├── rateLimit.ts           # Rate limit en mémoire
-│   ├── session.ts             # Côté client : stockage du token, appels API (apiFetch ajoute le Bearer)
+│   ├── session.ts             # Côté client : stockage des tokens, appels API (apiFetch ajoute le Bearer et renouvelle l'access token)
 │   ├── country.ts             # Drapeau emoji et nom du pays à partir du code pays
 │   ├── openapi.ts             # Spécification OpenAPI de l'API (corps de requête générés depuis schemas/)
 │   └── ai.ts                  # Helpers Gemini & embeddings
@@ -137,7 +139,7 @@ La sécurité prime sur la rapidité de livraison. En cas de doute, demander plu
 
 Seuls les must-have sont exigés : ne pas implémenter les nice-to-have (OAuth/OIDC, MFA, RBAC granulaire, API Gateway/WAF, chiffrement au repos, Dependabot/Snyk, centralisation des logs, etc.) sauf demande explicite.
 
-1. **Authentification & autorisation** — JWT transmis dans l'en-tête `Authorization: Bearer <token>`. Vérification du token (signature + expiration, lib éprouvée comme `jose`) dans `src/proxy.ts` (le middleware de Next 16) pour les routes privées, **et** dans chaque route handler / Server Action qui touche des données privées. Vérifier que l'utilisateur est propriétaire de la ressource qu'il modifie. Secret JWT uniquement côté serveur.
+1. **Authentification & autorisation** — JWT transmis dans l'en-tête `Authorization: Bearer <token>`. Vérification du token (signature + expiration, lib éprouvée comme `jose`) dans `src/proxy.ts` (le middleware de Next 16) pour les routes privées, **et** dans chaque route handler / Server Action qui touche des données privées. Vérifier que l'utilisateur est propriétaire de la ressource qu'il modifie. Secret JWT uniquement côté serveur. Access token JWT de **1 h** + **refresh token** opaque (30 jours avec « Se souvenir de moi », 24 h sinon) stocké au même endroit que l'access token (localStorage / sessionStorage) : en base uniquement son empreinte SHA-256 (table `refresh_token`), rotation à chaque refresh, réutilisation d'un token déjà utilisé = révocation de toute la session, déconnexion = révocation côté serveur.
 2. **Endpoints API** — Rate limiting anti-bruteforce sur le login (et sur `/api/v1/chat`). CORS restreint à l'URL du frontend (variable d'env), jamais `*`.
 3. **Données sensibles** — HTTPS/TLS en production. Mots de passe hachés avec **bcrypt**, salt rounds ≥ 10. Jamais de mot de passe en clair (ni en base, ni dans les logs, ni dans une réponse).
 4. **Validation des entrées** — Schéma **Zod** en allowlist (`.strict()`) sur toutes les entrées serveur (body, params, searchParams) : tout champ inconnu ou mal typé est rejeté immédiatement.

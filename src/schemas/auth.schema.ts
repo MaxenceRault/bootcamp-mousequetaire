@@ -19,3 +19,10 @@ export const registerSchema = z
     password: z.string().min(8).max(72),
   })
   .strict();
+
+// POST /api/v1/auth/refresh et /api/v1/auth/logout : token opaque (32 octets en base64url).
+export const refreshTokenSchema = z
+  .object({
+    refreshToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  })
+  .strict();
