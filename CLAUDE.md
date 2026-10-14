@@ -28,11 +28,12 @@ src/
 │   └── api/v1/                # Couche CONTROLLER (route handlers), toutes les routes sous /api/v1/
 │       ├── auth/login/route.ts    # POST /api/v1/auth/login → auth.controller
 │       ├── auth/register/route.ts # POST /api/v1/auth/register → auth.controller
+│       ├── users/me/route.ts  # GET / PATCH /api/v1/users/me (profil connecté) → user.controller
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
-├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (ex. post.schema.ts)
+├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (ex. user.schema.ts)
 ├── services/                  # Couche SERVICE : logique métier (ex. post.service.ts)
 ├── repositories/              # Couche REPOSITORY : accès base de données (ex. post.repository.ts)
-├── proxy.ts                   # Middleware Next 16 (vérification d'auth des routes privées) — à créer avec l'auth
+├── proxy.ts                   # Middleware Next 16 : refuse sans token valide les routes API privées (/api/v1/users/*)
 ├── i18n/
 │   └── request.ts             # Config next-intl (locale + chargement des messages)
 ├── components/
@@ -41,6 +42,8 @@ src/
 │   ├── NavbarAccount.tsx      # Zone compte de la Navbar (client : lit la session du navigateur)
 │   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
+│   ├── ProfileView.tsx        # Page profil (client : charge /api/v1/users/me avec le token)
+│   ├── ProfileEditForm.tsx    # Formulaire de modification du profil (PATCH /api/v1/users/me)
 │   ├── LoginForm.tsx          # Formulaire de connexion (client)
 │   ├── RegisterForm.tsx       # Formulaire d'inscription (client)
 │   ├── ForgotPasswordForm.tsx # Formulaire mot de passe oublié (client)
@@ -59,7 +62,8 @@ scripts/
 │   ├── repositories/          # Accès base de données (Supabase) uniquement
 │   ├── jwt.ts                 # Signature / vérification JWT (jose)
 │   ├── rateLimit.ts           # Rate limit en mémoire
-│   ├── session.ts             # Côté client : stockage du token + appel API auth
+│   ├── session.ts             # Côté client : stockage du token, appels API (apiFetch ajoute le Bearer)
+│   ├── country.ts             # Drapeau emoji à partir du code pays
 │   └── ai.ts                  # Helpers Gemini & embeddings
 └── utils/supabase/            # Clients Supabase (admin.ts = clé secrète, serveur uniquement)
 supabase/                      # Scripts SQL à exécuter dans le SQL Editor

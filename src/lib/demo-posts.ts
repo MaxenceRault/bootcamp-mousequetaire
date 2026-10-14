@@ -7,11 +7,11 @@ export type DemoPost = Omit<FeedPost, "createdAt"> & { category: PostCategory; h
 const unsplash = (id: string) => `https://images.unsplash.com/photo-${id}?w=1600&q=80&fm=jpg`;
 
 const AUTHORS = {
-  elena: { username: "wander_elena", displayName: "Elena Rostova", avatarUrl: unsplash("1438761681033-6461ffad8d80") },
-  marcoSophie: { username: "marco_sophie", displayName: "Marco & Sophie", avatarUrl: unsplash("1507003211169-0a1dd7228f2d") },
-  ines: { username: "ines_voyage", displayName: "Inès Moreau", avatarUrl: unsplash("1494790108377-be9c29b29330") },
-  thomas: { username: "thomas_trek", displayName: "Thomas Lefèvre", avatarUrl: unsplash("1500648767791-00dcc994a43e") },
-  mai: { username: "mai_eats", displayName: "Mai Nguyen", avatarUrl: unsplash("1534528741775-53994a69daeb") },
+  elena: { id: "00000000-0000-4000-a000-000000000001", username: "wander_elena", displayName: "Elena Rostova", avatarUrl: unsplash("1438761681033-6461ffad8d80") },
+  marcoSophie: { id: "00000000-0000-4000-a000-000000000002", username: "marco_sophie", displayName: "Marco & Sophie", avatarUrl: unsplash("1507003211169-0a1dd7228f2d") },
+  ines: { id: "00000000-0000-4000-a000-000000000003", username: "ines_voyage", displayName: "Inès Moreau", avatarUrl: unsplash("1494790108377-be9c29b29330") },
+  thomas: { id: "00000000-0000-4000-a000-000000000004", username: "thomas_trek", displayName: "Thomas Lefèvre", avatarUrl: unsplash("1500648767791-00dcc994a43e") },
+  mai: { id: "00000000-0000-4000-a000-000000000005", username: "mai_eats", displayName: "Mai Nguyen", avatarUrl: unsplash("1534528741775-53994a69daeb") },
 };
 
 export const DEMO_POSTS: DemoPost[] = [
