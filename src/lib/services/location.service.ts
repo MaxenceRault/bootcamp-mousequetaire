@@ -15,10 +15,8 @@ export type Place = {
 type IndexedPlace = Place & { search: string };
 
 const MAX_RESULTS = 8;
-// Pays retirés de l'app : ni le pays, ni ses régions, ni ses villes ne sont proposés ou acceptés.
 const EXCLUDED_COUNTRIES = new Set(["IL"]);
 
-// Index construit au premier appel puis gardé en mémoire (~150 000 villes + 250 pays).
 let index: IndexedPlace[] | null = null;
 
 export function searchPlaces(query: string): Place[] {
