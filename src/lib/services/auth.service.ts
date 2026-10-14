@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { signToken } from "@/lib/jwt";
+import { signRefreshToken, signToken, verifyRefreshToken } from "@/lib/jwt";
 import {
   findRefreshTokenByHash,
   insertRefreshToken,
@@ -56,8 +56,14 @@ export async function register(name: string, email: string, password: string): P
 
 // Échange un refresh token contre une nouvelle paire (rotation : l'ancien devient inutilisable).
 export async function refreshSession(refreshToken: string): Promise<AuthResult> {
+  // 1. Signature (clé de refresh) et expiration du JWT ; 2. présence en base, non révoqué, même utilisateur.
+  const userId = await verifyRefreshToken(refreshToken);
+  if (!userId) throw new AuthError("INVALID_REFRESH_TOKEN");
+
   const stored = await findRefreshTokenByHash(hashToken(refreshToken));
-  if (!stored || new Date(stored.expires_at) <= new Date()) throw new AuthError("INVALID_REFRESH_TOKEN");
+  if (!stored || stored.user_id !== userId || new Date(stored.expires_at) <= new Date()) {
+    throw new AuthError("INVALID_REFRESH_TOKEN");
+  }
 
   // Token déjà utilisé (ou deux refresh simultanés) : vol probable, toute la session est coupée.
   if (stored.revoked_at || !(await revokeRefreshToken(stored.id))) {
@@ -88,9 +94,9 @@ async function createSession(user: PublicUser, remember: boolean): Promise<AuthR
   return { token, refreshToken, user };
 }
 
-// Token opaque aléatoire (256 bits) ; seule son empreinte SHA-256 est stockée en base.
+// JWT signé avec la clé de refresh ; seule son empreinte SHA-256 est stockée en base (révocation).
 async function issueRefreshToken(userId: string, familyId: string, expiresAt: Date) {
-  const token = randomBytes(32).toString("base64url");
+  const token = await signRefreshToken(userId, expiresAt);
   await insertRefreshToken({ user_id: userId, family_id: familyId, token_hash: hashToken(token), expires_at: expiresAt });
   return token;
 }

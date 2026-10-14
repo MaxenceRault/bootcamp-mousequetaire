@@ -57,8 +57,9 @@ const authResult = {
     refreshToken: {
       type: "string",
       description:
-        "Token opaque à usage unique (30 jours avec remember, 24 h sinon). À envoyer à /auth/refresh pour obtenir " +
-        "une nouvelle paire : l'ancien devient invalide, et le réutiliser révoque toute la session.",
+        "JWT signé avec une clé distincte de l'access token (30 jours avec remember, 24 h sinon), à usage unique. " +
+        "À envoyer à /auth/refresh pour obtenir une nouvelle paire : l'ancien devient invalide, et le réutiliser " +
+        "révoque toute la session.",
     },
     user: publicUser,
   },
