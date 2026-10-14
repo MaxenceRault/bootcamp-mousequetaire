@@ -26,7 +26,7 @@ export function RegisterForm() {
 
     setPending(true);
     setError(null);
-    const result = await postAuth("/api/auth/register", {
+    const result = await postAuth("/api/v1/auth/register", {
       name: form.get("name"),
       email: form.get("email"),
       password: form.get("password"),

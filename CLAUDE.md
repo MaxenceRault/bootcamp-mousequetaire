@@ -26,11 +26,10 @@ src/
 │   ├── profile/page.tsx       # Tableau de bord utilisateur
 │   ├── planner/page.tsx       # Planification (Calendrier + Checklist)
 │   ├── login/page.tsx         # Auth : connexion / inscription / mot de passe oublié (?view=)
-│   └── api/                   # Couche CONTROLLER (route handlers)
-│   └── api/
-│       ├── auth/login/route.ts    # POST connexion → auth.controller
-│       ├── auth/register/route.ts # POST inscription → auth.controller
-│       ├── locations/route.ts # GET ?q= recherche de villes / pays (country-state-city) → location.controller
+│   └── api/v1/                # Couche CONTROLLER (route handlers), toutes les routes sous /api/v1/
+│       ├── auth/login/route.ts    # POST /api/v1/auth/login → auth.controller
+│       ├── auth/register/route.ts # POST /api/v1/auth/register → auth.controller
+│       ├── locations/route.ts     # GET /api/v1/locations?q= recherche de villes / pays (country-state-city) → location.controller
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
 ├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (ex. post.schema.ts)
 ├── services/                  # Couche SERVICE : logique métier (ex. post.service.ts)
@@ -69,7 +68,7 @@ scripts/
 supabase/                      # Scripts SQL à exécuter dans le SQL Editor
 ```
 
-- Ne pas créer de dossier ou de fichier hors de cette structure sans le demander d'abord. Si un nouveau fichier est nécessaire, le placer au bon endroit (page → `app/`, composant → `components/`, endpoint → `app/api/`, schéma Zod → `schemas/`, logique métier → `services/`, accès BDD → `repositories/`, helpers/clients externes → `lib/`) et le signaler.
+- Ne pas créer de dossier ou de fichier hors de cette structure sans le demander d'abord. Si un nouveau fichier est nécessaire, le placer au bon endroit (page → `app/`, composant → `components/`, endpoint → `app/api/v1/`, schéma Zod → `schemas/`, logique métier → `services/`, accès BDD → `repositories/`, helpers/clients externes → `lib/`) et le signaler.
 - Les fichiers existent mais sont vides : ne les remplir que lorsqu'on travaille sur la fonctionnalité concernée. Ne pas inventer d'UI, de textes, de données ou de logique qui n'ont pas été demandés.
 - Base de données : Supabase, **pas branchée dans l'app pour l'instant** (clients et `proxy.ts` retirés). En attendant, le feed lit les données de démo de `src/lib/demo-posts.ts` via `src/lib/posts.ts`. Une fois branchée, les clients Supabase iront dans `src/utils/supabase/` et ne seront importés que par `repositories/`.
 - Schéma de la base (tables `users` et `post`, RLS en lecture seule) dans `supabase/migrations/`. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app. `SUPABASE_SECRET_KEY` n'est lue que par ce script.
@@ -80,9 +79,9 @@ supabase/                      # Scripts SQL à exécuter dans le SQL Editor
 
 ```
 CLIENT / FRONTEND
-   │  requête HTTP (ex. POST /api/posts)
+   │  requête HTTP (ex. POST /api/v1/posts)
    ▼
-CONTROLLER   app/api/**/route.ts, Server Actions, Server Components
+CONTROLLER   app/api/v1/**/route.ts, Server Actions, Server Components
    │  DTO (types inférés des schémas Zod)
    ▼
 SERVICE      services/*.service.ts
@@ -122,7 +121,7 @@ La sécurité prime sur la rapidité de livraison. En cas de doute, demander plu
 Seuls les must-have sont exigés : ne pas implémenter les nice-to-have (OAuth/OIDC, MFA, RBAC granulaire, API Gateway/WAF, chiffrement au repos, Dependabot/Snyk, centralisation des logs, etc.) sauf demande explicite.
 
 1. **Authentification & autorisation** — JWT transmis dans l'en-tête `Authorization: Bearer <token>`. Vérification du token (signature + expiration, lib éprouvée comme `jose`) dans `src/proxy.ts` (le middleware de Next 16) pour les routes privées, **et** dans chaque route handler / Server Action qui touche des données privées. Vérifier que l'utilisateur est propriétaire de la ressource qu'il modifie. Secret JWT uniquement côté serveur.
-2. **Endpoints API** — Rate limiting anti-bruteforce sur le login (et sur `/api/chat`). CORS restreint à l'URL du frontend (variable d'env), jamais `*`.
+2. **Endpoints API** — Rate limiting anti-bruteforce sur le login (et sur `/api/v1/chat`). CORS restreint à l'URL du frontend (variable d'env), jamais `*`.
 3. **Données sensibles** — HTTPS/TLS en production. Mots de passe hachés avec **bcrypt**, salt rounds ≥ 10. Jamais de mot de passe en clair (ni en base, ni dans les logs, ni dans une réponse).
 4. **Validation des entrées** — Schéma **Zod** en allowlist (`.strict()`) sur toutes les entrées serveur (body, params, searchParams) : tout champ inconnu ou mal typé est rejeté immédiatement.
 5. **Dépendances** — `npm audit` avant mise en ligne : zéro vulnérabilité critique tolérée.

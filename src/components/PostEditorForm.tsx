@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/Textarea";
 // Élément d'une table de référence (archetype) : id entier + nom affiché.
 export type PostOption = { id: number; name: string };
 
-// Lieu renvoyé par GET /api/locations?q=… (pays, ou ville avec sa région et son pays).
+// Lieu renvoyé par GET /api/v1/locations?q=… (pays, ou ville avec sa région et son pays).
 type Place = { key: string; label: string; country: string; state?: string; city?: string };
 
 type PostEditorFormProps = {
@@ -221,7 +221,7 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
   );
 }
 
-// Recherche de lieux (GET /api/locations?q=…) pendant la saisie, partagée par la destination et les tags.
+// Recherche de lieux (GET /api/v1/locations?q=…) pendant la saisie, partagée par la destination et les tags.
 function usePlaceSearch() {
   const [query, setQuery] = useState("");
   const [places, setPlaces] = useState<Place[]>([]);
@@ -247,7 +247,7 @@ function usePlaceSearch() {
 
   async function search(text: string) {
     const requestId = ++lastRequest.current;
-    const response = await fetch(`/api/locations?${new URLSearchParams({ q: text })}`).catch(() => null);
+    const response = await fetch(`/api/v1/locations?${new URLSearchParams({ q: text })}`).catch(() => null);
     const data = response?.ok ? await response.json().catch(() => null) : null;
     if (requestId !== lastRequest.current) return;
 

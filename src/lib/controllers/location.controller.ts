@@ -3,7 +3,7 @@ import { z } from "zod";
 import { clientIp, isRateLimited } from "@/lib/rateLimit";
 import { searchPlaces } from "@/lib/services/location.service";
 
-// GET /api/locations?q=kyo → { places: [...] } (8 suggestions max)
+// GET /api/v1/locations?q=kyo → { places: [...] } (8 suggestions max)
 const querySchema = z
   .object({
     q: z.string().trim().min(2).max(60),

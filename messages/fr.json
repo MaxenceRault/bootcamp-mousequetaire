@@ -15,7 +15,8 @@
     "login": "Se connecter",
     "accountMenu": "Menu du compte",
     "savedTrips": "Voyages enregistrés",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "logout": "Se déconnecter"
   },
   "Home": {
     "title": "Les derniers voyages de la communauté",
