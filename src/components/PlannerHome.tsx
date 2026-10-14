@@ -47,6 +47,17 @@ export function PlannerHome({ archetypes }: { archetypes: readonly PostArchetype
     });
   }, [router]);
 
+  // Avec cacheComponents, Next garde cette page en mémoire (React Activity) quand on ouvre le voyage créé :
+  // au retour (ex. après avoir supprimé le voyage), le bouton resterait bloqué sur « en cours ».
+  // Le nettoyage s'exécute quand la page est masquée ; le chargement de la liste ci-dessus est relancé au retour.
+  useEffect(
+    () => () => {
+      setPending(false);
+      setError(null);
+    },
+    [],
+  );
+
   // Génération : POST /api/v1/trips, puis ouverture du planning créé.
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
