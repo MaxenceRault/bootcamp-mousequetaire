@@ -1,6 +1,8 @@
 -- Schéma initial sur Cloud SQL (Postgres), repris à l'identique de la base Supabase du 14/10/2026.
--- Déjà appliquée sur biirb-db1 (base « brb ») par un utilisateur cloudsqlsuperuser temporaire, puis :
---   grant brb_admin to "<email du développeur>";   grant brb_app to "brb-run@biirb-511608.iam";
+-- Déjà appliquée sur biirb-db1 (base « brb ») par un utilisateur cloudsqlsuperuser temporaire.
+-- Attribuer un rôle à un nouvel utilisateur IAM (un « grant » en SQL est refusé, même avec postgres) :
+--   gcloud sql users assign-roles <email> --instance=biirb-db1 --type=CLOUD_IAM_USER --database-roles=brb_admin
+--   (compte de service Cloud Run : --type=CLOUD_IAM_SERVICE_ACCOUNT --database-roles=brb_app)
 -- Les migrations suivantes s'exécutent dans Cloud SQL Studio (Console GCP → SQL → biirb-db1),
 -- connecté avec son compte Google, et commencent par « set role brb_admin; » pour que brb_admin
 -- reste propriétaire des tables.
