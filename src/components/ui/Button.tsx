@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 
 type ButtonSize = "md" | "sm";
+type ButtonVariant = "primary" | "secondary";
 
 const SIZES: Record<ButtonSize, string> = {
   // 48px de haut sur mobile / 44px desktop (formulaires).
@@ -9,14 +10,21 @@ const SIZES: Record<ButtonSize, string> = {
   sm: "h-9 gap-1.5 px-3.5 text-label-md",
 };
 
-// Classes du bouton principal du design system : accent, 8px d'arrondi.
+const VARIANTS: Record<ButtonVariant, string> = {
+  // Action principale : accent.
+  primary: "bg-accent text-on-accent hover:opacity-92",
+  // Action secondaire : fond neutre (ex. « Modifier le profil », « Annuler »).
+  secondary: "border border-line bg-surface-muted text-ink hover:bg-surface",
+};
+
+// Classes des boutons du design system : 8px d'arrondi.
 // Exportées pour styler un <Link> comme un bouton.
-export function buttonClassName(size: ButtonSize = "md", className = "") {
-  return `inline-flex items-center justify-center rounded-lg bg-accent font-display text-on-accent transition hover:opacity-92 focus-visible:ring-4 focus-visible:ring-accent/25 focus-visible:outline-none active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 ${SIZES[size]} ${className}`;
+export function buttonClassName(size: ButtonSize = "md", className = "", variant: ButtonVariant = "primary") {
+  return `inline-flex items-center justify-center rounded-lg font-display transition focus-visible:ring-4 focus-visible:ring-accent/25 focus-visible:outline-none active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTS[variant]} ${SIZES[size]} ${className}`;
 }
 
-type ButtonProps = ComponentProps<"button"> & { size?: ButtonSize };
+type ButtonProps = ComponentProps<"button"> & { size?: ButtonSize; variant?: ButtonVariant };
 
-export function Button({ className = "", type = "button", size = "md", ...props }: ButtonProps) {
-  return <button type={type} className={buttonClassName(size, className)} {...props} />;
+export function Button({ className = "", type = "button", size = "md", variant = "primary", ...props }: ButtonProps) {
+  return <button type={type} className={buttonClassName(size, className, variant)} {...props} />;
 }

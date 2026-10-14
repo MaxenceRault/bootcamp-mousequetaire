@@ -15,6 +15,7 @@ export type FeedPost = {
   imageAlt: string;
   createdAt: Date;
   author: {
+    id: string;
     username: string;
     displayName: string;
     avatarUrl: string | null;

@@ -3,6 +3,8 @@ export type SessionUser = {
   username: string;
   display_name: string;
   avatar_url: string | null;
+  // Absent dans les sessions ouvertes avant l'ajout du choix d'avatar.
+  avatar_seed?: string | null;
 };
 
 const TOKEN_KEY = "brb_token";
@@ -79,4 +81,34 @@ export async function postAuth(path: string, body: unknown) {
   const data = await response?.json().catch(() => null);
   if (!response?.ok || !data?.token) return { error: String(data?.error ?? "INTERNAL_ERROR") };
   return { token: data.token as string, user: data.user as SessionUser };
+}
+
+// Met à jour l'utilisateur stocké (ex. après modification du profil), sans toucher au token.
+export function updateSessionUser(user: SessionUser) {
+  const storage = localStorage.getItem(TOKEN_KEY) ? localStorage : sessionStorage;
+  storage.setItem(USER_KEY, JSON.stringify(user));
+  window.dispatchEvent(new Event(SESSION_EVENT));
+}
+
+export type ApiResult<T> = { data: T } | { error: string };
+
+// Appel d'une route API privée avec « Authorization: Bearer <token> ».
+// Session invalide ou expirée (401) : la session locale est effacée.
+export async function apiFetch<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<ApiResult<T>> {
+  const token = getToken();
+  if (!token) return { error: "UNAUTHORIZED" };
+
+  const response = await fetch(path, {
+    method: init.method ?? "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(init.body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+  }).catch(() => null);
+
+  const data = await response?.json().catch(() => null);
+  if (response?.status === 401) clearSession();
+  if (!response?.ok) return { error: String(data?.error ?? "INTERNAL_ERROR") };
+  return { data: data as T };
 }
