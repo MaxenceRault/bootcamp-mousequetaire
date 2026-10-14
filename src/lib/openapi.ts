@@ -1,7 +1,9 @@
 import "server-only";
 import { z } from "zod";
 import { loginSchema, registerSchema } from "@/schemas/auth.schema";
+import { createPostSchema, FEED_MAX_LIMIT } from "@/schemas/post.schema";
 import { updateProfileSchema } from "@/schemas/user.schema";
+import { POST_ARCHETYPES } from "@/lib/posts";
 
 // Corps de requête générés à partir des schémas Zod utilisés par les controllers :
 // la doc suit automatiquement les règles de validation.
@@ -10,6 +12,13 @@ function requestBody(schema: z.ZodType) {
   const jsonSchema: Record<string, unknown> = z.toJSONSchema(schema, { io: "input", target: "openapi-3.0" });
   delete jsonSchema.$schema;
   return { required: true, content: { "application/json": { schema: jsonSchema } } };
+}
+
+// Variante multipart/form-data (envoi de fichier), même génération à partir du schéma Zod.
+function multipartBody(schema: z.ZodType) {
+  const jsonSchema: Record<string, unknown> = z.toJSONSchema(schema, { io: "input", target: "openapi-3.0" });
+  delete jsonSchema.$schema;
+  return { required: true, content: { "multipart/form-data": { schema: jsonSchema } } };
 }
 
 // Réponses : écrites à la main (elles reprennent les types des repositories).
@@ -50,10 +59,39 @@ const postSummary = {
   },
 };
 
+// Carte du feed (FeedPost de src/lib/posts.ts).
+const feedPost = {
+  type: "object",
+  properties: {
+    id: { type: "integer" },
+    title: { type: "string" },
+    shortDescription: { type: "string" },
+    location: { type: "string", nullable: true, description: "Ville, sinon région ; null pour un pays entier" },
+    countryCode: { type: "string", example: "JP" },
+    archetype: { type: "string", enum: [...POST_ARCHETYPES] },
+    photoUrl: { type: "string" },
+    photoAlt: { type: "string" },
+    createdAt: { type: "string", format: "date-time" },
+    author: {
+      type: "object",
+      properties: {
+        id: { type: "string", format: "uuid" },
+        username: { type: "string" },
+        displayName: { type: "string" },
+        avatarUrl: { type: "string", nullable: true },
+        avatarSeed: { type: "string", nullable: true },
+      },
+    },
+  },
+};
+
 const authResult = {
   type: "object",
   properties: {
-    token: { type: "string", description: "JWT HS256, valable 1 h. À envoyer dans « Authorization: Bearer <token> »." },
+    token: {
+      type: "string",
+      description: "JWT HS256, durée JWT_EXPIRES_IN (1 h par défaut). À envoyer dans « Authorization: Bearer <token> ».",
+    },
     user: publicUser,
   },
 };
@@ -100,6 +138,8 @@ export function buildOpenApiDocument() {
     tags: [
       { name: "Auth", description: "Inscription et connexion" },
       { name: "Utilisateurs", description: "Profil de l'utilisateur connecté" },
+      { name: "Posts", description: "Feed public et création de récits" },
+      { name: "Lieux", description: "Recherche de villes et pays (country-state-city)" },
     ],
     paths: {
       "/auth/register": {
@@ -126,6 +166,83 @@ export function buildOpenApiDocument() {
             200: json("Connecté", authResult),
             400: invalidInput,
             401: error("Email ou mot de passe incorrect (message volontairement identique)", ["INVALID_CREDENTIALS"]),
+            429: tooManyRequests,
+            500: internalError,
+          },
+        },
+      },
+      "/posts": {
+        get: {
+          tags: ["Posts"],
+          summary: "Feed : posts du plus récent au plus ancien (public)",
+          description:
+            "Pagination par curseur (chargement infini) : renvoyer `nextCursor` dans `cursor` pour la page suivante. " +
+            "`nextCursor` vaut null quand il n'y a plus rien à charger.",
+          parameters: [
+            { name: "archetype", in: "query", schema: { type: "string", enum: [...POST_ARCHETYPES] } },
+            { name: "cursor", in: "query", schema: { type: "integer", minimum: 1 }, description: "Id du dernier post déjà affiché" },
+            { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: FEED_MAX_LIMIT, default: 10 } },
+          ],
+          responses: {
+            200: json("Une page du feed", {
+              type: "object",
+              properties: {
+                posts: { type: "array", items: feedPost },
+                nextCursor: { type: "integer", nullable: true },
+              },
+            }),
+            400: invalidInput,
+            429: tooManyRequests,
+            500: internalError,
+          },
+        },
+        post: {
+          tags: ["Posts"],
+          summary: "Publier un récit",
+          description:
+            "L'auteur est toujours celui du token. Destination et tags vérifiés dans country-state-city, " +
+            "type réel de la photo vérifié (JPEG, PNG, WebP, 5 Mo max). Chaque tag est un JSON : " +
+            '`{"country":"JP","state":"26","city":"Kyoto"}`.',
+          security: [{ bearerAuth: [] }],
+          requestBody: multipartBody(createPostSchema),
+          responses: {
+            201: json("Récit publié", { type: "object", properties: { id: { type: "integer" } } }),
+            400: invalidInput,
+            401: unauthorized,
+            411: error("En-tête Content-Length absent", ["LENGTH_REQUIRED"]),
+            413: error("Corps de requête trop lourd", ["PAYLOAD_TOO_LARGE"]),
+            429: tooManyRequests,
+            500: internalError,
+          },
+        },
+      },
+      "/locations": {
+        get: {
+          tags: ["Lieux"],
+          summary: "Rechercher une ville ou un pays (8 suggestions max)",
+          parameters: [
+            { name: "q", in: "query", required: true, schema: { type: "string", minLength: 2, maxLength: 60 } },
+          ],
+          responses: {
+            200: json("Suggestions", {
+              type: "object",
+              properties: {
+                places: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      key: { type: "string" },
+                      label: { type: "string", example: "Kyoto, Kyōto Prefecture, Japon" },
+                      country: { type: "string" },
+                      state: { type: "string" },
+                      city: { type: "string" },
+                    },
+                  },
+                },
+              },
+            }),
+            400: invalidInput,
             429: tooManyRequests,
             500: internalError,
           },

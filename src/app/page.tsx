@@ -5,11 +5,11 @@ import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
-import { TravelCard } from "@/components/TravelCard";
+import { FeedList } from "@/components/FeedList";
 import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
-import { POST_ARCHETYPES, type FeedPost, type PostArchetype } from "@/lib/posts";
+import { POST_ARCHETYPES, type FeedPage, type PostArchetype } from "@/lib/posts";
 import { getFeedPage } from "@/lib/services/post.service";
 
 // Allowlist : toute autre valeur de ?archetype= retombe sur le feed complet.
@@ -65,12 +65,12 @@ async function Feed({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   const archetype = parsed.success ? parsed.data : undefined;
   const t = await getTranslations("Home");
 
-  let posts: FeedPost[] | null;
+  let page: FeedPage | null;
   try {
     // Server Component = couche controller : il appelle directement le service (pas d'appel HTTP à soi-même).
-    ({ posts } = await getFeedPage({ archetype }));
+    page = await getFeedPage({ archetype });
   } catch {
-    posts = null;
+    page = null;
   }
   const now = new Date();
 
@@ -78,14 +78,19 @@ async function Feed({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
     <>
       <ArchetypeTabs active={archetype} />
 
-      {posts === null && <p className="py-10 text-center text-body-md text-ink-soft">{t("error")}</p>}
-      {posts?.length === 0 && <p className="py-10 text-center text-body-md text-ink-soft">{t("empty")}</p>}
+      {page === null && <p className="py-10 text-center text-body-md text-ink-soft">{t("error")}</p>}
+      {page?.posts.length === 0 && <p className="py-10 text-center text-body-md text-ink-soft">{t("empty")}</p>}
 
-      <div className="space-y-12">
-        {posts?.map((post, index) => (
-          <TravelCard key={post.id} post={post} now={now} preload={index === 0} />
-        ))}
-      </div>
+      {/* key : changer d'onglet repart d'une liste neuve (état du chargement infini remis à zéro). */}
+      {page && page.posts.length > 0 && (
+        <FeedList
+          key={archetype ?? "all"}
+          initialPosts={page.posts}
+          initialCursor={page.nextCursor}
+          archetype={archetype}
+          now={now}
+        />
+      )}
     </>
   );
 }

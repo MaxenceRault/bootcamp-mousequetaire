@@ -61,3 +61,15 @@ export const createPostSchema = z
 
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 export type PlaceInput = z.infer<typeof placeSchema>;
+
+// Paramètres de GET /api/v1/posts (feed public, chargement infini).
+export const FEED_MAX_LIMIT = 20;
+
+export const feedQuerySchema = z
+  .object({
+    archetype: z.enum(POST_ARCHETYPES).optional(),
+    // Id du dernier post déjà affiché ; borné à l'entier max de Postgres (colonne integer).
+    cursor: z.coerce.number().int().positive().max(2_147_483_647).optional(),
+    limit: z.coerce.number().int().min(1).max(FEED_MAX_LIMIT).optional(),
+  })
+  .strict();

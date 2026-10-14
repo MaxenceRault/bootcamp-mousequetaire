@@ -1,12 +1,30 @@
 import "server-only";
 import { getConfig } from "@/lib/config";
 import { getUserIdFromRequest } from "@/lib/jwt";
-import { isRateLimited } from "@/lib/rateLimit";
-import { createPostSchema, PHOTO_MAX_BYTES } from "@/schemas/post.schema";
-import { createPost, PostError } from "@/lib/services/post.service";
+import { clientIp, isRateLimited } from "@/lib/rateLimit";
+import { createPostSchema, feedQuerySchema, PHOTO_MAX_BYTES } from "@/schemas/post.schema";
+import { createPost, getFeedPage, PostError } from "@/lib/services/post.service";
 
 const MAX_BODY_BYTES = PHOTO_MAX_BYTES + 1024 * 1024;
 
+// GET /api/v1/posts?archetype=&cursor=&limit= (public) → { posts, nextCursor }
+export async function getFeedController(request: Request) {
+  const { max, windowMs } = getConfig().rateLimits.feed;
+  if (isRateLimited(`posts:feed:${clientIp(request)}`, max, windowMs)) {
+    return errorResponse(429, "TOO_MANY_REQUESTS");
+  }
+
+  const query = feedQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+  if (!query.success) return errorResponse(400, "INVALID_INPUT");
+
+  try {
+    return Response.json(await getFeedPage(query.data));
+  } catch (error) {
+    return internalError(error);
+  }
+}
+
+// POST /api/v1/posts (multipart/form-data, Authorization: Bearer <token>) → 201 { id }
 export async function createPostController(request: Request) {
   const userId = await getUserIdFromRequest(request);
   if (!userId) return errorResponse(401, "UNAUTHORIZED");
@@ -30,18 +48,9 @@ export async function createPostController(request: Request) {
     return Response.json(await createPost(userId, body.data), { status: 201 });
   } catch (error) {
     if (error instanceof PostError) return errorResponse(400, error.code);
-
-    console.error(
-      JSON.stringify({
-        level: "error",
-        scope: "posts",
-        message: String((error as { message?: unknown })?.message ?? "unknown error"),
-      }),
-    );
-    return errorResponse(500, "INTERNAL_ERROR");
+    return internalError(error);
   }
 }
-
 
 function formToObject(form: FormData) {
   const data: Record<string, unknown> = {};
@@ -54,4 +63,16 @@ function formToObject(form: FormData) {
 
 function errorResponse(status: number, code: string) {
   return Response.json({ error: code }, { status });
+}
+
+// Détail dans les logs serveur uniquement ; le client reçoit un code générique.
+function internalError(error: unknown) {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      scope: "posts",
+      message: String((error as { message?: unknown })?.message ?? "unknown error"),
+    }),
+  );
+  return errorResponse(500, "INTERNAL_ERROR");
 }

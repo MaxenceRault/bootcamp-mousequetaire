@@ -30,7 +30,7 @@ src/
 │   └── api/v1/                # Couche CONTROLLER (route handlers), toutes les routes sous /api/v1/
 │       ├── auth/login/route.ts    # POST /api/v1/auth/login → auth.controller
 │       ├── auth/register/route.ts # POST /api/v1/auth/register → auth.controller
-│       ├── posts/route.ts         # POST /api/v1/posts (multipart + Bearer) création d'un post → post.controller
+│       ├── posts/route.ts         # GET (public, feed paginé par curseur) / POST (multipart + Bearer) /api/v1/posts → post.controller
 │       ├── locations/route.ts     # GET /api/v1/locations?q= recherche de villes / pays (country-state-city) → location.controller
 │       ├── users/me/route.ts  # GET / PATCH /api/v1/users/me (profil connecté) → user.controller
 │       ├── openapi.json/route.ts # GET /api/v1/openapi.json : spécification OpenAPI (dev uniquement)
@@ -38,7 +38,7 @@ src/
 ├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (auth.schema.ts, user.schema.ts, post.schema.ts)
 ├── services/                  # Couche SERVICE : logique métier (ex. post.service.ts)
 ├── repositories/              # Couche REPOSITORY : accès base de données (ex. post.repository.ts)
-├── proxy.ts                   # Middleware Next 16 : refuse sans token valide les routes API privées (/api/v1/users/*, /api/v1/posts/*)
+├── proxy.ts                   # Middleware Next 16 : refuse sans token valide les routes API privées (/api/v1/users/*, /api/v1/posts/* sauf GET /api/v1/posts)
 ├── types/
 │   └── swagger-ui-dist.d.ts   # Types du bundle navigateur de Swagger UI
 ├── i18n/
@@ -49,6 +49,7 @@ src/
 │   ├── NavbarAccount.tsx      # Zone compte de la Navbar (client : lit la session du navigateur)
 │   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
+│   ├── FeedList.tsx           # Feed à chargement infini (client : GET /api/v1/posts?cursor=)
 │   ├── PostEditorForm.tsx     # Formulaire de l'éditeur de récit (client)
 │   ├── ProfileView.tsx        # Page profil (client : charge /api/v1/users/me avec le token)
 │   ├── ProfileEditForm.tsx    # Formulaire de modification du profil (PATCH /api/v1/users/me)

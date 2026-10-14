@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getFormatter, getLocale, getTranslations } from "next-intl/server";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/Avatar";
 import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -16,12 +16,13 @@ type TravelCardProps = {
   preload?: boolean;
 };
 
-// Carte d'un post dans le feed.
-export async function TravelCard({ post, now, preload = false }: TravelCardProps) {
-  const t = await getTranslations("TravelCard");
-  const tArchetypes = await getTranslations("Archetypes");
-  const format = await getFormatter();
-  const country = countryName(post.countryCode, await getLocale());
+// Carte d'un post dans le feed. Composant synchrone (hooks next-intl) : rendu aussi bien
+// côté serveur que dans FeedList (client) pour les posts chargés au défilement.
+export function TravelCard({ post, now, preload = false }: TravelCardProps) {
+  const t = useTranslations("TravelCard");
+  const tArchetypes = useTranslations("Archetypes");
+  const format = useFormatter();
+  const country = countryName(post.countryCode, useLocale());
 
   return (
     <Card className="p-4 shadow-xs transition hover:border-ink-soft/25 sm:p-6">

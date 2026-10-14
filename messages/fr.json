@@ -24,7 +24,11 @@
     "allArchetypes": "Tendances",
     "empty": "Aucun post pour le moment.",
     "error": "Impossible de charger les posts. Réessayez plus tard.",
-    "newPost": "Nouveau post"
+    "newPost": "Nouveau post",
+    "loadingMore": "Chargement des récits…",
+    "loadMoreError": "Impossible de charger la suite.",
+    "retry": "Réessayer",
+    "end": "Vous avez tout vu !"
   },
   "Archetypes": {
     "slow_travel_photography": "Slow travel & photo",
