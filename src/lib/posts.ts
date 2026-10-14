@@ -21,6 +21,7 @@ export type FeedPost = {
   photoUrl: string;
   photoAlt: string;
   createdAt: Date;
+  likeCount: number;
   author: {
     id: string;
     username: string;

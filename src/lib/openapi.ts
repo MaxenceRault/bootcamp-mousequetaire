@@ -73,6 +73,7 @@ const feedPost = {
     photoUrl: { type: "string" },
     photoAlt: { type: "string" },
     createdAt: { type: "string", format: "date-time" },
+    likeCount: { type: "integer", minimum: 0, description: "Nombre de likes (visible par tous)" },
     author: {
       type: "object",
       properties: {
@@ -129,6 +130,46 @@ const tooManyRequests = error("Trop de requêtes : limite atteinte (réglable pa
 const notFound = error("Post introuvable ou appartenant à un autre utilisateur", ["NOT_FOUND"]);
 const internalError = error("Erreur serveur (détail uniquement dans les logs serveur)", ["INTERNAL_ERROR"]);
 
+// Likes et enregistrements d'un post.
+const reactions = {
+  type: "object",
+  properties: {
+    likeCount: { type: "integer", minimum: 0 },
+    liked: { type: "boolean", description: "Le post est aimé par l'utilisateur connecté" },
+    saved: { type: "boolean", description: "Le post est dans ses voyages enregistrés" },
+  },
+};
+const postIdParameter = { name: "id", in: "path", required: true, schema: { type: "integer", minimum: 1 } };
+const reactionNotFound = error("Post introuvable ou masqué", ["NOT_FOUND"]);
+
+function reactionPaths(kind: "like" | "save", label: string) {
+  const responses = {
+    200: json("État des réactions après l'opération", reactions),
+    400: invalidInput,
+    401: unauthorized,
+    404: reactionNotFound,
+    429: tooManyRequests,
+    500: internalError,
+  };
+  return {
+    parameters: [postIdParameter],
+    put: {
+      tags: ["Réactions"],
+      summary: `${label} un post`,
+      description: "Idempotent : sans effet si c'est déjà fait.",
+      security: [{ bearerAuth: [] }],
+      responses,
+    },
+    delete: {
+      tags: ["Réactions"],
+      summary: `Retirer le ${kind === "like" ? "like" : "enregistrement"} d'un post`,
+      description: "Idempotent : sans effet s'il n'y en avait pas.",
+      security: [{ bearerAuth: [] }],
+      responses,
+    },
+  };
+}
+
 export function buildOpenApiDocument() {
   return {
     openapi: "3.0.3",
@@ -150,6 +191,7 @@ export function buildOpenApiDocument() {
       { name: "Utilisateurs", description: "Profil de l'utilisateur connecté" },
       { name: "Posts", description: "Feed public, création, masquage et suppression de récits" },
       { name: "Lieux", description: "Recherche de villes et pays (country-state-city)" },
+      { name: "Réactions", description: "Likes et voyages enregistrés" },
     ],
     paths: {
       "/auth/register": {
@@ -323,6 +365,63 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/posts/{id}/like": reactionPaths("like", "Aimer"),
+      "/posts/{id}/save": reactionPaths("save", "Enregistrer"),
+      "/posts/{id}/reactions": {
+        parameters: [postIdParameter],
+        get: {
+          tags: ["Réactions"],
+          summary: "Mes réactions sur un post (et son nombre de likes)",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: json("État des réactions", reactions),
+            400: invalidInput,
+            401: unauthorized,
+            404: reactionNotFound,
+            500: internalError,
+          },
+        },
+      },
+      "/users/me/reactions": {
+        get: {
+          tags: ["Réactions"],
+          summary: "Mes réactions sur plusieurs posts (une page du feed)",
+          description: "Un seul appel pour toute une page du feed, au lieu d'un appel par post.",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: "postIds",
+              in: "query",
+              required: true,
+              description: "Ids séparés par des virgules (1 à 50), ex. 12,11,10",
+              schema: { type: "string", pattern: "^[1-9][0-9]{0,9}(,[1-9][0-9]{0,9})*$" },
+            },
+          ],
+          responses: {
+            200: json("Réactions de l'utilisateur", {
+              type: "object",
+              properties: {
+                reactions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      postId: { type: "integer" },
+                      likeCount: { type: "integer", minimum: 0 },
+                      liked: { type: "boolean" },
+                      saved: { type: "boolean" },
+                    },
+                  },
+                },
+              },
+            }),
+            400: invalidInput,
+            401: unauthorized,
+            429: tooManyRequests,
+            500: internalError,
+          },
+        },
+      },
       "/users/me": {
         get: {
           tags: ["Utilisateurs"],
@@ -335,6 +434,7 @@ export function buildOpenApiDocument() {
                 user: profileUser,
                 stories: { type: "array", items: postSummary, description: "12 plus récents" },
                 storyCount: { type: "integer" },
+                saved: { type: "array", items: postSummary, description: "Voyages enregistrés (48 plus récents), avec leur auteur" },
               },
             }),
             401: unauthorized,

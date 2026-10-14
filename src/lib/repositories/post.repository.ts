@@ -247,6 +247,7 @@ export type FeedPostRow = {
   destination_state_code: string | null;
   destination_city: string | null;
   created_at: string;
+  like_count: number;
   archetype: { slug: string };
   author: {
     id: string;
@@ -272,6 +273,7 @@ export async function findFeedPosts({
   const { rows } = await db.query<FeedPostRow>(
     `select p.id, p.title, p.short_description, p.photo_url, p.photo_alt,
        p.destination_country_code, p.destination_state_code, p.destination_city, p.created_at,
+       (select count(*)::int from post_like l where l.post_id = p.id) as like_count,
        json_build_object('slug', a.slug) as archetype,
        ${AUTHOR_JSON} as author
      from post p
@@ -319,4 +321,20 @@ export async function deleteAuthorPost(id: number, authorId: string): Promise<bo
 export function photoPathFromUrl(url: string): string | null {
   const prefix = publicUrl(PHOTO_BUCKET, "");
   return url.startsWith(prefix) ? decodeURIComponent(url.slice(prefix.length)) : null;
+}
+
+// Posts enregistrés par un utilisateur (visibles uniquement), du dernier enregistré au premier.
+export async function findSavedPostsByUser(userId: string, limit: number): Promise<PostSummaryWithAuthor[]> {
+  const db = await getDb();
+  const { rows } = await db.query<PostSummaryWithAuthor>(
+    `select ${prefixed("p", SUMMARY_COLUMNS)}, ${AUTHOR_JSON} as author
+     from post_save s
+     join post p on p.id = s.post_id and not p.is_hidden
+     join users u on u.id = p.author_id
+     where s.user_id = $1
+     order by s.created_at desc
+     limit $2`,
+    [userId, limit],
+  );
+  return rows;
 }

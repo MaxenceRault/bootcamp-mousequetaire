@@ -1,5 +1,10 @@
 import "server-only";
-import { findPostsByAuthor, type PostSummary } from "@/lib/repositories/post.repository";
+import {
+  findPostsByAuthor,
+  findSavedPostsByUser,
+  type PostSummary,
+  type PostSummaryWithAuthor,
+} from "@/lib/repositories/post.repository";
 import {
   findProfileById,
   updateProfile,
@@ -18,20 +23,24 @@ export type MyProfile = {
   user: ProfileUser;
   stories: PostSummary[];
   storyCount: number;
+  // Voyages enregistrés (posts d'autres auteurs ou les siens), du dernier enregistré au premier.
+  saved: PostSummaryWithAuthor[];
 };
 
 const STORIES_LIMIT = 12;
+const SAVED_LIMIT = 48;
 
 // Profil de l'utilisateur connecté + ses récits publiés.
 export async function getMyProfile(userId: string): Promise<MyProfile> {
-  const [user, { posts, total }] = await Promise.all([
+  const [user, { posts, total }, saved] = await Promise.all([
     findProfileById(userId),
     findPostsByAuthor(userId, STORIES_LIMIT),
+    findSavedPostsByUser(userId, SAVED_LIMIT),
   ]);
 
   // Token valide mais compte supprimé entre-temps.
   if (!user) throw new ProfileError("NOT_FOUND");
-  return { user, stories: posts, storyCount: total };
+  return { user, stories: posts, storyCount: total, saved };
 }
 
 // L'utilisateur ne peut modifier que son propre profil : l'id vient du token, jamais du body.

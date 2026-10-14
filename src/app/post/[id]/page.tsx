@@ -7,6 +7,7 @@ import { cache, Suspense, type ReactNode } from "react";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
+import { PostReactions } from "@/components/PostReactions";
 import { ShareButton } from "@/components/ShareButton";
 import { Avatar } from "@/components/ui/Avatar";
 import { buttonClassName } from "@/components/ui/Button";
@@ -14,6 +15,7 @@ import { Card } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { flagEmoji, placeHref } from "@/lib/country";
 import { getPostDetail, type PostDetail } from "@/lib/services/post.service";
+import { getLikeCount } from "@/lib/services/reaction.service";
 import { postIdSchema } from "@/schemas/post.schema";
 
 // Lecture du post, partagée par generateMetadata et la page (une seule requête par visite).
@@ -53,6 +55,7 @@ async function PostContent({ params }: Pick<PageProps<"/post/[id]">, "params">) 
   await connection();
   const post = await getPost(id);
   if (!post) notFound();
+  const likeCount = await getLikeCount(post.id);
 
   const t = await getTranslations("Post");
   const tArchetype = await getTranslations("Archetypes");
@@ -101,7 +104,10 @@ async function PostContent({ params }: Pick<PageProps<"/post/[id]">, "params">) 
                     <Crumb current>{post.title}</Crumb>
                   </ol>
                 </nav>
-                <ShareButton title={post.title} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <PostReactions postId={post.id} initialLikeCount={likeCount} />
+                  <ShareButton title={post.title} />
+                </div>
               </div>
 
               <header className="mb-8 flex flex-col">
