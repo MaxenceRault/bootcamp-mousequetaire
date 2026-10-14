@@ -1,12 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/Avatar";
 import { buttonClassName } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
-import { getSessionSnapshot, parseSessionUser, subscribeSession, type SessionUser } from "@/lib/session";
+import {
+  clearSession,
+  getSessionSnapshot,
+  parseSessionUser,
+  subscribeSession,
+  type SessionUser,
+} from "@/lib/session";
 
 // Zone compte de la Navbar. Visiteur : bouton « Se connecter ». Connecté (token valide) : avatar + menu.
 // La session est stockée dans le navigateur : côté serveur, on ne sait pas encore → emplacement réservé.
@@ -33,6 +40,13 @@ export function NavbarAccount() {
 // Menu déroulant du compte : s'ouvre au survol ou au focus clavier.
 function AccountMenu({ user }: { user: SessionUser }) {
   const t = useTranslations("Navbar");
+  const router = useRouter();
+
+  // Supprime le token du navigateur : la Navbar repasse en visiteur via l'événement de session.
+  function handleLogout() {
+    clearSession();
+    router.push("/");
+  }
 
   return (
     <div className="group relative">
@@ -60,6 +74,16 @@ function AccountMenu({ user }: { user: SessionUser }) {
             <Icon name="settings" className="size-4" />
             {t("settings")}
           </Link>
+          <div className="mt-1 border-t border-line pt-1">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-body-md text-ink-soft transition hover:bg-canvas hover:text-ink"
+            >
+              <Icon name="logout" className="size-4" />
+              {t("logout")}
+            </button>
+          </div>
         </div>
       </div>
     </div>
