@@ -236,6 +236,56 @@ export async function findPostSummariesByIds(ids: number[], limit: number): Prom
   return rows;
 }
 
+// Post transmis à l'IA du planificateur (textes tronqués : taille du prompt maîtrisée).
+export type PostForTrip = {
+  id: number;
+  title: string;
+  short_description: string;
+  long_description: string;
+  destination_country_code: string;
+  destination_state_code: string | null;
+  destination_city: string | null;
+  tags: { country_code: string; state_code: string | null; city: string | null }[];
+};
+
+// Posts du même type de récit dont la destination OU un tag est dans le lieu choisi (hiérarchique,
+// comme findPostIdsByPlace), les plus récents d'abord.
+export async function findPostsForTrip(
+  { country, state, city }: PlaceFilter,
+  archetypeId: number,
+  limit: number,
+): Promise<PostForTrip[]> {
+  const db = await getDb();
+  const { rows } = await db.query<PostForTrip>(
+    `select p.id, p.title, p.short_description, left(p.long_description, 1500) as long_description,
+       p.destination_country_code, p.destination_state_code, p.destination_city,
+       coalesce(
+         (select json_agg(json_build_object('country_code', t.country_code, 'state_code', t.state_code, 'city', t.city))
+            from post_tag pt join tag t on t.id = pt.tag_id
+           where pt.post_id = p.id),
+         '[]'
+       ) as tags
+     from post p
+     where p.archetype_id = $4
+       and not p.is_hidden
+       and p.id in (
+         select id from post
+          where destination_country_code = $1
+            and ($2::text is null or destination_state_code = $2)
+            and ($3::text is null or destination_city = $3)
+         union
+         select pt.post_id from post_tag pt join tag t on t.id = pt.tag_id
+          where t.country_code = $1
+            and ($2::text is null or t.state_code = $2)
+            and ($3::text is null or t.city = $3)
+       )
+     order by p.created_at desc
+     limit $5`,
+    [country, state ?? null, city ?? null, archetypeId, limit],
+  );
+  return rows;
+}
+
 // Ligne du feed : post + slug du type de récit + profil public de l'auteur (jamais email ni hash).
 export type FeedPostRow = {
   id: number;
