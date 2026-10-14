@@ -64,28 +64,29 @@ src/
     ├── ai.ts                  # Helpers Gemini & embeddings
     ├── posts.ts               # Accès aux posts du feed (seul point à brancher sur l'API back-end)
     └── demo-posts.ts          # Données de démo du feed, en attendant l'API
-supabase/
-└── migrations/                # SQL du schéma (à exécuter dans le SQL Editor de Supabase)
+db/
+└── migrations/                # SQL du schéma Cloud SQL (à exécuter dans Cloud SQL Studio)
 scripts/
-└── seed.mts                   # Seed manuel : npm run seed (clé secrète, local uniquement)
+└── seed.mts                   # Seed manuel : npm run seed (identité Google + rôle brb_admin, local uniquement)
 ├── lib/
 │   ├── controllers/           # HTTP : validation Zod, rate limit, appel du service, réponse
 │   ├── services/              # Règles métier (hash, JWT, règles d'inscription)
-│   ├── repositories/          # Accès base de données (Supabase) uniquement
+│   ├── repositories/          # Accès base de données (Cloud SQL) et Cloud Storage uniquement
 │   ├── jwt.ts                 # Signature / vérification JWT (jose)
 │   ├── rateLimit.ts           # Rate limit en mémoire
 │   ├── session.ts             # Côté client : stockage du token, appels API (apiFetch ajoute le Bearer)
 │   ├── country.ts             # Drapeau emoji et nom du pays à partir du code pays
 │   ├── openapi.ts             # Spécification OpenAPI de l'API (corps de requête générés depuis schemas/)
 │   └── ai.ts                  # Helpers Gemini & embeddings
-└── utils/supabase/            # Clients Supabase (admin.ts = clé secrète, serveur uniquement)
-supabase/                      # Scripts SQL à exécuter dans le SQL Editor
+└── utils/                     # Clients GCP, serveur uniquement : db.ts (Cloud SQL, auth IAM), storage.ts (Cloud Storage)
+db/                            # Scripts SQL à exécuter dans Cloud SQL Studio
 ```
 
 - Ne pas créer de dossier ou de fichier hors de cette structure sans le demander d'abord. Si un nouveau fichier est nécessaire, le placer au bon endroit (page → `app/`, composant → `components/`, endpoint → `app/api/v1/`, schéma Zod → `schemas/`, logique métier → `services/`, accès BDD → `repositories/`, helpers/clients externes → `lib/`) et le signaler.
 - Les fichiers existent mais sont vides : ne les remplir que lorsqu'on travaille sur la fonctionnalité concernée. Ne pas inventer d'UI, de textes, de données ou de logique qui n'ont pas été demandés.
-- Base de données : Supabase, **pas branchée dans l'app pour l'instant** (clients et `proxy.ts` retirés). En attendant, le feed lit les données de démo de `src/lib/demo-posts.ts` via `src/lib/posts.ts`. Une fois branchée, les clients Supabase iront dans `src/utils/supabase/` et ne seront importés que par `repositories/`.
-- Schéma de la base (tables `users`, `post`, `archetype`, `tag`, `post_tag`, RLS en lecture seule ; bucket Storage `post-photos` public en lecture) dans `supabase/migrations/`. Une migration s'exécute **une seule fois** : tout changement de schéma passe par un nouveau fichier daté, jamais en modifiant ou relançant un ancien. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app. `SUPABASE_SECRET_KEY` n'est lue que par ce script.
+- Base de données : **Cloud SQL (PostgreSQL)** sur GCP, instance `biirb-511608:europe-west9:biirb-db1`, base `brb`. Connexion via `src/utils/db.ts` (connecteur `@google-cloud/cloud-sql-connector` + `pg`), en **authentification IAM** : aucun mot de passe de base dans l'app ni dans `.env*`. En local : `gcloud auth application-default login` + variables `CLOUD_SQL_INSTANCE`, `DB_NAME`, `DB_USER` (son email Google). `getDb()` n'est importé que par `repositories/`. Le feed lit encore les données de démo de `src/lib/demo-posts.ts` via `src/lib/posts.ts`.
+- Photos des posts : bucket **Cloud Storage** `biirb-post-photos` (public en lecture), via `src/utils/storage.ts`, importé uniquement par `repositories/`. Écriture réservée au serveur.
+- Schéma de la base (tables `users`, `post`, `archetype`, `tag`, `post_tag`) dans `db/migrations/`. Une migration s'exécute **une seule fois** : tout changement de schéma passe par un nouveau fichier daté (jamais de modification à la main dans la console, jamais en modifiant ou relançant un ancien fichier), commençant par `set role brb_admin;`. Rôles Postgres : `brb_admin` (propriétaire, développeurs : migrations + seed) et `brb_app` (droits minimaux de l'app, compte de service Cloud Run `brb-run`) : chaque migration accorde à `brb_app` uniquement les droits utilisés par le code. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app.
 - Architecture back : route → controller → service → repository → base. Pas d'accès base hors des repositories.
 - Documentation API : toute nouvelle route sous `/api/v1/` est ajoutée dans `src/lib/openapi.ts` (visible sur `/api-docs` en dev). Les schémas Zod des requêtes vont dans `schemas/` pour être réutilisés par la doc.
 - **Nommage en anglais** : tables, colonnes, types, variables, fonctions, fichiers et routes (ex. `short_description`, `start_date`, `archetype_id`). Seuls les textes affichés (`messages/fr.json`) et les commentaires sont en français.
@@ -104,17 +105,17 @@ SERVICE      services/*.service.ts
    │  entités / paramètres de requête
    ▼
 REPOSITORY   repositories/*.repository.ts
-   │  client Supabase (requêtes paramétrées)
+   │  pool `pg` (requêtes paramétrées $1, $2…)
    ▼
-DATABASE     Supabase (Postgres)
+DATABASE     Cloud SQL (Postgres)
 ```
 
 - **Controller** : valide la requête avec le schéma Zod (`schemas/`), extrait les données (params, body, searchParams), vérifie l'auth, appelle le service adapté, puis renvoie la réponse HTTP (200, 400, 401, 404…) avec un message générique en cas d'erreur. Aucune logique métier, aucun accès direct à la base.
-- **Service** : contient la logique et les règles métier (calculs, transformations, vérification que l'utilisateur est propriétaire de la ressource, orchestration de plusieurs opérations). Sait *quoi* faire, pas *comment* c'est stocké : n'importe ni Supabase ni rien de HTTP (`Request`, `NextResponse`, cookies, en-têtes).
-- **Repository** : seul endroit qui parle à la base. Uniquement du CRUD via le client Supabase (jamais de SQL concaténé), colonnes sélectionnées explicitement (jamais de hash ni de champ interne renvoyé vers le haut). Aucune règle métier.
+- **Service** : contient la logique et les règles métier (calculs, transformations, vérification que l'utilisateur est propriétaire de la ressource, orchestration de plusieurs opérations). Sait *quoi* faire, pas *comment* c'est stocké : n'importe ni la base (`pg`, `utils/db`) ni rien de HTTP (`Request`, `NextResponse`, cookies, en-têtes).
+- **Repository** : seul endroit qui parle à la base. Uniquement du CRUD en SQL paramétré (`$1`, `$2`… ; jamais de SQL concaténé avec une entrée), colonnes sélectionnées explicitement (jamais de hash ni de champ interne renvoyé vers le haut). Aucune règle métier.
 - Les dépendances ne vont que vers le bas et sans sauter de couche : controller → service → repository → base. Un controller n'appelle jamais un repository directement ; un repository n'appelle jamais un service.
 - Un fichier par ressource et par couche : `schemas/post.schema.ts`, `services/post.service.ts`, `repositories/post.repository.ts`.
-- Les composants `"use client"` n'importent jamais `services/`, `repositories/` ni `utils/supabase/server.ts` : ils passent par une route API ou une Server Action.
+- Les composants `"use client"` n'importent jamais `services/`, `repositories/` ni `utils/` : ils passent par une route API ou une Server Action.
 
 ## Internationalisation
 
