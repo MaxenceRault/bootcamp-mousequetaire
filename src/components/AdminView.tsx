@@ -64,7 +64,7 @@ type ReportedPost = {
   author: { id: string; username: string; display_name: string };
   report_count: number;
   last_reported_at: string;
-  reasons: { reason: string | null; reporter: string; created_at: string }[];
+  reasons: { reason: string | null; reporter: string | null; created_at: string }[];
 };
 
 type AdminArchetype = {
@@ -379,7 +379,7 @@ function ReportsTab({ call }: { call: Call }) {
                     {reason.reason ?? t("reports.noReason")}
                   </p>
                   <p className="text-label-sm text-ink-soft">
-                    @{reason.reporter} · {format.dateTime(new Date(reason.created_at), { dateStyle: "medium", timeStyle: "short" })}
+                    {reason.reporter ? `@${reason.reporter}` : t("reports.system")} · {format.dateTime(new Date(reason.created_at), { dateStyle: "medium", timeStyle: "short" })}
                   </p>
                 </li>
               ))}
@@ -390,7 +390,12 @@ function ReportsTab({ call }: { call: Call }) {
                 <Icon name="check" className="size-4" />
                 {t("reports.dismiss")}
               </Button>
-              {!report.is_hidden && (
+              {report.is_hidden ? (
+                <Button variant="secondary" size="sm" onClick={() => act(`/posts/${report.post_id}`, "PATCH", { hidden: false })}>
+                  <Icon name="visibility" className="size-4" />
+                  {t("posts.approve")}
+                </Button>
+              ) : (
                 <Button variant="secondary" size="sm" onClick={() => act(`/posts/${report.post_id}`, "PATCH", { hidden: true })}>
                   <Icon name="visibilityOff" className="size-4" />
                   {t("posts.hide")}

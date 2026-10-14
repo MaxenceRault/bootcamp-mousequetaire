@@ -148,7 +148,8 @@ export async function listPosts({ q, page, visibility }: { q?: string; page: num
 
 export async function setPostHidden(adminId: string, postId: number, hidden: boolean) {
   if (!(await updatePostVisibilityById(postId, hidden))) throw new AdminError("NOT_FOUND");
-  if (hidden) await closeOpenReports(postId, "resolved");
+  // Masqué : signalements traités ; réaffiché (ex. post en attente de modération) : validé.
+  await closeOpenReports(postId, hidden ? "resolved" : "dismissed");
   await log(adminId, hidden ? "post.hide" : "post.show", "post", postId);
   return { id: postId, hidden };
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { useFormatter, useNow, useTranslations } from "next-intl";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Field } from "@/components/ui/Field";
@@ -15,11 +15,12 @@ import { Textarea } from "@/components/ui/Textarea";
 import { countryName, flagEmoji } from "@/lib/country";
 import type { Archetype } from "@/lib/posts";
 import { apiFetch, getSessionSnapshot } from "@/lib/session";
+import { buildTripCsv, downloadFile } from "@/lib/tripExport";
 
 const ITEM_CATEGORIES = ["transport", "lodging", "activity", "food"] as const;
-type ItemCategory = (typeof ITEM_CATEGORIES)[number];
+export type ItemCategory = (typeof ITEM_CATEGORIES)[number];
 
-type Trip = {
+export type Trip = {
   id: number;
   title: string;
   destination_country_code: string;
@@ -38,7 +39,7 @@ type Trip = {
   season_note: string | null;
 };
 
-type TripItem = {
+export type TripItem = {
   id: number;
   day: string;
   start_time: string;
@@ -48,9 +49,9 @@ type TripItem = {
   source_post: { id: number; title: string; slug: string } | null;
 };
 
-type TripTask = { id: number; label: string; detail: string | null; done: boolean };
+export type TripTask = { id: number; label: string; detail: string | null; done: boolean };
 
-type TripDetail = { trip: Trip; items: TripItem[]; tasks: TripTask[] };
+export type TripDetail = { trip: Trip; items: TripItem[]; tasks: TripTask[] };
 
 type TripSuggestion = Omit<TripItem, "id"> & { id: number; status: "pending" | "accepted" | "rejected" };
 
@@ -85,7 +86,7 @@ export function plannerError(code: string): PlannerError {
   return (PLANNER_ERRORS as readonly string[]).includes(code) ? (code as PlannerError) : "INTERNAL_ERROR";
 }
 
-const CATEGORY_ICONS: Record<ItemCategory, IconName> = {
+export const CATEGORY_ICONS: Record<ItemCategory, IconName> = {
   transport: "train",
   lodging: "hotel",
   activity: "explore",
@@ -100,11 +101,11 @@ const BUDGET_FIELDS = [
 ] as const;
 
 // Midi local : la date ne glisse pas selon le fuseau horaire.
-function parseDay(day: string) {
+export function parseDay(day: string) {
   return new Date(`${day}T12:00:00`);
 }
 
-function tripDays(start: string, end: string) {
+export function tripDays(start: string, end: string) {
   const days: string[] = [];
   for (let date = parseDay(start); date <= parseDay(end); date.setDate(date.getDate() + 1)) {
     days.push(
@@ -114,7 +115,7 @@ function tripDays(start: string, end: string) {
   return days;
 }
 
-function budgetTotal(trip: Trip) {
+export function budgetTotal(trip: Trip) {
   return trip.budget_lodging + trip.budget_transit + trip.budget_dining + trip.budget_activities;
 }
 
@@ -185,6 +186,7 @@ export function TripPlanner({ tripId }: { tripId: number }) {
     <div className="flex flex-col gap-6">
       <TripHeader
         trip={trip}
+        items={items}
         mutate={mutate}
         regenerating={regenerating}
         onRegenerate={regenerate}
@@ -211,12 +213,14 @@ export function TripPlanner({ tripId }: { tripId: number }) {
 
 function TripHeader({
   trip,
+  items,
   mutate,
   regenerating,
   onRegenerate,
   onDelete,
 }: {
   trip: Trip;
+  items: TripItem[];
   mutate: Mutate;
   regenerating: boolean;
   onRegenerate: () => void;
@@ -226,6 +230,16 @@ function TripHeader({
   const format = useFormatter();
   const now = useNow({ updateInterval: 60_000 });
   const [editing, setEditing] = useState(false);
+
+  function exportCsv() {
+    const days = tripDays(trip.start_date, trip.end_date);
+    const csv = buildTripCsv({ trip, items, tasks: [] }, days, {
+      headers: ["day", "date", "time", "category", "title", "description", "source"].map((key) => t(`export.columns.${key}`)),
+      category: (category) => t(`categories.${category as ItemCategory}`),
+      dayLabel: (number) => t("days.label", { number }),
+    });
+    downloadFile(csv.name, csv.content, "text/csv;charset=utf-8");
+  }
   const total = budgetTotal(trip);
 
   async function handleRename(event: FormEvent<HTMLFormElement>) {
@@ -276,6 +290,14 @@ function TripHeader({
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={exportCsv} className="gap-1.5">
+            <Icon name="download" className="size-4" />
+            {t("export.csv")}
+          </Button>
+          <Link href={`/planner/${trip.id}/print`} target="_blank" className={buttonClassName("sm", "gap-1.5", "secondary")}>
+            <Icon name="print" className="size-4" />
+            {t("export.pdf")}
+          </Link>
           <Button variant="secondary" size="sm" onClick={onDelete} disabled={regenerating} className="gap-1.5">
             <Icon name="delete" className="size-4" />
             {t("trip.delete")}
@@ -433,8 +455,8 @@ function ItemRow({ item, days, mutate }: { item: TripItem; days: string[]; mutat
   }
 
   return (
-    <li className="flex gap-4 rounded-lg bg-surface-muted p-4">
-      <span className="w-12 shrink-0 font-display text-label-lg text-ink">{item.start_time}</span>
+    <li className="flex gap-3 rounded-lg bg-surface-muted p-4 sm:gap-4">
+      <span className="w-11 shrink-0 font-display text-label-lg text-ink sm:w-12">{item.start_time}</span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="flex items-center gap-2 font-display text-label-lg text-ink">
           <Icon name={CATEGORY_ICONS[item.category]} className="size-4.5 text-ink-soft" />
@@ -450,7 +472,8 @@ function ItemRow({ item, days, mutate }: { item: TripItem; days: string[]; mutat
           </p>
         )}
       </div>
-      <div className="flex shrink-0 items-start gap-1">
+      {/* Empilés sur mobile : plus de place pour le titre. */}
+      <div className="-mt-1.5 -mr-1.5 flex shrink-0 flex-col items-start sm:mt-0 sm:mr-0 sm:flex-row sm:gap-1">
         <IconButton icon="edit" label={t("item.edit", { title: item.title })} onClick={() => setEditing(true)} />
         <IconButton
           icon="delete"

@@ -67,7 +67,7 @@ export function TravelCard({ post, now, preload = false }: TravelCardProps) {
           {/* État chargé pour toute la page par FeedList, pas d'appel par carte. */}
           <PostReactions postId={post.id} initialLikeCount={post.likeCount} loadViewer={false} />
           <Link href={`/post/${post.slug}`} className={buttonClassName("sm", "ml-auto")}>
-            <Icon name="sparkles" className="size-4" />
+            <Icon name="book" className="size-4" />
             {t("cta")}
           </Link>
         </div>

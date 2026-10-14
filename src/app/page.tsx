@@ -5,11 +5,12 @@ import { getTranslations } from "next-intl/server";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { FeedList } from "@/components/FeedList";
+import { HomeHero } from "@/components/HomeHero";
 import { NewPostButton } from "@/components/NewPostButton";
 import { Card } from "@/components/ui/Card";
 import type { Archetype, FeedPage } from "@/lib/posts";
 import { listActiveArchetypes } from "@/lib/services/archetype.service";
-import { getFeedPage, searchPosts } from "@/lib/services/post.service";
+import { getFeedPage, getHeroPhotos, searchPosts } from "@/lib/services/post.service";
 import { searchQuerySchema } from "@/schemas/post.schema";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
@@ -25,6 +26,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       <Navbar />
 
       <main className="relative w-full flex-1 pt-24 pb-20">
+        <Suspense fallback={<HeroSkeleton />}>
+          <Hero searchParams={searchParams} />
+        </Suspense>
         <div className="mx-auto max-w-190 px-4 md:px-6">
           <h1 className="sr-only">{t("title")}</h1>
           {/* Dépend de l'URL (?archetype=) : rendu à la requête. */}
@@ -38,6 +42,28 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
       <Footer />
     </>
+  );
+}
+
+// Sur le feed seulement : pas sur les résultats de recherche.
+async function Hero({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
+  await connection();
+  if (searchQuerySchema.safeParse((await searchParams).q).success) return null;
+
+  const photos = await getHeroPhotos().catch(() => []);
+  if (photos.length === 0) return null;
+  return (
+    <div className="mx-auto mb-8 max-w-300 px-4 md:px-6">
+      <HomeHero photos={photos} />
+    </div>
+  );
+}
+
+function HeroSkeleton() {
+  return (
+    <div className="mx-auto mb-8 max-w-300 px-4 md:px-6">
+      <div className="h-64 animate-pulse rounded-lg bg-surface-muted md:h-96" />
+    </div>
   );
 }
 

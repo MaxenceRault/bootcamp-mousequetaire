@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import type { Archetype, FeedPage, FeedPost } from "@/lib/posts";
 import type { UserRole } from "@/lib/roles";
 import { findSelectableArchetype } from "@/lib/services/archetype.service";
+import { moderatePost, type ModerationReason } from "@/lib/services/moderation.service";
+import { insertSystemReport } from "@/lib/repositories/report.repository";
 import {
   deleteAuthorPost,
   deletePost,
@@ -11,6 +13,7 @@ import {
   findFeedPosts,
   findPostOwnership,
   findPostDetail,
+  findRandomCoverPhotos,
   findPostSlugById,
   findPostIdsByPlace,
   findPostSummariesByIds,
@@ -31,7 +34,10 @@ import { describePlace, placeExists, searchPlaces, type PlaceNames } from "@/lib
 export const FEED_PAGE_SIZE = 10;
 
 export class PostError extends Error {
-  constructor(public readonly code: "INVALID_INPUT" | "NOT_FOUND") {
+  constructor(
+    public readonly code: "INVALID_INPUT" | "NOT_FOUND" | "CONTENT_REJECTED" | "PENDING_REVIEW",
+    public readonly reasons: ModerationReason[] = [],
+  ) {
     super(code);
   }
 }
@@ -39,7 +45,11 @@ export class PostError extends Error {
 // Deux posts du même titre au même instant : même slug calculé.
 const SLUG_ATTEMPTS = 3;
 
-export async function createPost(authorId: string, input: CreatePostInput): Promise<{ id: number; slug: string }> {
+// pendingReview : IA de modération indisponible, publié masqué jusqu'à validation par un admin.
+export async function createPost(
+  authorId: string,
+  input: CreatePostInput,
+): Promise<{ id: number; slug: string; pendingReview: boolean }> {
   const destination = { country: input.destinationCountry, state: input.destinationState, city: input.destinationCity };
   const tags = uniquePlaces(input.tags);
 
@@ -50,6 +60,18 @@ export async function createPost(authorId: string, input: CreatePostInput): Prom
 
   const archetype = await findSelectableArchetype(input.archetype);
   if (!archetype) throw new PostError("INVALID_INPUT");
+
+  // Vérifié avant tout enregistrement : un contenu refusé n'atteint ni le bucket ni la base.
+  const moderation = await moderatePost({
+    title: input.title,
+    shortDescription: input.shortDescription,
+    longDescription: input.longDescription,
+    photoAlt: input.photoAlt,
+    photo: input.photo,
+    photoType: image.contentType,
+  });
+  if (moderation.status === "rejected") throw new PostError("CONTENT_REJECTED", moderation.reasons);
+  const pendingReview = moderation.status === "unavailable";
 
   // Jamais le nom de fichier envoyé par le client.
   const photoPath = `${authorId}/${randomUUID()}.${image.extension}`;
@@ -70,6 +92,8 @@ export async function createPost(authorId: string, input: CreatePostInput): Prom
       start_date: input.startDate,
       end_date: input.endDate,
       archetype_id: archetype.id,
+      is_hidden: pendingReview,
+      pending_review: pendingReview,
     };
 
     let created: { id: number; slug: string } | null = null;
@@ -86,12 +110,13 @@ export async function createPost(authorId: string, input: CreatePostInput): Prom
         );
         await insertPostTags(postId, tagIds);
       }
+      if (pendingReview) await insertSystemReport(postId, "Modération automatique indisponible : à vérifier avant publication.");
     } catch (error) {
       await deletePost(postId).catch(() => {});
       throw error;
     }
 
-    return created;
+    return { ...created, pendingReview };
   } catch (error) {
     await deletePostPhoto(photoPath).catch(() => {});
     throw error;
@@ -161,7 +186,9 @@ async function requireOwnPost(postId: number, userId: string) {
 }
 
 export async function setPostHidden(userId: string, postId: number, hidden: boolean) {
-  await requireOwnPost(postId, userId);
+  const post = await requireOwnPost(postId, userId);
+  // En attente de modération : seul un admin peut le publier.
+  if (!hidden && post.pending_review) throw new PostError("PENDING_REVIEW");
   if (!(await updatePostVisibility(postId, userId, hidden))) throw new PostError("NOT_FOUND");
   return { id: postId, hidden };
 }
@@ -275,4 +302,10 @@ export async function searchPosts(query: string): Promise<FeedPost[]> {
 
 export function getPostSlug(id: number): Promise<string | null> {
   return findPostSlugById(id);
+}
+
+const HERO_PHOTOS = 6;
+
+export function getHeroPhotos() {
+  return findRandomCoverPhotos(HERO_PHOTOS);
 }

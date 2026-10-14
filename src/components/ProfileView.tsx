@@ -26,6 +26,7 @@ type Story = {
   start_date: string;
   created_at: string;
   is_hidden: boolean;
+  pending_review: boolean;
 };
 
 type ProfileData = { user: EditableProfile; stories: Story[]; storyCount: number; saved: StoryCardData[] };
@@ -290,7 +291,7 @@ function StoriesGrid({ stories, ...actions }: { stories: Story[] } & StoryAction
   );
 }
 
-const STORY_ERRORS = ["NOT_FOUND", "TOO_MANY_REQUESTS", "INTERNAL_ERROR"] as const;
+const STORY_ERRORS = ["NOT_FOUND", "PENDING_REVIEW", "TOO_MANY_REQUESTS", "INTERNAL_ERROR"] as const;
 type StoryError = (typeof STORY_ERRORS)[number];
 
 function ProfileStory({ story, onStoryHiddenChange, onStoryDeleted }: { story: Story } & StoryActions) {
@@ -335,6 +336,7 @@ function ProfileStory({ story, onStoryHiddenChange, onStoryDeleted }: { story: S
       <StoryCard
         story={story}
         hidden={story.is_hidden}
+        pendingReview={story.pending_review}
         actions={
           <>
             {confirmingDelete ? (
@@ -349,10 +351,13 @@ function ProfileStory({ story, onStoryHiddenChange, onStoryDeleted }: { story: S
               </>
             ) : (
               <>
-                <Button size="sm" variant="secondary" disabled={pending} onClick={toggleHidden} aria-describedby={titleId}>
-                  <Icon name={story.is_hidden ? "visibility" : "visibilityOff"} className="size-4" />
-                  {story.is_hidden ? t("stories.show") : t("stories.hide")}
-                </Button>
+                {/* En attente de modération : seul un admin peut le publier. */}
+                {!story.pending_review && (
+                  <Button size="sm" variant="secondary" disabled={pending} onClick={toggleHidden} aria-describedby={titleId}>
+                    <Icon name={story.is_hidden ? "visibility" : "visibilityOff"} className="size-4" />
+                    {story.is_hidden ? t("stories.show") : t("stories.hide")}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="secondary"

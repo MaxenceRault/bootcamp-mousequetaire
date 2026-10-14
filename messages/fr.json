@@ -18,7 +18,9 @@
     "settings": "Paramètres",
     "logout": "Se déconnecter",
     "search": "Rechercher",
-    "admin": "Administration"
+    "admin": "Administration",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu"
   },
   "Home": {
     "title": "Les derniers voyages de la communauté",
@@ -34,7 +36,10 @@
     "searchTitle": "Résultats pour « {query} »",
     "searchCount": "{count, plural, =0 {Aucun récit trouvé} one {# récit trouvé} other {# récits trouvés}}",
     "searchEmpty": "Aucun récit ne correspond à votre recherche. Essayez un pays, une ville ou un autre mot.",
-    "searchClear": "Effacer la recherche"
+    "searchClear": "Effacer la recherche",
+    "heroLabel": "Bienvenue sur Brb",
+    "heroBrand": "Biirb.",
+    "heroTagline": "Un coup d'ailes sur un coup de cœur."
   },
   "Profile": {
     "metaTitle": "Mon profil",
@@ -98,7 +103,8 @@
       "NOT_FOUND": "Ce récit n'existe plus.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
       "PAYLOAD_TOO_LARGE": "Image trop lourde : 3 Mo maximum.",
-      "LENGTH_REQUIRED": "Envoi impossible. Réessayez."
+      "LENGTH_REQUIRED": "Envoi impossible. Réessayez.",
+      "PENDING_REVIEW": "Ce récit est en attente de vérification par la modération."
     },
     "itinerariesError": "Impossible de charger vos itinéraires. Réessayez plus tard."
   },
@@ -136,7 +142,7 @@
     "empty": "Aucun récit pour ce lieu pour l'instant."
   },
   "TravelCard": {
-    "cta": "Voir / Demander à l'IA"
+    "cta": "Découvrir ce voyage"
   },
   "Footer": {
     "brand": "Brb",
@@ -222,7 +228,21 @@
       "INVALID_INPUT": "Vérifiez les champs du formulaire.",
       "TOO_MANY_REQUESTS": "Trop de publications. Réessayez plus tard.",
       "PAYLOAD_TOO_LARGE": "La photo est trop lourde (5 Mo maximum).",
-      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
+      "CONTENT_REJECTED": "Votre récit n'a pas été publié : il ne respecte pas les règles de la communauté."
+    },
+    "moderation": {
+      "checking": "Vérification du récit…",
+      "reasons": "Motif : {list}. Modifiez le récit ou la photo, puis réessayez.",
+      "sexual": "contenu sexuel ou nudité",
+      "violence": "violence choquante",
+      "hate": "propos haineux",
+      "insult": "insultes",
+      "politics": "message politique",
+      "blasphemy": "propos blasphématoires",
+      "other": "contenu inapproprié",
+      "pendingReview": "Merci ! Votre récit est enregistré : il sera visible dès qu'un modérateur l'aura vérifié.",
+      "profileLink": "Voir mon profil"
     }
   },
   "TripContextBar": {
@@ -351,6 +371,19 @@
       "DAILY_LIMIT_REACHED": "Vous avez utilisé vos 15 requêtes IA du jour. Revenez demain !",
       "AI_DISABLED": "L'IA est momentanément indisponible. Réessayez plus tard.",
       "FORBIDDEN": "Votre compte ne peut pas utiliser l'IA."
+    },
+    "export": {
+      "csv": "CSV",
+      "pdf": "PDF",
+      "columns": {
+        "day": "Jour",
+        "date": "Date",
+        "time": "Heure",
+        "category": "Catégorie",
+        "title": "Activité",
+        "description": "Description",
+        "source": "Récit source"
+      }
     }
   },
   "DateRangePicker": {
@@ -369,7 +402,8 @@
     "done": "Valider"
   },
   "StoryCard": {
-    "hidden": "Masqué"
+    "hidden": "Masqué",
+    "pendingReview": "En attente de vérification"
   },
   "Roles": {
     "traveler": "Voyageur",
@@ -434,7 +468,8 @@
       "empty": "Aucun signalement en attente.",
       "count": "{count, plural, one {# signalement} other {# signalements}}",
       "noReason": "Sans motif",
-      "dismiss": "Classer sans suite"
+      "dismiss": "Classer sans suite",
+      "system": "Modération automatique"
     },
     "posts": {
       "search": "Titre du récit ou pseudo de l'auteur…",
@@ -450,7 +485,8 @@
       "show": "Réafficher",
       "delete": "Supprimer",
       "deleteLabel": "Supprimer le récit {title}",
-      "deleteConfirm": "Supprimer définitivement le récit « {title} » et sa photo ?"
+      "deleteConfirm": "Supprimer définitivement le récit « {title} » et sa photo ?",
+      "approve": "Valider et publier"
     },
     "users": {
       "search": "Pseudo ou nom…",
@@ -509,7 +545,8 @@
         "reports_dismiss": "Signalements classés",
         "archetype_create": "Type de récit créé",
         "archetype_update": "Type de récit modifié",
-        "settings_update": "Réglages de l'IA modifiés"
+        "settings_update": "Réglages de l'IA modifiés",
+        "comment_delete": "Commentaire supprimé"
       },
       "targets": {
         "user": "Utilisateur",
@@ -526,6 +563,41 @@
       "TARGET_IS_ADMIN": "Retirez d'abord le rôle admin de ce compte.",
       "ARCHETYPE_TAKEN": "Un type de récit porte déjà ce nom.",
       "TOO_MANY_REQUESTS": "Trop d'actions d'affilée. Patientez une minute.",
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+    }
+  },
+  "TripExport": {
+    "metaTitle": "Planning à imprimer",
+    "brand": "Brb.",
+    "documentTitle": "Planning de voyage",
+    "exportedOn": "Exporté le {date}",
+    "days": "{count, plural, one {# jour} other {# jours}}",
+    "euros": "{amount} €",
+    "total": "Total",
+    "footer": "Planning généré avec Brb, à partir des récits de la communauté",
+    "hint": "Choisissez « Enregistrer au format PDF » dans la fenêtre d'impression.",
+    "print": "Imprimer / PDF",
+    "loading": "Préparation du document…",
+    "error": "Impossible de charger ce voyage."
+  },
+  "Comments": {
+    "title": "{count, plural, =0 {Questions et commentaires} one {# commentaire} other {# commentaires}}",
+    "empty": "Pas encore de commentaire. Une question sur ce voyage ? Posez-la à l'auteur !",
+    "label": "Votre commentaire",
+    "placeholder": "Posez une question ou partagez votre avis…",
+    "submit": "Publier",
+    "sending": "Vérification…",
+    "delete": "Supprimer le commentaire",
+    "deleteConfirm": "Supprimer ce commentaire ?",
+    "loginPrompt": "Connectez-vous pour poser une question ou commenter.",
+    "login": "Se connecter",
+    "reasons": "Motif : {list}.",
+    "errors": {
+      "INVALID_INPUT": "Le commentaire est vide ou trop long.",
+      "TOO_MANY_REQUESTS": "Trop de commentaires d'affilée. Patientez quelques minutes.",
+      "FORBIDDEN": "Votre compte ne peut pas commenter.",
+      "NOT_FOUND": "Ce récit ou ce commentaire n'existe plus.",
+      "CONTENT_REJECTED": "Commentaire refusé : il ne respecte pas les règles de la communauté.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
     }
   }

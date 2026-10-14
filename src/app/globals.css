@@ -84,3 +84,16 @@
   --font-sans: var(--font-inter);
   --font-display: var(--font-space-grotesk);
 }
+
+/* Export PDF du planning (impression) : A4, couleurs conservées. */
+@page {
+  size: A4;
+  margin: 14mm;
+}
+
+@media print {
+  body {
+    print-color-adjust: exact;
+    background: var(--color-surface);
+  }
+}

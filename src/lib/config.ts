@@ -49,6 +49,8 @@ const envSchema = z.object({
   RATE_LIMIT_PROFILE_UPDATE_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_REPORT_MAX: count.default(10),
   RATE_LIMIT_REPORT_WINDOW_SECONDS: seconds.default(60 * 60),
+  RATE_LIMIT_COMMENT_MAX: count.default(20),
+  RATE_LIMIT_COMMENT_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_ADMIN_MAX: count.default(120),
   RATE_LIMIT_ADMIN_WINDOW_SECONDS: seconds.default(60),
 }).refine((env) => env.JWT_REFRESH_SECRET !== env.JWT_SECRET, {
@@ -67,7 +69,7 @@ export type ServerConfig = {
   bcryptSaltRounds: number;
   trustedProxyHops: number;
   rateLimits: Record<
-    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileUpdate" | "report" | "admin",
+    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileUpdate" | "report" | "admin" | "comment",
     RateLimit
   >;
 };
@@ -111,6 +113,7 @@ export function getConfig(): ServerConfig {
       postReact: rateLimit(env.RATE_LIMIT_POST_REACT_MAX, env.RATE_LIMIT_POST_REACT_WINDOW_SECONDS),
       profileUpdate: rateLimit(env.RATE_LIMIT_PROFILE_UPDATE_MAX, env.RATE_LIMIT_PROFILE_UPDATE_WINDOW_SECONDS),
       report: rateLimit(env.RATE_LIMIT_REPORT_MAX, env.RATE_LIMIT_REPORT_WINDOW_SECONDS),
+      comment: rateLimit(env.RATE_LIMIT_COMMENT_MAX, env.RATE_LIMIT_COMMENT_WINDOW_SECONDS),
       admin: rateLimit(env.RATE_LIMIT_ADMIN_MAX, env.RATE_LIMIT_ADMIN_WINDOW_SECONDS),
     },
   };
