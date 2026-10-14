@@ -15,6 +15,8 @@ export type Place = {
 type IndexedPlace = Place & { search: string };
 
 const MAX_RESULTS = 8;
+// Pays retirés de l'app : ni le pays, ni ses régions, ni ses villes ne sont proposés ou acceptés.
+const EXCLUDED_COUNTRIES = new Set(["IL"]);
 
 // Index construit au premier appel puis gardé en mémoire (~150 000 villes + 250 pays).
 let index: IndexedPlace[] | null = null;
@@ -40,6 +42,7 @@ export function searchPlaces(query: string): Place[] {
 // Vérifie qu'un lieu envoyé par le client existe vraiment dans country-state-city.
 // Une ville doit appartenir à la région indiquée, elle-même dans le pays indiqué.
 export function placeExists({ country, state, city }: { country: string; state?: string; city?: string }) {
+  if (EXCLUDED_COUNTRIES.has(country)) return false;
   if (!Country.getCountryByCode(country)) return false;
   if (!state) return !city;
   if (!State.getStateByCodeAndCountry(state, country)) return false;
@@ -52,7 +55,9 @@ function getIndex() {
   // Noms des pays en français à partir du code ISO (la librairie ne les a qu'en anglais).
   const displayNames = new Intl.DisplayNames(["fr"], { type: "region" });
   const countryNames = new Map(
-    Country.getAllCountries().map(({ isoCode, name }) => [isoCode, displayNames.of(isoCode) ?? name]),
+    Country.getAllCountries()
+      .filter(({ isoCode }) => !EXCLUDED_COUNTRIES.has(isoCode))
+      .map(({ isoCode, name }) => [isoCode, displayNames.of(isoCode) ?? name]),
   );
   const stateNames = new Map(
     State.getAllStates().map(({ countryCode, isoCode, name }) => [`${countryCode}-${isoCode}`, name]),
@@ -68,6 +73,7 @@ function getIndex() {
   // Clé unique : une même région peut contenir deux villes du même nom.
   const seen = new Set<string>();
   const cities = City.getAllCities().flatMap(({ name, countryCode, stateCode }) => {
+    if (EXCLUDED_COUNTRIES.has(countryCode)) return [];
     const key = `${countryCode}-${stateCode}-${name}`;
     if (seen.has(key)) return [];
     seen.add(key);

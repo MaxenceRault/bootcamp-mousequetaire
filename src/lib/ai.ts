@@ -25,10 +25,12 @@ type GenerateJsonOptions = {
   prompt: string;
   // Format de réponse imposé au modèle. La réponse reste à valider (Zod) : c'est une donnée non fiable.
   schema: Schema;
+  // Taille maximale de la réponse (par défaut : un planning d'un mois).
+  maxOutputTokens?: number;
 };
 
 // Renvoie la réponse JSON du modèle, non validée.
-export async function generateJson({ system, prompt, schema }: GenerateJsonOptions): Promise<unknown> {
+export async function generateJson({ system, prompt, schema, maxOutputTokens = 32_768 }: GenerateJsonOptions): Promise<unknown> {
   const response = await getClient().models.generateContent({
     model: MODEL,
     contents: prompt,
@@ -37,7 +39,7 @@ export async function generateJson({ system, prompt, schema }: GenerateJsonOptio
       responseMimeType: "application/json",
       responseSchema: schema,
       temperature: 0.7,
-      maxOutputTokens: 32_768,
+      maxOutputTokens,
       abortSignal: AbortSignal.timeout(TIMEOUT_MS),
     },
   });

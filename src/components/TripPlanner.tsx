@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { useFormatter, useNow, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -52,12 +52,28 @@ type TripTask = { id: number; label: string; detail: string | null; done: boolea
 
 type TripDetail = { trip: Trip; items: TripItem[]; tasks: TripTask[] };
 
+// GET / POST /api/v1/trips/[id]/messages
+type TripSuggestion = Omit<TripItem, "id"> & { id: number; status: "pending" | "accepted" | "rejected" };
+
+type TripMessage = {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  off_topic: boolean;
+  suggestions: TripSuggestion[];
+};
+
+// Limites de la discussion (alignées sur trip.schema et trip.service).
+const CHAT_MESSAGE_MAX = 500;
+const CHAT_MAX_USER_MESSAGES = 50;
+
 // Codes d'erreur de l'API traduits dans fr.json (Planner.errors) ; les autres → INTERNAL_ERROR.
 const PLANNER_ERRORS = [
   "INVALID_INPUT",
   "TRIP_TOO_LONG",
   "TOO_MANY_REQUESTS",
   "AI_UNAVAILABLE",
+  "CHAT_LIMIT_REACHED",
   "NOT_FOUND",
   "UNAUTHORIZED",
   "INTERNAL_ERROR",
@@ -114,7 +130,7 @@ export function TripPlanner({ tripId }: { tripId: number }) {
   const router = useRouter();
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [error, setError] = useState<PlannerError | null>(null);
-  const [aiPending, setAiPending] = useState<"regenerate" | "adjust" | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
   const basePath = `/api/v1/trips/${tripId}`;
 
   useEffect(() => {
@@ -139,11 +155,11 @@ export function TripPlanner({ tripId }: { tripId: number }) {
     return false;
   };
 
-  async function runAi(kind: "regenerate" | "adjust", path: string, body?: unknown) {
-    setAiPending(kind);
-    const done = await mutate(path, "POST", body);
-    setAiPending(null);
-    return done;
+  async function regenerate() {
+    if (!window.confirm(t("trip.regenerateConfirm"))) return;
+    setRegenerating(true);
+    await mutate("/regenerate", "POST");
+    setRegenerating(false);
   }
 
   async function handleDelete() {
@@ -173,10 +189,8 @@ export function TripPlanner({ tripId }: { tripId: number }) {
       <TripHeader
         trip={trip}
         mutate={mutate}
-        aiPending={aiPending}
-        onRegenerate={() => {
-          if (window.confirm(t("trip.regenerateConfirm"))) void runAi("regenerate", "/regenerate");
-        }}
+        regenerating={regenerating}
+        onRegenerate={regenerate}
         onDelete={handleDelete}
       />
 
@@ -191,11 +205,7 @@ export function TripPlanner({ tripId }: { tripId: number }) {
         <aside className="flex flex-col gap-6">
           <TaskChecklist tasks={tasks} mutate={mutate} />
           <BudgetCard trip={trip} mutate={mutate} />
-          <AdjustCard
-            pending={aiPending === "adjust"}
-            disabled={aiPending !== null}
-            onSubmit={(instruction) => runAi("adjust", "/adjust", { instruction })}
-          />
+          <TripChat basePath={basePath} trip={trip} mutate={mutate} />
         </aside>
       </div>
     </div>
@@ -207,13 +217,13 @@ export function TripPlanner({ tripId }: { tripId: number }) {
 function TripHeader({
   trip,
   mutate,
-  aiPending,
+  regenerating,
   onRegenerate,
   onDelete,
 }: {
   trip: Trip;
   mutate: Mutate;
-  aiPending: "regenerate" | "adjust" | null;
+  regenerating: boolean;
   onRegenerate: () => void;
   onDelete: () => void;
 }) {
@@ -272,13 +282,13 @@ function TripHeader({
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-2">
-          <Button variant="secondary" size="sm" onClick={onDelete} disabled={aiPending !== null} className="gap-1.5">
+          <Button variant="secondary" size="sm" onClick={onDelete} disabled={regenerating} className="gap-1.5">
             <Icon name="delete" className="size-4" />
             {t("trip.delete")}
           </Button>
-          <Button size="sm" onClick={onRegenerate} disabled={aiPending !== null} className="gap-1.5">
+          <Button size="sm" onClick={onRegenerate} disabled={regenerating} className="gap-1.5">
             <Icon name="sparkles" className="size-4" />
-            {aiPending === "regenerate" ? t("trip.regenerating") : t("trip.regenerate")}
+            {regenerating ? t("trip.regenerating") : t("trip.regenerate")}
           </Button>
         </div>
       </div>
@@ -640,7 +650,7 @@ function BudgetCard({ trip, mutate }: { trip: Trip; mutate: Mutate }) {
         />
       </div>
 
-      {/* key : les champs repartent des valeurs à jour après une régénération ou un ajustement. */}
+      {/* key : les champs repartent des valeurs à jour après une régénération. */}
       <form
         key={`${trip.generated_at}-${total}-${target}`}
         onSubmit={handleSubmit}
@@ -681,56 +691,244 @@ function BudgetCard({ trip, mutate }: { trip: Trip; mutate: Mutate }) {
   );
 }
 
-// ─── Ajustement par l'IA ────────────────────────────────────────────────────
+// ─── Discussion avec l'IA ───────────────────────────────────────────────────
 
-function AdjustCard({
-  pending,
-  disabled,
-  onSubmit,
-}: {
-  pending: boolean;
-  disabled: boolean;
-  onSubmit: (instruction: string) => Promise<boolean>;
-}) {
+// Discussion limitée au voyage et à sa destination. L'IA propose des activités :
+// chacune n'est ajoutée au planning que si l'utilisateur répond oui.
+function TripChat({ basePath, trip, mutate }: { basePath: string; trip: Trip; mutate: Mutate }) {
   const t = useTranslations("Planner");
+  const router = useRouter();
+  const [messages, setMessages] = useState<TripMessage[] | null>(null);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<PlannerError | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const days = tripDays(trip.start_date, trip.end_date);
+  const remaining = CHAT_MAX_USER_MESSAGES - (messages ?? []).filter((message) => message.role === "user").length;
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const loadMessages = useCallback(
+    () =>
+      apiFetch<{ messages: TripMessage[] }>(`${basePath}/messages`).then((result) => {
+        if ("data" in result) return setMessages(result.data.messages);
+        if (result.error === "UNAUTHORIZED") return router.replace("/login");
+        setError(plannerError(result.error));
+      }),
+    [basePath, router],
+  );
+
+  useEffect(() => {
+    void loadMessages();
+  }, [loadMessages]);
+
+  // Dernier message toujours visible.
+  useEffect(() => {
+    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
+  }, [messages, sending]);
+
+  async function send() {
+    const content = draft.trim();
+    if (content.length < 2 || sending) return;
+
+    setSending(true);
+    setError(null);
+    const result = await apiFetch<{ messages: TripMessage[] }>(`${basePath}/messages`, {
+      method: "POST",
+      body: { content },
+    });
+    setSending(false);
+
+    if ("data" in result) {
+      setMessages(result.data.messages);
+      setDraft("");
+      return;
+    }
+    if (result.error === "UNAUTHORIZED") return router.replace("/login");
+    setError(plannerError(result.error));
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = event.currentTarget;
-    const instruction = String(new FormData(form).get("instruction") ?? "");
-    if (await onSubmit(instruction)) form.reset();
+    void send();
+  }
+
+  // Entrée envoie, Maj + Entrée passe à la ligne.
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      void send();
+    }
+  }
+
+  async function answer(suggestion: TripSuggestion, accepted: boolean) {
+    const ok = await mutate(`/suggestions/${suggestion.id}`, "PATCH", { accepted });
+    if (!ok) return loadMessages();
+    const status = accepted ? "accepted" : "rejected";
+    setMessages((current) =>
+      (current ?? []).map((message) => ({
+        ...message,
+        suggestions: message.suggestions.map((item) => (item.id === suggestion.id ? { ...item, status } : item)),
+      })),
+    );
   }
 
   return (
-    <Card className="flex flex-col gap-3 p-6">
-      <h2 className="flex items-center gap-2 font-display text-headline-sm text-ink">
-        <Icon name="sparkles" className="size-5 text-accent" />
-        {t("adjust.title")}
-      </h2>
-      <p className="text-body-sm text-ink-soft">{t("adjust.hint")}</p>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-        <label htmlFor="adjust-instruction" className="sr-only">
-          {t("adjust.label")}
-        </label>
-        <Textarea
-          id="adjust-instruction"
-          name="instruction"
-          minLength={3}
-          maxLength={300}
-          placeholder={t("adjust.placeholder")}
-          required
-          className="min-h-20"
-        />
-        {pending && (
-          <p role="status" className="text-body-sm text-ink-soft">
-            {t("adjust.pending")}
-          </p>
+    <Card className="flex flex-col gap-4 p-6">
+      <div className="flex flex-col gap-1">
+        <h2 className="flex items-center gap-2 font-display text-headline-sm text-ink">
+          <Icon name="sparkles" className="size-5 text-accent" />
+          {t("chat.title")}
+        </h2>
+        <p className="text-body-sm text-ink-soft">{t("chat.hint")}</p>
+      </div>
+
+      <div ref={scroller} className="flex max-h-[32rem] flex-col gap-3 overflow-y-auto" aria-live="polite">
+        {messages === null && !error && <div className="h-16 animate-pulse rounded-lg bg-surface-muted" aria-hidden="true" />}
+        {messages?.length === 0 && <p className="text-body-sm text-ink-soft">{t("chat.empty")}</p>}
+
+        {messages?.map((message) =>
+          message.role === "user" ? (
+            <p
+              key={message.id}
+              className="max-w-[85%] self-end rounded-lg bg-ink px-3 py-2 text-body-sm whitespace-pre-line text-surface"
+            >
+              {message.content}
+            </p>
+          ) : (
+            <div key={message.id} className="flex max-w-[95%] flex-col gap-2 self-start">
+              <p
+                className={`rounded-lg bg-surface-muted px-3 py-2 text-body-sm whitespace-pre-line ${
+                  message.off_topic ? "text-ink-soft italic" : "text-ink"
+                }`}
+              >
+                {message.off_topic ? t("chat.offTopic") : message.content}
+              </p>
+              {message.suggestions.length > 0 && (
+                <ul className="flex flex-col gap-2" aria-label={t("chat.suggestions")}>
+                  {message.suggestions.map((suggestion) => (
+                    <SuggestionCard
+                      key={suggestion.id}
+                      suggestion={suggestion}
+                      dayNumber={days.indexOf(suggestion.day) + 1}
+                      onAnswer={(accepted) => answer(suggestion, accepted)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
+          ),
         )}
-        <Button type="submit" size="sm" disabled={disabled} className="self-end">
-          {t("adjust.submit")}
-        </Button>
-      </form>
+
+        {sending && (
+          <>
+            <p className="max-w-[85%] self-end rounded-lg bg-ink px-3 py-2 text-body-sm whitespace-pre-line text-surface">
+              {draft.trim()}
+            </p>
+            <p role="status" className="animate-pulse self-start rounded-lg bg-surface-muted px-3 py-2 text-body-sm text-ink-soft">
+              {t("chat.pending")}
+            </p>
+          </>
+        )}
+      </div>
+
+      {error && <FormError>{t(`errors.${error}`)}</FormError>}
+
+      {remaining > 0 ? (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+          <label htmlFor="chat-message" className="sr-only">
+            {t("chat.label")}
+          </label>
+          <div className="flex items-end gap-2">
+            <Textarea
+              id="chat-message"
+              value={draft}
+              onChange={(event) => setDraft(event.currentTarget.value)}
+              onKeyDown={handleKeyDown}
+              minLength={2}
+              maxLength={CHAT_MESSAGE_MAX}
+              rows={1}
+              placeholder={t("chat.placeholder")}
+              required
+              className="max-h-40"
+            />
+            <Button type="submit" disabled={sending || messages === null} aria-label={t("chat.send")} className="shrink-0 px-3">
+              <Icon name="send" className="size-5" />
+            </Button>
+          </div>
+          {remaining <= 10 && <p className="text-label-sm text-ink-soft">{t("chat.remaining", { count: remaining })}</p>}
+        </form>
+      ) : (
+        <p className="text-body-sm text-ink-soft">{t("errors.CHAT_LIMIT_REACHED")}</p>
+      )}
     </Card>
+  );
+}
+
+function SuggestionCard({
+  suggestion,
+  dayNumber,
+  onAnswer,
+}: {
+  suggestion: TripSuggestion;
+  dayNumber: number;
+  onAnswer: (accepted: boolean) => Promise<unknown>;
+}) {
+  const t = useTranslations("Planner");
+  const format = useFormatter();
+  const [pending, setPending] = useState(false);
+
+  async function handleAnswer(accepted: boolean) {
+    setPending(true);
+    await onAnswer(accepted);
+    setPending(false);
+  }
+
+  return (
+    <li
+      className={`flex flex-col gap-1.5 rounded-lg border border-line p-3 ${
+        suggestion.status === "rejected" ? "opacity-60" : "bg-surface"
+      }`}
+    >
+      <span className="flex items-center gap-1.5 text-label-sm text-ink-soft">
+        <Icon name={CATEGORY_ICONS[suggestion.category]} className="size-4" />
+        {t("chat.suggestionWhen", {
+          number: dayNumber,
+          date: format.dateTime(parseDay(suggestion.day), { day: "numeric", month: "short" }),
+          time: suggestion.start_time,
+        })}
+      </span>
+      <span className="font-display text-label-lg text-ink">{suggestion.title}</span>
+      {suggestion.description && <p className="text-body-sm text-ink-soft">{suggestion.description}</p>}
+      {suggestion.source_post && (
+        <p className="text-body-sm text-ink-soft">
+          {t("item.source")}{" "}
+          <Link href={`/post/${suggestion.source_post.id}`} className="font-medium text-accent hover:underline">
+            {suggestion.source_post.title}
+          </Link>
+        </p>
+      )}
+
+      {suggestion.status === "pending" ? (
+        <div className="mt-1 flex items-center gap-2">
+          <span className="mr-auto text-label-sm text-ink-soft">{t("chat.question")}</span>
+          <Button size="sm" variant="secondary" disabled={pending} onClick={() => void handleAnswer(false)}>
+            {t("chat.no")}
+          </Button>
+          <Button size="sm" disabled={pending} onClick={() => void handleAnswer(true)}>
+            <Icon name="check" className="size-4" />
+            {t("chat.yes")}
+          </Button>
+        </div>
+      ) : (
+        <span
+          className={`mt-1 flex items-center gap-1.5 text-label-sm ${
+            suggestion.status === "accepted" ? "text-accent" : "text-ink-soft"
+          }`}
+        >
+          {suggestion.status === "accepted" && <Icon name="check" className="size-4" />}
+          {t(suggestion.status === "accepted" ? "chat.accepted" : "chat.rejected")}
+        </span>
+      )}
+    </li>
   );
 }
 

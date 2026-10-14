@@ -76,6 +76,27 @@ export type TripItemFields = {
 
 export type TripTaskChanges = Partial<{ label: string; done: boolean }>;
 
+export type TripSuggestionStatus = "pending" | "accepted" | "rejected";
+
+export type TripSuggestionRow = TripItemRow & { status: TripSuggestionStatus };
+
+export type TripMessageRow = {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  off_topic: boolean;
+  created_at: string;
+  suggestions: TripSuggestionRow[];
+};
+
+// Échange de la discussion : message de l'utilisateur + réponse de l'IA et ses propositions.
+export type NewTripExchange = {
+  user_content: string;
+  assistant_content: string;
+  off_topic: boolean;
+  suggestions: (TripItemFields & { source_post_id: number | null })[];
+};
+
 // Colonnes modifiables : les noms viennent de cette liste, jamais de l'entrée utilisateur.
 const TRIP_COLUMNS = ["title", "budget_target", "budget_lodging", "budget_transit", "budget_dining", "budget_activities"] as const;
 const ITEM_COLUMNS = ["day", "start_time", "title", "description", "category"] as const;
@@ -274,4 +295,111 @@ export async function deleteTripTask(tripId: number, taskId: number): Promise<bo
   const db = await getDb();
   const { rowCount } = await db.query("delete from trip_task where id = $1 and trip_id = $2", [taskId, tripId]);
   return rowCount === 1;
+}
+
+// ─── Discussion avec l'IA ───────────────────────────────────────────────────
+
+// Messages du voyage dans l'ordre, chacun avec les propositions de l'IA qu'il contient.
+export async function findTripMessages(tripId: number): Promise<TripMessageRow[]> {
+  const db = await getDb();
+  const { rows } = await db.query<TripMessageRow>(
+    `select m.id, m.role, m.content, m.off_topic, m.created_at,
+       coalesce(
+         (select json_agg(json_build_object(
+             'id', s.id, 'day', to_char(s.day, 'YYYY-MM-DD'), 'start_time', to_char(s.start_time, 'HH24:MI'),
+             'title', s.title, 'description', s.description, 'category', s.category, 'status', s.status,
+             'source_post', case when p.id is null then null else json_build_object('id', p.id, 'title', p.title) end
+           ) order by s.day, s.start_time, s.id)
+          from trip_suggestion s left join post p on p.id = s.source_post_id
+          where s.message_id = m.id),
+         '[]'
+       ) as suggestions
+     from trip_message m
+     where m.trip_id = $1
+     order by m.id`,
+    [tripId],
+  );
+  return rows;
+}
+
+export async function countTripUserMessages(tripId: number): Promise<number> {
+  const db = await getDb();
+  const { rows } = await db.query<{ count: number }>(
+    "select count(*)::int as count from trip_message where trip_id = $1 and role = 'user'",
+    [tripId],
+  );
+  return rows[0].count;
+}
+
+// Enregistre l'échange en une transaction : jamais de question sans sa réponse.
+export async function insertTripExchange(tripId: number, exchange: NewTripExchange) {
+  const client = await (await getDb()).connect();
+  try {
+    await client.query("begin");
+    await client.query(
+      `insert into trip_message (trip_id, role, content, off_topic) values ($1, 'user', $2, $3)`,
+      [tripId, exchange.user_content, exchange.off_topic],
+    );
+    const { rows } = await client.query<{ id: number }>(
+      `insert into trip_message (trip_id, role, content, off_topic) values ($1, 'assistant', $2, $3) returning id`,
+      [tripId, exchange.assistant_content, exchange.off_topic],
+    );
+
+    const { suggestions } = exchange;
+    if (suggestions.length > 0) {
+      await client.query(
+        `insert into trip_suggestion (trip_id, message_id, day, start_time, title, description, category, source_post_id)
+         select $1, $2, * from unnest($3::date[], $4::time[], $5::varchar[], $6::varchar[], $7::trip_item_category[], $8::int[])`,
+        [
+          tripId,
+          rows[0].id,
+          suggestions.map((item) => item.day),
+          suggestions.map((item) => item.start_time),
+          suggestions.map((item) => item.title),
+          suggestions.map((item) => item.description),
+          suggestions.map((item) => item.category),
+          suggestions.map((item) => item.source_post_id),
+        ],
+      );
+    }
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// Répond à une proposition encore en attente de ce voyage ; acceptée, elle est copiée dans le planning.
+// false si elle n'existe pas, appartient à un autre voyage ou a déjà reçu une réponse.
+export async function answerTripSuggestion(tripId: number, suggestionId: number, accepted: boolean): Promise<boolean> {
+  const client = await (await getDb()).connect();
+  try {
+    await client.query("begin");
+    const { rowCount } = await client.query(
+      `update trip_suggestion set status = $3 where id = $1 and trip_id = $2 and status = 'pending'`,
+      [suggestionId, tripId, accepted ? "accepted" : "rejected"],
+    );
+    if (rowCount !== 1) {
+      await client.query("rollback");
+      return false;
+    }
+
+    if (accepted) {
+      await client.query(
+        `insert into trip_item (trip_id, day, start_time, title, description, category, source_post_id)
+         select trip_id, day, start_time, title, description, category, source_post_id
+         from trip_suggestion where id = $1`,
+        [suggestionId],
+      );
+    }
+    await client.query("commit");
+    return true;
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
 }

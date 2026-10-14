@@ -2,10 +2,11 @@ import "server-only";
 import { z } from "zod";
 import { loginSchema, refreshTokenSchema, registerSchema } from "@/schemas/auth.schema";
 import {
-  adjustTripSchema,
+  answerTripSuggestionSchema,
   createTripItemSchema,
   createTripSchema,
   createTripTaskSchema,
+  sendTripMessageSchema,
   updateTripItemSchema,
   updateTripSchema,
   updateTripTaskSchema,
@@ -105,6 +106,28 @@ const tripDetail = {
   },
 };
 const notFound = error("Voyage (ou élément) introuvable, ou appartenant à un autre utilisateur", ["NOT_FOUND"]);
+const tripMessages = {
+  type: "object",
+  properties: {
+    messages: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          role: { type: "string", enum: ["user", "assistant"] },
+          content: { type: "string" },
+          off_topic: { type: "boolean" },
+          created_at: { type: "string", format: "date-time" },
+          suggestions: {
+            type: "array",
+            items: { type: "object", properties: { status: { type: "string", enum: ["pending", "accepted", "rejected"] } } },
+          },
+        },
+      },
+    },
+  },
+};
 const aiUnavailable = error("L'IA n'a pas répondu ou a renvoyé un format invalide", ["AI_UNAVAILABLE"]);
 const aiRateLimited = error("Trop d'appels à l'IA : 20 maximum par utilisateur et par heure", ["TOO_MANY_REQUESTS"]);
 const idParam = (name: string) => ({ name, in: "path", required: true, schema: { type: "integer", minimum: 1 } });
@@ -119,12 +142,13 @@ function tripRoute(summary: string, options: { params?: string[]; body?: z.ZodTy
     parameters: (options.params ?? ["id"]).map(idParam),
     ...(options.body ? { requestBody: requestBody(options.body) } : {}),
     responses: {
-      ...(options.ok ?? { 200: json("Voyage à jour", tripDetail) }),
       400: invalidInput,
       401: unauthorized,
       404: notFound,
       ...(options.ai ? { 429: aiRateLimited, 503: aiUnavailable } : {}),
       500: internalError,
+      // En dernier : peut remplacer une réponse par défaut (ex. le 429 de la discussion).
+      ...(options.ok ?? { 200: json("Voyage à jour", tripDetail) }),
     },
   };
 }
@@ -250,11 +274,25 @@ export function buildOpenApiDocument() {
           description: "Remplace toutes les activités, la checklist et le budget.",
         }),
       },
-      "/trips/{id}/adjust": {
-        post: tripRoute("Ajuster avec l'IA", {
-          body: adjustTripSchema,
+      "/trips/{id}/messages": {
+        get: tripRoute("Discussion avec l'IA", { ok: { 200: json("Messages et propositions", tripMessages) } }),
+        post: tripRoute("Envoyer un message à l'IA", {
+          body: sendTripMessageSchema,
           ai: true,
-          description: "Consigne libre (300 caractères max), traitée comme une donnée non fiable par le prompt.",
+          ok: {
+            201: json("Discussion à jour", tripMessages),
+            429: error("30 messages maximum par utilisateur et par heure, 50 par voyage", ["TOO_MANY_REQUESTS", "CHAT_LIMIT_REACHED"]),
+          },
+          description:
+            "Limitée au voyage et à sa destination (hors sujet : off_topic, aucune proposition). Message traité comme " +
+            "une donnée non fiable. Les activités proposées restent en attente jusqu'à la réponse de l'utilisateur.",
+        }),
+      },
+      "/trips/{id}/suggestions/{suggestionId}": {
+        patch: tripRoute("Accepter ou refuser une proposition de l'IA", {
+          params: ["id", "suggestionId"],
+          body: answerTripSuggestionSchema,
+          description: "Acceptée : l'activité est ajoutée au planning. 404 si la proposition a déjà reçu une réponse.",
         }),
       },
       "/trips/{id}/items": {

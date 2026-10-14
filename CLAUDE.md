@@ -26,7 +26,7 @@ src/
 │   ├── post/new/page.tsx      # Éditeur de récit (création d'un post)
 │   ├── profile/page.tsx       # Tableau de bord utilisateur
 │   ├── planner/page.tsx       # Planificateur : mes voyages + génération par l'IA
-│   ├── planner/[id]/page.tsx  # Planning d'un voyage (jours, activités, checklist, budget, ajustement IA)
+│   ├── planner/[id]/page.tsx  # Planning d'un voyage (jours, activités, checklist, budget, discussion avec l'IA)
 │   ├── login/page.tsx         # Auth : connexion / inscription / mot de passe oublié (?view=)
 │   ├── api-docs/page.tsx      # Swagger UI (dev uniquement, 404 en production)
 │   └── api/v1/                # Couche CONTROLLER (route handlers), toutes les routes sous /api/v1/
@@ -38,7 +38,7 @@ src/
 │       ├── locations/route.ts     # GET /api/v1/locations?q= recherche de villes / pays (country-state-city) → location.controller
 │       ├── users/me/route.ts  # GET / PATCH /api/v1/users/me (profil connecté) → user.controller
 │       ├── openapi.json/route.ts # GET /api/v1/openapi.json : spécification OpenAPI (dev uniquement)
-│       ├── trips/…            # Voyages : CRUD + regenerate / adjust (IA) → trip.controller
+│       ├── trips/…            # Voyages : CRUD + regenerate (IA) + messages / suggestions (discussion IA) → trip.controller
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
 ├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (auth.schema.ts, user.schema.ts, post.schema.ts)
 ├── services/                  # Couche SERVICE : logique métier (ex. post.service.ts)
@@ -161,3 +161,4 @@ Seuls les must-have sont exigés : ne pas implémenter les nice-to-have (OAuth/O
 - Pas de `dangerouslySetInnerHTML` sur du contenu utilisateur.
 - Chat RAG : traiter la question utilisateur et le contenu des posts comme non fiables (injection de prompt), limiter la taille des entrées.
 - IA (planificateur, chat) : Gemini via Vertex AI (`src/lib/ai.ts`), authentifié par IAM comme la base : aucune clé API (variables `GCP_PROJECT_ID`, `VERTEX_LOCATION`). Réponse du modèle = donnée non fiable, toujours revalidée par Zod. Appels à l'IA limités par utilisateur (rate limit).
+- Discussion IA d'un voyage (`/trips/[id]/messages`) : limitée au voyage et à sa destination (hors sujet refusé, non renvoyé dans l'historique), message ≤ 500 caractères, historique court, 30 messages/heure/utilisateur et 50 par voyage. Les activités proposées par l'IA ne rejoignent le planning qu'après un « oui » de l'utilisateur.

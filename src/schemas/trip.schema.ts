@@ -5,7 +5,8 @@ import { POST_ARCHETYPES } from "@/lib/posts";
 // Durée maximale d'un voyage : 1 mois (début et fin inclus).
 export const TRIP_MAX_DAYS = 31;
 export const TRIP_ITEM_CATEGORIES = ["transport", "lodging", "activity", "food"] as const;
-export const ADJUST_INSTRUCTION_MAX = 300;
+// Message envoyé à l'IA dans la discussion d'un voyage (court : limite le coût par message).
+export const TRIP_MESSAGE_MAX = 500;
 
 const countryCode = z.string().regex(/^[A-Z]{2}$/);
 const stateCode = z.string().regex(/^[A-Za-z0-9-]{1,10}$/);
@@ -47,10 +48,17 @@ export const updateTripSchema = z
   .strict()
   .refine((changes) => Object.keys(changes).length > 0);
 
-// POST /api/v1/trips/[id]/adjust : consigne libre envoyée à l'IA (non fiable, taille limitée).
-export const adjustTripSchema = z
+// POST /api/v1/trips/[id]/messages : message de l'utilisateur à l'IA (non fiable, taille limitée).
+export const sendTripMessageSchema = z
   .object({
-    instruction: z.string().trim().min(3).max(ADJUST_INSTRUCTION_MAX),
+    content: z.string().trim().min(2).max(TRIP_MESSAGE_MAX),
+  })
+  .strict();
+
+// PATCH /api/v1/trips/[id]/suggestions/[suggestionId] : oui (ajout au planning) ou non à une proposition de l'IA.
+export const answerTripSuggestionSchema = z
+  .object({
+    accepted: z.boolean(),
   })
   .strict();
 

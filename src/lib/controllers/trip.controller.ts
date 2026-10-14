@@ -5,33 +5,37 @@ import { isRateLimited } from "@/lib/rateLimit";
 import {
   addTripItem,
   addTripTask,
-  adjustTrip,
+  answerTripSuggestion,
   createTrip,
   deleteTrip,
   deleteTripItem,
   deleteTripTask,
   getTrip,
+  getTripMessages,
   listTrips,
   regenerateTrip,
+  sendTripMessage,
   TripError,
   updateTrip,
   updateTripItem,
   updateTripTask,
 } from "@/lib/services/trip.service";
 import {
-  adjustTripSchema,
+  answerTripSuggestionSchema,
   createTripItemSchema,
   createTripSchema,
   createTripTaskSchema,
   idParamSchema,
+  sendTripMessageSchema,
   updateTripItemSchema,
   updateTripSchema,
   updateTripTaskSchema,
 } from "@/schemas/trip.schema";
 
 const ONE_HOUR = 60 * 60 * 1000;
-// Appels à l'IA (création, régénération, ajustement) : coût maîtrisé par utilisateur.
+// Appels à l'IA : coût maîtrisé par utilisateur (génération et régénération d'un côté, discussion de l'autre).
 const AI_CALLS_PER_HOUR = 20;
+const CHAT_MESSAGES_PER_HOUR = 30;
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
@@ -82,15 +86,31 @@ export function regenerateTripController(request: Request, { params }: { params:
   });
 }
 
-// POST /api/v1/trips/[id]/adjust
-export function adjustTripController(request: Request, { params }: { params: Params }) {
-  return withTrip(request, params, async (userId, tripId) => {
-    const body = await parseBody(request, adjustTripSchema);
-    if (!body) return errorResponse(400, "INVALID_INPUT");
-    if (isAiRateLimited(userId)) return errorResponse(429, "TOO_MANY_REQUESTS");
+// GET /api/v1/trips/[id]/messages
+export function listTripMessagesController(request: Request, { params }: { params: Params }) {
+  return withTrip(request, params, async (userId, tripId) => json({ messages: await getTripMessages(userId, tripId) }));
+}
 
-    await adjustTrip(userId, tripId, body.instruction);
-    return json(await getTrip(userId, tripId));
+// POST /api/v1/trips/[id]/messages
+export function sendTripMessageController(request: Request, { params }: { params: Params }) {
+  return withTrip(request, params, async (userId, tripId) => {
+    const body = await parseBody(request, sendTripMessageSchema);
+    if (!body) return errorResponse(400, "INVALID_INPUT");
+    if (isRateLimited(`trips:chat:${userId}`, CHAT_MESSAGES_PER_HOUR, ONE_HOUR)) {
+      return errorResponse(429, "TOO_MANY_REQUESTS");
+    }
+
+    return json({ messages: await sendTripMessage(userId, tripId, body.content) }, 201);
+  });
+}
+
+// PATCH /api/v1/trips/[id]/suggestions/[suggestionId]
+export function answerTripSuggestionController(request: Request, { params }: { params: Params }) {
+  return withTrip(request, params, async (userId, tripId, routeParams) => {
+    const suggestionId = idParamSchema.safeParse(routeParams.suggestionId);
+    const body = await parseBody(request, answerTripSuggestionSchema);
+    if (!suggestionId.success || !body) return errorResponse(400, "INVALID_INPUT");
+    return json(await answerTripSuggestion(userId, tripId, suggestionId.data, body.accepted));
   });
 }
 
@@ -198,6 +218,7 @@ function handleError(error: unknown) {
   if (error instanceof TripError) {
     if (error.code === "NOT_FOUND") return errorResponse(404, "NOT_FOUND");
     if (error.code === "AI_UNAVAILABLE") return errorResponse(503, "AI_UNAVAILABLE");
+    if (error.code === "CHAT_LIMIT_REACHED") return errorResponse(429, "CHAT_LIMIT_REACHED");
     return errorResponse(400, error.code);
   }
 

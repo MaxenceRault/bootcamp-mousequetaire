@@ -288,13 +288,23 @@
       "save": "Enregistrer le budget",
       "saved": "Budget enregistré."
     },
-    "adjust": {
-      "title": "Ajuster avec l'IA",
-      "hint": "Décrivez une modification, l'IA met le planning à jour en gardant le reste.",
-      "label": "Consigne pour l'IA",
-      "placeholder": "Ex. Ajoute une pause café le jour 2 vers 15 h",
-      "submit": "Appliquer",
-      "pending": "L'IA ajuste votre planning…"
+    "chat": {
+      "title": "Discuter avec l'IA",
+      "hint": "Posez vos questions sur ce voyage et sa destination. L'IA peut proposer des activités : vous choisissez lesquelles ajouter au planning.",
+      "empty": "Ex. « Que faire s'il pleut le jour 3 ? », « Un bon resto pas cher près de l'hôtel ? »",
+      "label": "Message pour l'IA",
+      "placeholder": "Votre question sur ce voyage…",
+      "send": "Envoyer",
+      "pending": "L'IA réfléchit…",
+      "offTopic": "Je ne peux parler que de ce voyage et de sa destination. Posez-moi une question sur votre séjour !",
+      "suggestions": "Activités proposées",
+      "suggestionWhen": "Jour {number} · {date} · {time}",
+      "question": "L'ajouter au planning ?",
+      "yes": "Oui",
+      "no": "Non",
+      "accepted": "Ajoutée au planning",
+      "rejected": "Refusée",
+      "remaining": "{count, plural, one {Encore # message possible pour ce voyage} other {Encore # messages possibles pour ce voyage}}"
     },
     "errors": {
       "INVALID_INPUT": "Vérifiez les champs du formulaire.",
@@ -303,7 +313,8 @@
       "AI_UNAVAILABLE": "L'IA n'a pas pu générer le planning. Réessayez dans un instant.",
       "NOT_FOUND": "Élément introuvable.",
       "UNAUTHORIZED": "Votre session a expiré. Reconnectez-vous.",
-      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
+      "CHAT_LIMIT_REACHED": "Vous avez atteint la limite de messages pour ce voyage."
     }
   },
   "DateRangePicker": {
