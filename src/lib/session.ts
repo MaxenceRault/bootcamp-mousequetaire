@@ -140,6 +140,13 @@ function isExpired(token: string) {
   }
 }
 
+// Codes d'erreur des routes d'auth traduits dans fr.json (Auth.errors) ; tout autre code → INTERNAL_ERROR.
+const AUTH_ERRORS = ["INVALID_CREDENTIALS", "EMAIL_TAKEN", "INVALID_INPUT", "TOO_MANY_REQUESTS", "INTERNAL_ERROR"] as const;
+
+export function authErrorCode(code: string | undefined): (typeof AUTH_ERRORS)[number] {
+  return AUTH_ERRORS.find((known) => known === code) ?? "INTERNAL_ERROR";
+}
+
 export async function postAuth(path: string, body: unknown) {
   const response = await fetch(path, {
     method: "POST",
