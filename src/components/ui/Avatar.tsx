@@ -9,18 +9,25 @@ type AvatarProps = {
   alt: string;
   // Taille en pixels (carré).
   size: number;
+  // Couleur de fond choisie par l'utilisateur derrière le blobatar (sinon fond neutre).
+  backgroundColor?: string | null;
 };
 
-// Photo de profil carrée, 8px d'arrondi. Sans photo : blobatar généré à partir de l'id.
-export function Avatar({ src, name, alt, size }: AvatarProps) {
+// Photo de profil carrée, 8px d'arrondi. Sans photo : blobatar généré à partir de l'id,
+// posé sur la couleur de fond choisie par l'utilisateur (sinon sur un fond neutre).
+export function Avatar({ src, name, alt, size, backgroundColor = null }: AvatarProps) {
   if (!src) {
     return (
-      <Blobatar
-        name={name}
-        size={size}
-        alt={alt}
-        className="shrink-0 rounded-lg bg-surface-muted ring-1 ring-line"
-      />
+      <span
+        style={{
+          width: size,
+          height: size,
+          backgroundColor: backgroundColor ?? undefined,
+        }}
+        className="block shrink-0 overflow-hidden rounded-lg bg-surface-muted ring-1 ring-line"
+      >
+        <Blobatar name={name} size={size} alt={alt} className="block" />
+      </span>
     );
   }
 

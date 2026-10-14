@@ -3,8 +3,8 @@ import { connection } from "next/server";
 import { getConfig } from "@/lib/config";
 import { getUserIdFromRequest } from "@/lib/jwt";
 import { isRateLimited } from "@/lib/rateLimit";
-import { getMyProfile, ProfileError, updateMyProfile } from "@/lib/services/user.service";
-import { updateProfileSchema } from "@/schemas/user.schema";
+import { getMyProfile, ProfileError, setMyAvatar, updateMyProfile } from "@/lib/services/user.service";
+import { PROFILE_IMAGE_MAX_BYTES, profileImageSchema, updateProfileSchema } from "@/schemas/user.schema";
 
 // GET /api/v1/users/me : profil de l'utilisateur connecté + ses récits.
 export async function getMeController(request: Request) {
@@ -41,6 +41,39 @@ export async function updateMeController(request: Request) {
   }
 }
 
+// Marge pour l'enveloppe multipart autour de l'image.
+const MAX_IMAGE_BODY_BYTES = PROFILE_IMAGE_MAX_BYTES + 64 * 1024;
+
+// PUT (multipart, champ « image ») / DELETE /api/v1/users/me/avatar (Bearer)
+// → 200 { user } : photo de profil de l'utilisateur connecté.
+export function avatarController(upload: boolean) {
+  return async (request: Request) => {
+    const userId = await getUserIdFromRequest(request);
+    if (!userId) return errorResponse(401, "UNAUTHORIZED");
+
+    const { max, windowMs } = getConfig().rateLimits.profileUpdate;
+    if (isRateLimited(`profile:image:${userId}`, max, windowMs)) return errorResponse(429, "TOO_MANY_REQUESTS");
+
+    let image: File | null = null;
+    if (upload) {
+      const contentLength = Number(request.headers.get("content-length"));
+      if (!contentLength) return errorResponse(411, "LENGTH_REQUIRED");
+      if (contentLength > MAX_IMAGE_BODY_BYTES) return errorResponse(413, "PAYLOAD_TOO_LARGE");
+
+      const form = await request.formData().catch(() => null);
+      const body = profileImageSchema.safeParse(form ? Object.fromEntries(form) : null);
+      if (!body.success) return errorResponse(400, "INVALID_INPUT");
+      image = body.data.image;
+    }
+
+    try {
+      return Response.json({ user: await setMyAvatar(userId, image) });
+    } catch (error) {
+      return handleError(error);
+    }
+  };
+}
+
 function readJson(request: Request) {
   return request.json().catch(() => null);
 }
@@ -52,9 +85,9 @@ function errorResponse(status: number, code: string) {
 function handleError(error: unknown) {
   if (error instanceof ProfileError) {
     // Compte introuvable avec un token valide : traité comme une session invalide.
-    return error.code === "USERNAME_TAKEN"
-      ? errorResponse(409, "USERNAME_TAKEN")
-      : errorResponse(401, "UNAUTHORIZED");
+    if (error.code === "USERNAME_TAKEN") return errorResponse(409, "USERNAME_TAKEN");
+    if (error.code === "INVALID_INPUT") return errorResponse(400, "INVALID_INPUT");
+    return errorResponse(401, "UNAUTHORIZED");
   }
 
   console.error(

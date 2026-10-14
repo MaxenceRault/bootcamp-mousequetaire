@@ -18,22 +18,26 @@ export async function Navbar() {
         </Link>
 
         {/* Interface seule : la recherche IA sera branchée avec le chat RAG. */}
-        <div role="search" className="mx-auto hidden max-w-xl flex-1 sm:block">
+        {/* Recherche : envoie vers l'accueil (/?q=…), qui affiche les récits classés par pertinence. */}
+        <form role="search" action="/" method="get" className="mx-auto hidden max-w-xl flex-1 sm:block">
           <div className="flex items-center rounded-lg border border-transparent bg-surface-muted p-1.5 transition focus-within:border-accent focus-within:bg-surface">
             <Icon name="search" className="ml-2 size-4.5 text-ink-soft" />
             <input
               type="search"
+              name="q"
               aria-label={t("searchLabel")}
               placeholder={t("searchPlaceholder")}
-              maxLength={200}
+              minLength={2}
+              maxLength={100}
+              required
               className="w-full bg-transparent px-2 py-1 text-body-sm text-ink outline-none placeholder:text-ink-soft/60"
             />
-            <button type="button" className={buttonClassName("sm", "h-8 shrink-0")}>
-              <Icon name="sparkles" className="size-4" />
-              {t("askAi")}
+            <button type="submit" className={buttonClassName("sm", "h-8 shrink-0")}>
+              <Icon name="search" className="size-4" />
+              {t("search")}
             </button>
           </div>
-        </div>
+        </form>
 
         <div className="flex shrink-0 items-center gap-6">
           <nav aria-label={t("mainNav")} className="hidden items-center gap-5 md:flex">

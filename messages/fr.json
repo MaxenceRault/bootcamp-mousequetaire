@@ -7,7 +7,7 @@
     "brand": "Brb",
     "home": "Brb, retour à l'accueil",
     "searchLabel": "Rechercher une destination avec l'IA",
-    "searchPlaceholder": "Où aller ? Demandez à l'IA des itinéraires, des hébergements ou des pépites cachées…",
+    "searchPlaceholder": "Rechercher un lieu, un titre, un récit…",
     "askAi": "Demander à l'IA",
     "mainNav": "Navigation principale",
     "explore": "Explorer",
@@ -16,7 +16,8 @@
     "accountMenu": "Menu du compte",
     "savedTrips": "Voyages enregistrés",
     "settings": "Paramètres",
-    "logout": "Se déconnecter"
+    "logout": "Se déconnecter",
+    "search": "Rechercher"
   },
   "Home": {
     "title": "Les derniers voyages de la communauté",
@@ -28,7 +29,11 @@
     "loadingMore": "Chargement des récits…",
     "loadMoreError": "Impossible de charger la suite.",
     "retry": "Réessayer",
-    "end": "Vous avez tout vu !"
+    "end": "Vous avez tout vu !",
+    "searchTitle": "Résultats pour « {query} »",
+    "searchCount": "{count, plural, =0 {Aucun récit trouvé} one {# récit trouvé} other {# récits trouvés}}",
+    "searchEmpty": "Aucun récit ne correspond à votre recherche. Essayez un pays, une ville ou un autre mot.",
+    "searchClear": "Effacer la recherche"
   },
   "Archetypes": {
     "slow_travel_photography": "Slow travel & photo",
@@ -79,7 +84,16 @@
       "locationPlaceholder": "Lyon, France",
       "save": "Enregistrer",
       "cancel": "Annuler",
-      "saved": "Profil mis à jour."
+      "saved": "Profil mis à jour.",
+      "images": "Photo et couleur",
+      "photo": "Photo de profil",
+      "photoHint": "Remplace le blobatar. JPEG, PNG ou WebP, 3 Mo maximum.",
+      "chooseImage": "Choisir une image",
+      "removeImage": "Retirer",
+      "uploading": "Envoi…",
+      "backgroundColor": "Couleur du fond",
+      "colorOption": "Couleur {number}",
+      "noColor": "Aucune couleur (fond neutre)"
     },
     "errors": {
       "USERNAME_TAKEN": "Ce pseudo est déjà pris.",
@@ -87,8 +101,11 @@
       "UNAUTHORIZED": "Votre session a expiré. Reconnectez-vous.",
       "TOO_MANY_REQUESTS": "Trop de modifications. Réessayez dans quelques minutes.",
       "NOT_FOUND": "Ce récit n'existe plus.",
-      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
-    }
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
+      "PAYLOAD_TOO_LARGE": "Image trop lourde : 3 Mo maximum.",
+      "LENGTH_REQUIRED": "Envoi impossible. Réessayez."
+    },
+    "itinerariesError": "Impossible de charger vos itinéraires. Réessayez plus tard."
   },
   "ApiDocs": {
     "metaTitle": "Documentation API"
@@ -113,7 +130,8 @@
     "archetype": "Type de récit",
     "aiTitle": "Itinéraire IA",
     "aiText": "Bientôt, Gemini pourra transformer ce récit en itinéraire personnalisé, prêt à ajouter à votre planificateur.",
-    "openPlanner": "Ouvrir le planificateur"
+    "openPlanner": "Ouvrir le planificateur",
+    "likeCount": "{count, plural, =0 {Aucun j'aime} one {# j'aime} other {# j'aime}}"
   },
   "Tags": {
     "metaTitle": "Récits : {place}",

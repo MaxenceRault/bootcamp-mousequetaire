@@ -23,7 +23,7 @@ messages/
 src/
 ├── app/
 │   ├── layout.tsx             # Layout global (Navbar + Footer + Fonts)
-│   ├── page.tsx               # Homepage (Feed + Hero Search)
+│   ├── page.tsx               # Homepage : feed, ou résultats de recherche si /?q= (lieux, puis titres, puis textes)
 │   ├── post/[id]/page.tsx     # Détail d'un récit : /post/<id>
 │   ├── tags/page.tsx          # Récits d'un lieu : /tags?country=FR[&state=IDF&city=Montesson] (destination ou tag)
 │   ├── post/new/page.tsx      # Éditeur de récit (création d'un post)
@@ -45,6 +45,7 @@ src/
 │       ├── locations/route.ts     # GET /api/v1/locations?q= recherche de villes / pays (country-state-city) → location.controller
 │       ├── users/me/route.ts  # GET / PATCH /api/v1/users/me (profil connecté) → user.controller
 │       ├── users/me/reactions/route.ts # GET ?postIds=1,2,3 : mes likes / enregistrements sur une page du feed (Bearer) → reaction.controller
+│       ├── users/me/avatar/route.ts    # PUT (multipart « image ») / DELETE : photo de profil (Bearer) → user.controller
 │       ├── openapi.json/route.ts # GET /api/v1/openapi.json : spécification OpenAPI (dev uniquement)
 │       ├── trips/…            # Voyages : CRUD + regenerate (IA) + messages / suggestions (discussion IA) → trip.controller
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
@@ -67,8 +68,10 @@ src/
 │   ├── TripPlanner.tsx        # Planning d'un voyage, modifiable (client)
 │   ├── FeedList.tsx           # Feed à chargement infini (client : GET /api/v1/posts?cursor=)
 │   ├── ShareButton.tsx        # Partage du lien (menu natif ou copie dans le presse-papiers)
-│   ├── PostReactions.tsx      # Boutons J'aime / Enregistrer d'un post (client, mise à jour optimiste)
+│   ├── PostReactions.tsx      # Boutons J'aime / Enregistrer (connecté) ; visiteur : nombre de likes seul
+│   ├── NewPostButton.tsx      # Bouton flottant « Nouveau post » de l'accueil (connecté uniquement)
 │   ├── StoryCard.tsx          # Carte d'un récit dans une grille (profil, page d'un lieu)
+│   ├── TripCard.tsx           # Carte d'un voyage généré (planificateur, onglet Itinéraires IA du profil)
 │   ├── PostEditorForm.tsx     # Formulaire de l'éditeur de récit (client)
 │   ├── ProfileView.tsx        # Page profil (client : charge /api/v1/users/me avec le token)
 │   ├── ProfileEditForm.tsx    # Formulaire de modification du profil (PATCH /api/v1/users/me)
@@ -93,6 +96,7 @@ scripts/
 │   ├── rateLimit.ts           # Rate limit en mémoire
 │   ├── session.ts             # Côté client : stockage des tokens, appels API (apiFetch ajoute le Bearer et renouvelle l'access token)
 │   ├── country.ts             # Drapeau emoji et nom du pays à partir du code pays
+│   ├── images.ts              # Type réel d'une image (octets de signature) : photos de récits et images de profil
 │   ├── reactions-store.ts     # Côté client : likes / enregistrements partagés entre pages et onglets (PostReactions)
 │   ├── openapi.ts             # Spécification OpenAPI de l'API (corps de requête générés depuis schemas/)
 │   └── ai.ts                  # Gemini sur Vertex AI

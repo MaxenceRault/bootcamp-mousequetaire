@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useId, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -10,7 +10,12 @@ import { FormError } from "@/components/ui/FormError";
 import { Icon } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/Input";
 import { apiFetch } from "@/lib/session";
-import { USERNAME_PATTERN } from "@/schemas/user.schema";
+import {
+  AVATAR_BACKGROUND_COLORS,
+  PROFILE_IMAGE_MAX_BYTES,
+  PROFILE_IMAGE_TYPES,
+  USERNAME_PATTERN,
+} from "@/schemas/user.schema";
 
 export type EditableProfile = {
   id: string;
@@ -18,6 +23,7 @@ export type EditableProfile = {
   display_name: string;
   avatar_url: string | null;
   avatar_seed: string | null;
+  avatar_background_color: string | null;
   location: string | null;
   created_at: string;
 };
@@ -26,13 +32,15 @@ type ProfileEditFormProps = {
   user: EditableProfile;
   onSaved: (user: EditableProfile) => void;
   onCancel: () => void;
+  // Photo ou fond envoyé / retiré (enregistré tout de suite, le formulaire reste ouvert).
+  onImageChange: (user: EditableProfile) => void;
 };
 
 // Nombre de nouveaux blobatars proposés à chaque « Autres propositions ».
 const AVATAR_CHOICES = 7;
 
 // Formulaire de modification du profil : PATCH /api/v1/users/me.
-export function ProfileEditForm({ user, onSaved, onCancel }: ProfileEditFormProps) {
+export function ProfileEditForm({ user, onSaved, onCancel, onImageChange }: ProfileEditFormProps) {
   const t = useTranslations("Profile");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -40,6 +48,8 @@ export function ProfileEditForm({ user, onSaved, onCancel }: ProfileEditFormProp
   const currentSeed = user.avatar_seed ?? user.id;
   const [avatarSeed, setAvatarSeed] = useState(currentSeed);
   const [round, setRound] = useState(0);
+  // Couleur de fond du blobatar (enregistrée avec le reste du formulaire).
+  const [backgroundColor, setBackgroundColor] = useState(user.avatar_background_color);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -55,6 +65,7 @@ export function ProfileEditForm({ user, onSaved, onCancel }: ProfileEditFormProp
         location: form.get("location"),
         // L'avatar par défaut (id) est stocké comme null.
         avatar_seed: avatarSeed === user.id ? null : avatarSeed,
+        avatar_background_color: backgroundColor,
       },
     });
     setPending(false);
@@ -68,6 +79,26 @@ export function ProfileEditForm({ user, onSaved, onCancel }: ProfileEditFormProp
       <h2 className="mb-4 font-display text-headline-sm text-ink">{t("form.title")}</h2>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <fieldset className="flex flex-col gap-4 border-b border-line pb-4">
+          <legend className="mb-2 font-display text-label-md text-ink">{t("form.images")}</legend>
+          <AvatarPhotoField
+            user={user}
+            label={t("form.photo")}
+            hint={t("form.photoHint")}
+            preview={
+              <Avatar
+                src={user.avatar_url}
+                name={currentSeed}
+                backgroundColor={backgroundColor}
+                alt=""
+                size={56}
+              />
+            }
+            onChange={onImageChange}
+          />
+          <BackgroundColorPicker selected={backgroundColor} onSelect={setBackgroundColor} />
+        </fieldset>
+
         {/* Le choix du blobatar n'a de sens que sans photo de profil. */}
         {!user.avatar_url && (
           <AvatarPicker
@@ -77,6 +108,7 @@ export function ProfileEditForm({ user, onSaved, onCancel }: ProfileEditFormProp
             round={round}
             onSelect={setAvatarSeed}
             onShuffle={() => setRound((r) => r + 1)}
+            backgroundColor={backgroundColor}
           />
         )}
 
@@ -143,12 +175,15 @@ type AvatarPickerProps = {
   round: number;
   onSelect: (seed: string) => void;
   onShuffle: () => void;
+  // Image de fond de l'utilisateur, affichée aussi derrière chaque proposition.
+  // Couleur de fond choisie, affichée aussi derrière chaque proposition.
+  backgroundColor: string | null;
 };
 
 // Choix du blobatar : l'avatar actuel, celui sélectionné, puis des propositions.
 // Les propositions sont dérivées de l'id et du numéro de tirage : pas d'aléatoire, et
 // chaque utilisateur a ses propres propositions.
-function AvatarPicker({ userId, currentSeed, selected, round, onSelect, onShuffle }: AvatarPickerProps) {
+function AvatarPicker({ userId, currentSeed, selected, round, onSelect, onShuffle, backgroundColor }: AvatarPickerProps) {
   const t = useTranslations("Profile");
   const proposals = Array.from({ length: AVATAR_CHOICES }, (_, i) => `${userId}-${round}-${i}`);
   const choices = [...new Set([currentSeed, selected, ...proposals])];
@@ -174,6 +209,7 @@ function AvatarPicker({ userId, currentSeed, selected, round, onSelect, onShuffl
             <Avatar
               src={null}
               name={seed}
+              backgroundColor={backgroundColor}
               alt={seed === currentSeed ? t("form.avatarCurrent") : t("form.avatarOption", { number: index + 1 })}
               size={56}
             />
@@ -183,6 +219,127 @@ function AvatarPicker({ userId, currentSeed, selected, round, onSelect, onShuffl
           <Icon name="refresh" className="size-4" />
           {t("form.avatarShuffle")}
         </Button>
+      </div>
+    </fieldset>
+  );
+}
+
+// Codes d'erreur de l'API traduits (namespace Profile.errors) ; tout autre code → erreur générique.
+const IMAGE_ERRORS = ["INVALID_INPUT", "PAYLOAD_TOO_LARGE", "LENGTH_REQUIRED", "TOO_MANY_REQUESTS", "UNAUTHORIZED"] as const;
+
+type AvatarPhotoFieldProps = {
+  user: EditableProfile;
+  label: string;
+  hint: string;
+  preview: ReactNode;
+  onChange: (user: EditableProfile) => void;
+};
+
+// Envoi (PUT, multipart) ou retrait (DELETE) de la photo de profil, enregistré immédiatement.
+function AvatarPhotoField({ user, label, hint, preview, onChange }: AvatarPhotoFieldProps) {
+  const t = useTranslations("Profile");
+  const inputId = useId();
+  const input = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const current = user.avatar_url;
+  const path = "/api/v1/users/me/avatar";
+
+  async function send(body?: FormData) {
+    setPending(true);
+    setError(null);
+    const result = await apiFetch<{ user: EditableProfile }>(path, body ? { method: "PUT", body } : { method: "DELETE" });
+    setPending(false);
+    if (input.current) input.current.value = "";
+
+    if ("error" in result) {
+      const code = IMAGE_ERRORS.find((known) => known === result.error) ?? "INTERNAL_ERROR";
+      return setError(t(`errors.${code}`));
+    }
+    onChange(result.data.user);
+  }
+
+  function handleFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    // Vérification rapide côté navigateur ; le serveur revérifie la taille et le type réel.
+    if (file.size > PROFILE_IMAGE_MAX_BYTES) {
+      event.target.value = "";
+      return setError(t("errors.PAYLOAD_TOO_LARGE"));
+    }
+    const body = new FormData();
+    body.append("image", file);
+    send(body);
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-4">
+        {preview}
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="font-display text-label-md text-ink">{label}</span>
+          <span className="text-body-sm text-ink-soft/70">{hint}</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input
+            ref={input}
+            id={inputId}
+            type="file"
+            accept={PROFILE_IMAGE_TYPES.join(",")}
+            className="peer sr-only"
+            disabled={pending}
+            onChange={handleFile}
+          />
+          {/* Le label ouvre le sélecteur de fichier (accessible au clavier via l'input). */}
+          <label
+            htmlFor={inputId}
+            className={`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-surface-muted px-3.5 font-display text-label-md text-ink transition peer-focus-visible:ring-4 peer-focus-visible:ring-accent/25 hover:bg-surface ${pending ? "pointer-events-none opacity-50" : ""}`}
+          >
+            <Icon name="image" className="size-4" />
+            {pending ? t("form.uploading") : t("form.chooseImage")}
+          </label>
+          {current && (
+            <Button variant="secondary" size="sm" disabled={pending} onClick={() => send()}>
+              {t("form.removeImage")}
+            </Button>
+          )}
+        </div>
+      </div>
+      <FormError>{error}</FormError>
+    </div>
+  );
+}
+
+// Couleur de fond du blobatar : palette fixe (validée aussi côté serveur) ou aucune (fond neutre).
+function BackgroundColorPicker({ selected, onSelect }: { selected: string | null; onSelect: (color: string | null) => void }) {
+  const t = useTranslations("Profile");
+  const choices: (string | null)[] = [null, ...AVATAR_BACKGROUND_COLORS];
+
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="mb-1 font-display text-label-md text-ink">{t("form.backgroundColor")}</legend>
+      <div className="flex flex-wrap gap-2">
+        {choices.map((color, index) => (
+          <label
+            key={color ?? "none"}
+            className="cursor-pointer rounded-lg p-0.5 ring-2 ring-transparent transition hover:ring-line has-checked:ring-accent has-focus-visible:ring-accent/40"
+          >
+            <input
+              type="radio"
+              name="avatar_background_color"
+              value={color ?? ""}
+              checked={selected === color}
+              onChange={() => onSelect(color)}
+              className="sr-only"
+            />
+            <span
+              aria-hidden="true"
+              style={{ backgroundColor: color ?? undefined }}
+              className={`block size-8 rounded-md border border-line ${color ? "" : "bg-surface-muted"}`}
+            />
+            <span className="sr-only">{color ? t("form.colorOption", { number: index }) : t("form.noColor")}</span>
+          </label>
+        ))}
       </div>
     </fieldset>
   );

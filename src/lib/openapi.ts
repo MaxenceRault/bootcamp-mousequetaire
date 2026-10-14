@@ -12,7 +12,7 @@ import {
   updateTripTaskSchema,
 } from "@/schemas/trip.schema";
 import { createPostSchema, FEED_MAX_LIMIT, updatePostSchema } from "@/schemas/post.schema";
-import { updateProfileSchema } from "@/schemas/user.schema";
+import { profileImageSchema, updateProfileSchema } from "@/schemas/user.schema";
 import { POST_ARCHETYPES } from "@/lib/posts";
 
 // Corps de requête générés à partir des schémas Zod utilisés par les controllers :
@@ -40,6 +40,7 @@ const publicUser = {
     display_name: { type: "string" },
     avatar_url: { type: "string", nullable: true },
     avatar_seed: { type: "string", nullable: true },
+    avatar_background_color: { type: "string", nullable: true, description: "Couleur de fond du blobatar (#rrggbb, palette fixe)" },
   },
   required: ["id", "username", "display_name", "avatar_url", "avatar_seed"],
 };
@@ -194,6 +195,37 @@ function tripRoute(summary: string, options: { params?: string[]; body?: z.ZodTy
       500: internalError,
       // En dernier : peut remplacer une réponse par défaut (ex. le 429 de la discussion).
       ...(options.ok ?? { 200: json("Voyage à jour", tripDetail) }),
+    },
+  };
+}
+
+// Photo de profil : envoi (PUT multipart) ou retrait (DELETE), enregistré immédiatement.
+function profileImagePaths(label: string, description: string) {
+  const responses = {
+    200: json("Profil à jour", { type: "object", properties: { user: profileUser } }),
+    401: unauthorized,
+    429: tooManyRequests,
+    500: internalError,
+  };
+  return {
+    put: {
+      tags: ["Utilisateurs"],
+      summary: `${label} : envoyer une image`,
+      description: `${description} Type réel vérifié (JPEG, PNG, WebP), 3 Mo maximum. L'ancienne image est supprimée.`,
+      security: [{ bearerAuth: [] }],
+      requestBody: multipartBody(profileImageSchema),
+      responses: {
+        ...responses,
+        400: invalidInput,
+        411: error("En-tête Content-Length absent", ["LENGTH_REQUIRED"]),
+        413: error("Image trop lourde", ["PAYLOAD_TOO_LARGE"]),
+      },
+    },
+    delete: {
+      tags: ["Utilisateurs"],
+      summary: `${label} : retirer l'image`,
+      security: [{ bearerAuth: [] }],
+      responses,
     },
   };
 }
@@ -526,6 +558,7 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/users/me/avatar": profileImagePaths("Photo de profil", "Remplace le blobatar partout (navbar, cartes, récits)."),
       "/users/me/reactions": {
         get: {
           tags: ["Réactions"],

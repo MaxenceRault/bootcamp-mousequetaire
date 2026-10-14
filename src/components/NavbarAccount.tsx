@@ -56,7 +56,8 @@ function AccountMenu({ user }: { user: SessionUser }) {
         aria-haspopup="true"
         className="flex items-center gap-2 rounded-lg p-1 transition hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-accent/25 focus-visible:outline-none"
       >
-        <Avatar src={user.avatar_url} name={user.avatar_seed ?? user.id} alt="" size={28} />
+        <Avatar src={user.avatar_url} name={user.avatar_seed ?? user.id}
+          backgroundColor={user.avatar_background_color} alt="" size={28} />
         <Icon name="chevronDown" className="size-4 text-ink-soft" />
       </button>
 
