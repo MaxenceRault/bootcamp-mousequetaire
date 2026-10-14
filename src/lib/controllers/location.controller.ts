@@ -12,8 +12,9 @@ const querySchema = z
 
 const ONE_MINUTE = 60 * 1000;
 
-// Données statiques : le navigateur peut garder une recherche en cache un jour.
-const CACHE_HEADERS = { "Cache-Control": "public, max-age=86400" };
+// Données quasi statiques : le navigateur garde une recherche en cache une heure
+// (court : un changement de la liste, ex. un pays retiré, est visible rapidement).
+const CACHE_HEADERS = { "Cache-Control": "public, max-age=3600" };
 
 export function locationsController(request: Request) {
   // Chaque recherche parcourt ~150 000 villes : limite anti-abus par IP.
