@@ -24,8 +24,15 @@ const envSchema = z.object({
   // ≥ 10 (règle de sécurité du projet) ; au-delà de 14, chaque connexion devient très lente.
   BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(10).max(14).default(12),
 
+  // Nombre de proxys de confiance devant l'app (Cloud Run : 1). Sert à lire la vraie IP du client
+  // dans X-Forwarded-For : seules les entrées ajoutées par ces proxys sont fiables.
+  TRUSTED_PROXY_HOPS: z.coerce.number().int().min(1).max(5).default(1),
+
   RATE_LIMIT_LOGIN_MAX: count.default(5),
   RATE_LIMIT_LOGIN_WINDOW_SECONDS: seconds.default(15 * 60),
+  // Par compte visé (email), quelle que soit l'IP : contre le bruteforce réparti sur plusieurs IP.
+  RATE_LIMIT_LOGIN_EMAIL_MAX: count.default(10),
+  RATE_LIMIT_LOGIN_EMAIL_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_REFRESH_MAX: count.default(30),
   RATE_LIMIT_REFRESH_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_REGISTER_MAX: count.default(5),
@@ -52,7 +59,11 @@ export type ServerConfig = {
   jwtExpiresIn: string;
   refreshTokenTtlMs: { remember: number; session: number };
   bcryptSaltRounds: number;
-  rateLimits: Record<"login" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileUpdate", RateLimit>;
+  trustedProxyHops: number;
+  rateLimits: Record<
+    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileUpdate",
+    RateLimit
+  >;
 };
 
 let config: ServerConfig | null = null;
@@ -80,8 +91,10 @@ export function getConfig(): ServerConfig {
       session: env.REFRESH_TOKEN_SESSION_HOURS * 60 * 60 * 1000,
     },
     bcryptSaltRounds: env.BCRYPT_SALT_ROUNDS,
+    trustedProxyHops: env.TRUSTED_PROXY_HOPS,
     rateLimits: {
       login: rateLimit(env.RATE_LIMIT_LOGIN_MAX, env.RATE_LIMIT_LOGIN_WINDOW_SECONDS),
+      loginEmail: rateLimit(env.RATE_LIMIT_LOGIN_EMAIL_MAX, env.RATE_LIMIT_LOGIN_EMAIL_WINDOW_SECONDS),
       refresh: rateLimit(env.RATE_LIMIT_REFRESH_MAX, env.RATE_LIMIT_REFRESH_WINDOW_SECONDS),
       register: rateLimit(env.RATE_LIMIT_REGISTER_MAX, env.RATE_LIMIT_REGISTER_WINDOW_SECONDS),
       locations: rateLimit(env.RATE_LIMIT_LOCATIONS_MAX, env.RATE_LIMIT_LOCATIONS_WINDOW_SECONDS),

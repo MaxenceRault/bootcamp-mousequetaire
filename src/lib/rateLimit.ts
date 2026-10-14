@@ -1,4 +1,5 @@
 import "server-only";
+import { getConfig } from "@/lib/config";
 
 const hits = new Map<string, { count: number; resetAt: number }>();
 
@@ -19,7 +20,14 @@ export function isRateLimited(key: string, limit: number, windowMs: number) {
   return entry.count > limit;
 }
 
-// IP du client (premier élément de x-forwarded-for), utilisée comme clé de rate limit.
+// IP du client, utilisée comme clé de rate limit.
+// X-Forwarded-For = « ip1, ip2, …, ipN » : chaque proxy ajoute l'adresse qu'il voit À LA FIN. Les premières
+// entrées peuvent être écrites par le client lui-même (une valeur différente à chaque requête contournerait
+// le rate limit) : on lit donc l'entrée ajoutée par le dernier proxy de confiance (TRUSTED_PROXY_HOPS).
 export function clientIp(request: Request) {
-  return request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  const forwarded = (request.headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((ip) => ip.trim())
+    .filter(Boolean);
+  return forwarded[forwarded.length - getConfig().trustedProxyHops] ?? "unknown";
 }
