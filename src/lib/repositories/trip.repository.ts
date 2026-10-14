@@ -33,7 +33,7 @@ export type TripItemRow = {
   title: string;
   description: string | null;
   category: TripItemCategory;
-  source_post: { id: number; title: string } | null;
+  source_post: { id: number; title: string; slug: string } | null;
 };
 
 export type TripTaskRow = { id: number; label: string; detail: string | null; done: boolean };
@@ -107,7 +107,7 @@ const TRIP_SUMMARY_COLUMNS = `t.id, t.title, t.destination_country_code, t.desti
 
 // « HH:MM » (le type time de Postgres renvoie « HH:MM:SS »).
 const ITEM_COLUMNS_SELECT = `i.id, i.day, to_char(i.start_time, 'HH24:MI') as start_time, i.title, i.description, i.category,
-  case when p.id is null then null else json_build_object('id', p.id, 'title', p.title) end as source_post`;
+  case when p.id is null then null else json_build_object('id', p.id, 'title', p.title, 'slug', p.slug) end as source_post`;
 
 export async function insertTrip(trip: NewTrip): Promise<number> {
   const db = await getDb();
@@ -308,7 +308,7 @@ export async function findTripMessages(tripId: number): Promise<TripMessageRow[]
          (select json_agg(json_build_object(
              'id', s.id, 'day', to_char(s.day, 'YYYY-MM-DD'), 'start_time', to_char(s.start_time, 'HH24:MI'),
              'title', s.title, 'description', s.description, 'category', s.category, 'status', s.status,
-             'source_post', case when p.id is null then null else json_build_object('id', p.id, 'title', p.title) end
+             'source_post', case when p.id is null then null else json_build_object('id', p.id, 'title', p.title, 'slug', p.slug) end
            ) order by s.day, s.start_time, s.id)
           from trip_suggestion s left join post p on p.id = s.source_post_id
           where s.message_id = m.id),

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { connection } from "next/server";
 import { cache, Suspense, type ReactNode } from "react";
 import { getFormatter, getTranslations } from "next-intl/server";
@@ -14,20 +14,33 @@ import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { flagEmoji, placeHref } from "@/lib/country";
-import { getPostDetail, type PostDetail } from "@/lib/services/post.service";
+import { getPostDetail, getPostSlug, type PostDetail } from "@/lib/services/post.service";
 import { getLikeCount } from "@/lib/services/reaction.service";
-import { postIdSchema } from "@/schemas/post.schema";
+import { postIdSchema, postSlugSchema } from "@/schemas/post.schema";
 
-// Lecture du post, partagée par generateMetadata et la page (une seule requête par visite).
-// Id mal formé (ex. « abc » ou « ../ ») : traité comme un post introuvable, sans requête en base.
-const getPost = cache(async (rawId: string): Promise<PostDetail | null> => {
-  const id = postIdSchema.safeParse(rawId);
-  return id.success ? getPostDetail(id.data) : null;
+type ResolvedPost = { post: PostDetail } | { redirectTo: string } | null;
+
+// Lecture du post à partir du segment d'URL, partagée par generateMetadata et la page (une requête par visite).
+// - « okinawa-et-ile-zamami » : slug, l'adresse normale ;
+// - « 30 » : ancien lien par id (un slug n'est jamais uniquement des chiffres) → redirection vers le slug ;
+// - autre chose (« ../ », majuscules…) : introuvable, sans requête en base.
+const resolvePost = cache(async (segment: string): Promise<ResolvedPost> => {
+  const id = postIdSchema.safeParse(segment);
+  if (id.success) {
+    const slug = await getPostSlug(id.data);
+    return slug ? { redirectTo: `/post/${slug}` } : null;
+  }
+
+  const slug = postSlugSchema.safeParse(segment);
+  if (!slug.success) return null;
+  const post = await getPostDetail(slug.data);
+  return post ? { post } : null;
 });
 
-export async function generateMetadata({ params }: PageProps<"/post/[id]">): Promise<Metadata> {
-  const post = await getPost((await params).id);
-  if (!post) return {};
+export async function generateMetadata({ params }: PageProps<"/post/[slug]">): Promise<Metadata> {
+  const resolved = await resolvePost((await params).slug);
+  if (!resolved || "redirectTo" in resolved) return {};
+  const { post } = resolved;
 
   return {
     title: post.title,
@@ -36,7 +49,7 @@ export async function generateMetadata({ params }: PageProps<"/post/[id]">): Pro
   };
 }
 
-export default function PostPage({ params }: PageProps<"/post/[id]">) {
+export default function PostPage({ params }: PageProps<"/post/[slug]">) {
   return (
     <>
       <Navbar />
@@ -49,12 +62,15 @@ export default function PostPage({ params }: PageProps<"/post/[id]">) {
   );
 }
 
-async function PostContent({ params }: Pick<PageProps<"/post/[id]">, "params">) {
-  const { id } = await params;
+async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">) {
+  const { slug } = await params;
   // « il y a 2 jours » dépend de l'heure actuelle : calculé à chaque requête.
   await connection();
-  const post = await getPost(id);
-  if (!post) notFound();
+  const resolved = await resolvePost(slug);
+  if (!resolved) notFound();
+  // Ancien lien /post/30 : redirection permanente vers /post/{slug} (les liens déjà partagés restent valides).
+  if ("redirectTo" in resolved) permanentRedirect(resolved.redirectTo);
+  const { post } = resolved;
   const likeCount = await getLikeCount(post.id);
 
   const t = await getTranslations("Post");

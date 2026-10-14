@@ -13,6 +13,8 @@ export type PostArchetype = (typeof POST_ARCHETYPES)[number];
 export type FeedPost = {
   id: number;
   title: string;
+  // Identifiant lisible de l'URL : /post/{slug}.
+  slug: string;
   shortDescription: string;
   // Ville, sinon région ; null si la destination est un pays entier (la carte affiche alors le pays).
   location: string | null;

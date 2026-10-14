@@ -45,7 +45,7 @@ type TripItem = {
   title: string;
   description: string | null;
   category: ItemCategory;
-  source_post: { id: number; title: string } | null;
+  source_post: { id: number; title: string; slug: string } | null;
 };
 
 type TripTask = { id: number; label: string; detail: string | null; done: boolean };
@@ -443,7 +443,7 @@ function ItemRow({ item, days, mutate }: { item: TripItem; days: string[]; mutat
         {item.source_post && (
           <p className="text-body-sm text-ink-soft">
             {t("item.source")}{" "}
-            <Link href={`/post/${item.source_post.id}`} className="font-medium text-accent hover:underline">
+            <Link href={`/post/${item.source_post.slug}`} className="font-medium text-accent hover:underline">
               {item.source_post.title}
             </Link>
           </p>
@@ -901,7 +901,7 @@ function SuggestionCard({
       {suggestion.source_post && (
         <p className="text-body-sm text-ink-soft">
           {t("item.source")}{" "}
-          <Link href={`/post/${suggestion.source_post.id}`} className="font-medium text-accent hover:underline">
+          <Link href={`/post/${suggestion.source_post.slug}`} className="font-medium text-accent hover:underline">
             {suggestion.source_post.title}
           </Link>
         </p>

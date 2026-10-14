@@ -16,6 +16,7 @@ import { apiFetch, updateSessionUser } from "@/lib/session";
 type Story = {
   id: number;
   title: string;
+  slug: string;
   photo_url: string;
   photo_alt: string;
   destination_country_code: string;
