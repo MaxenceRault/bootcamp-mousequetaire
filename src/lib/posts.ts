@@ -28,6 +28,7 @@ export type FeedPost = {
     displayName: string;
     avatarUrl: string | null;
     avatarSeed: string | null;
+    avatarBackgroundColor: string | null;
   };
 };
 

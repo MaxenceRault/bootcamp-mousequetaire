@@ -12,7 +12,7 @@ import {
   subscribeReactions,
   type ReactionState,
 } from "@/lib/reactions-store";
-import { apiFetch, getSessionSnapshot } from "@/lib/session";
+import { apiFetch, getSessionSnapshot, subscribeSession } from "@/lib/session";
 
 type Kind = "like" | "save";
 
@@ -24,7 +24,8 @@ type PostReactionsProps = {
   loadViewer?: boolean;
 };
 
-// Boutons « J'aime » et « Enregistrer » d'un post.
+// Boutons « J'aime » et « Enregistrer » d'un post (utilisateur connecté).
+// Visiteur : seul le nombre de likes est affiché, sans action possible.
 // L'état vient du store partagé (lib/reactions-store) : il reste synchronisé entre les pages,
 // entre plusieurs cartes du même post et entre les onglets.
 // Mise à jour optimiste : l'interface change tout de suite et revient en arrière si l'API refuse.
@@ -38,6 +39,8 @@ export function PostReactions({ postId, initialLikeCount, loadViewer = true }: P
     () => undefined,
   );
   const reactions: ReactionState = stored ?? { likeCount: initialLikeCount, liked: false, saved: false };
+  // Session du navigateur (le token n'est pas dans un cookie) : inconnue pendant le rendu serveur.
+  const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, () => null);
 
   // Page détail : état de l'utilisateur connecté (et nombre de likes à jour) chargé via l'API.
   useEffect(() => {
@@ -78,6 +81,18 @@ export function PostReactions({ postId, initialLikeCount, loadViewer = true }: P
       return;
     }
     setReactionFromUser(postId, result.data);
+  }
+
+  if (!session) {
+    return (
+      <p
+        aria-label={t("likeCount", { count: reactions.likeCount })}
+        className="inline-flex h-9 items-center gap-1.5 font-display text-label-md text-ink-soft"
+      >
+        <Icon name="heart" className="size-4" />
+        <span aria-hidden="true">{reactions.likeCount}</span>
+      </p>
+    );
   }
 
   return (

@@ -2,8 +2,8 @@ import "server-only";
 import { getDb } from "@/utils/db";
 import { getBucket, publicUrl } from "@/utils/storage";
 
-// Bucket Cloud Storage des photos de couverture (public en lecture).
-const PHOTO_BUCKET = "biirb-post-photos";
+// Bucket Cloud Storage des photos de couverture et des images de profil (public en lecture).
+export const PHOTO_BUCKET = "biirb-post-photos";
 
 export type NewPost = {
   author_id: string;
@@ -131,7 +131,8 @@ const prefixed = (alias: string, columns: string[]) => columns.map((column) => `
 
 // Auteur d'un post, au même format que PublicUser.
 const AUTHOR_JSON = `json_build_object('id', u.id, 'username', u.username, 'display_name', u.display_name,
-  'avatar_url', u.avatar_url, 'avatar_seed', u.avatar_seed)`;
+  'avatar_url', u.avatar_url, 'avatar_seed', u.avatar_seed,
+  'avatar_background_color', u.avatar_background_color)`;
 
 // Posts d'un auteur, du plus récent au plus ancien, avec le nombre total.
 export async function findPostsByAuthor(
@@ -165,7 +166,7 @@ export type PostDetailRow = {
   end_date: string;
   created_at: string;
   archetype: { slug: string };
-  author: { id: string; username: string; display_name: string; avatar_url: string | null; avatar_seed: string | null };
+  author: { id: string; username: string; display_name: string; avatar_url: string | null; avatar_seed: string | null; avatar_background_color: string | null };
   post_tag: { tag: { country_code: string; state_code: string | null; city: string | null } }[];
 };
 
@@ -218,7 +219,7 @@ export async function findPostIdsByPlace({ country, state, city }: PlaceFilter):
 
 // Résumé d'un post avec son auteur, pour les listes de récits.
 export type PostSummaryWithAuthor = PostSummary & {
-  author: { id: string; username: string; display_name: string; avatar_url: string | null; avatar_seed: string | null };
+  author: { id: string; username: string; display_name: string; avatar_url: string | null; avatar_seed: string | null; avatar_background_color: string | null };
 };
 
 export async function findPostSummariesByIds(ids: number[], limit: number): Promise<PostSummaryWithAuthor[]> {
@@ -305,11 +306,22 @@ export type FeedPostRow = {
     display_name: string;
     avatar_url: string | null;
     avatar_seed: string | null;
+    avatar_background_color: string | null;
   };
 };
 
 // Posts visibles du plus récent au plus ancien. Pagination par curseur : beforeId = id du dernier post
 // déjà affiché (les ids sont croissants dans le temps). Filtre facultatif sur le slug du type de récit.
+// Colonnes et jointures d'une ligne du feed (partagées par le feed et la recherche).
+const FEED_SELECT = `select p.id, p.title, p.short_description, p.photo_url, p.photo_alt,
+       p.destination_country_code, p.destination_state_code, p.destination_city, p.created_at,
+       (select count(*)::int from post_like l where l.post_id = p.id) as like_count,
+       json_build_object('slug', a.slug) as archetype,
+       ${AUTHOR_JSON} as author
+     from post p
+     join archetype a on a.id = p.archetype_id
+     join users u on u.id = p.author_id`;
+
 export async function findFeedPosts({
   archetype,
   beforeId,
@@ -321,14 +333,7 @@ export async function findFeedPosts({
 }): Promise<FeedPostRow[]> {
   const db = await getDb();
   const { rows } = await db.query<FeedPostRow>(
-    `select p.id, p.title, p.short_description, p.photo_url, p.photo_alt,
-       p.destination_country_code, p.destination_state_code, p.destination_city, p.created_at,
-       (select count(*)::int from post_like l where l.post_id = p.id) as like_count,
-       json_build_object('slug', a.slug) as archetype,
-       ${AUTHOR_JSON} as author
-     from post p
-     join archetype a on a.id = p.archetype_id
-     join users u on u.id = p.author_id
+    `${FEED_SELECT}
      where not p.is_hidden
        and ($1::text is null or a.slug = $1)
        and ($2::int is null or p.id < $2)
@@ -385,6 +390,61 @@ export async function findSavedPostsByUser(userId: string, limit: number): Promi
      order by s.created_at desc
      limit $2`,
     [userId, limit],
+  );
+  return rows;
+}
+
+// Échappe les caractères spéciaux de LIKE (le texte reste ensuite passé en paramètre $1).
+function escapeLike(text: string) {
+  return text.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+export type SearchPlace = { country: string; state: string | null; city: string | null };
+
+// Recherche dans les posts visibles, classés par pertinence :
+//   1. un tag ou la destination est dans un des lieux trouvés (hiérarchique : un pays inclut ses villes) ;
+//   2. sinon le titre contient le texte ;
+//   3. sinon la description courte ou longue contient le texte.
+// À rang égal, du plus récent au plus ancien.
+export async function searchFeedPosts({
+  text,
+  places,
+  limit,
+}: {
+  text: string;
+  places: SearchPlace[];
+  limit: number;
+}): Promise<FeedPostRow[]> {
+  const db = await getDb();
+  const { rows } = await db.query<FeedPostRow>(
+    `with wanted as (
+       select * from jsonb_to_recordset($2::jsonb) as w(country text, state text, city text)
+     ),
+     ranked as (
+       select p.id,
+         case
+           when exists (
+             select 1 from wanted w
+              where (p.destination_country_code = w.country
+                     and (w.state is null or p.destination_state_code = w.state)
+                     and (w.city is null or p.destination_city = w.city))
+                 or exists (select 1 from post_tag pt join tag t on t.id = pt.tag_id
+                             where pt.post_id = p.id and t.country_code = w.country
+                               and (w.state is null or t.state_code = w.state)
+                               and (w.city is null or t.city = w.city))
+           ) then 1
+           when p.title ilike $1 escape '\\' then 2
+           when p.short_description ilike $1 escape '\\' or p.long_description ilike $1 escape '\\' then 3
+         end as rank
+       from post p
+       where not p.is_hidden
+     )
+     ${FEED_SELECT}
+     join ranked r on r.id = p.id
+     where r.rank is not null
+     order by r.rank, p.id desc
+     limit $3`,
+    [`%${escapeLike(text)}%`, JSON.stringify(places), limit],
   );
   return rows;
 }

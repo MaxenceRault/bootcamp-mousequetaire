@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { ProfileEditForm, type EditableProfile } from "@/components/ProfileEditForm";
 import { StoryCard, storyTitleId, type StoryCardData } from "@/components/StoryCard";
+import { TripCard, type TripSummary } from "@/components/TripCard";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button, buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -110,18 +111,35 @@ function Profile({
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<Tab>(() => parseTab(searchParams.get("tab")));
+  // Voyages générés dans le planificateur (même API que /planner).
+  const [trips, setTrips] = useState<TripsState>("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ trips: TripSummary[] }>("/api/v1/trips").then((result) => {
+      if (!cancelled) setTrips("error" in result ? "error" : result.data.trips);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const { user } = profile;
 
-  function handleSaved(updated: EditableProfile) {
+  // Met à jour la page et la Navbar (nom, pseudo, avatar).
+  function applyUser(updated: EditableProfile) {
     onUserChange(updated);
-    // Met aussi à jour la Navbar (nom, pseudo).
     updateSessionUser({
       id: updated.id,
       username: updated.username,
       display_name: updated.display_name,
       avatar_url: updated.avatar_url,
       avatar_seed: updated.avatar_seed,
+      avatar_background_color: updated.avatar_background_color,
     });
+  }
+
+  function handleSaved(updated: EditableProfile) {
+    applyUser(updated);
     setEditing(false);
     setSaved(true);
   }
@@ -137,7 +155,8 @@ function Profile({
         <div className="flex flex-col gap-4 px-4 pb-6 sm:px-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="relative z-10 -mt-12 flex flex-col gap-4 sm:-mt-14 sm:flex-row sm:items-end">
             <div className="w-fit rounded-xl bg-surface p-1 shadow-md">
-              <Avatar src={user.avatar_url} name={user.avatar_seed ?? user.id} alt="" size={104} />
+              <Avatar src={user.avatar_url} name={user.avatar_seed ?? user.id}
+                backgroundColor={user.avatar_background_color} alt="" size={104} />
             </div>
             <div className="pb-1">
               <h1 className="font-display text-headline-md text-ink">{user.display_name}</h1>
@@ -187,7 +206,9 @@ function Profile({
         </p>
       )}
 
-      {editing && <ProfileEditForm user={user} onSaved={handleSaved} onCancel={() => setEditing(false)} />}
+      {editing && (
+        <ProfileEditForm user={user} onSaved={handleSaved} onImageChange={applyUser} onCancel={() => setEditing(false)} />
+      )}
 
       <section className="flex flex-col gap-6">
         <div
@@ -212,6 +233,9 @@ function Profile({
               {t(`tabs.${key}`)}
               {key === "stories" && <span className="text-label-sm text-ink-soft/70">{profile.storyCount}</span>}
               {key === "saved" && <span className="text-label-sm text-ink-soft/70">{profile.saved.length}</span>}
+              {key === "itineraries" && Array.isArray(trips) && (
+                <span className="text-label-sm text-ink-soft/70">{trips.length}</span>
+              )}
             </button>
           ))}
         </div>
@@ -224,16 +248,7 @@ function Profile({
               onStoryDeleted={onStoryDeleted}
             />
           )}
-          {tab === "itineraries" && (
-            <EmptyState>
-              {t("empty.itineraries")}
-              {/* La création d'itinéraire se fait dans le planificateur. */}
-              <Link href="/planner" className={buttonClassName("sm", "mt-4")}>
-                <Icon name="add" className="size-4" />
-                {t("createItinerary")}
-              </Link>
-            </EmptyState>
-          )}
+          {tab === "itineraries" && <ItinerariesTab trips={trips} />}
           {tab === "saved" &&
             (profile.saved.length === 0 ? (
               <EmptyState>{t("empty.saved")}</EmptyState>
@@ -367,6 +382,52 @@ function ProfileStory({ story, onStoryHiddenChange, onStoryDeleted }: { story: S
         }
       />
     </li>
+  );
+}
+
+type TripsState = "loading" | "error" | TripSummary[];
+
+// Onglet « Itinéraires IA » : voyages créés dans le planificateur (ouverts au clic dans /planner/{id}).
+function ItinerariesTab({ trips }: { trips: TripsState }) {
+  const t = useTranslations("Profile");
+
+  if (trips === "loading") {
+    return (
+      <div aria-hidden="true" className="grid gap-3 md:grid-cols-2">
+        {[0, 1].map((index) => (
+          <Card key={index} className="h-28 animate-pulse bg-surface-muted" />
+        ))}
+      </div>
+    );
+  }
+  if (trips === "error") return <EmptyState>{t("itinerariesError")}</EmptyState>;
+  if (trips.length === 0) {
+    return (
+      <EmptyState>
+        {t("empty.itineraries")}
+        {/* La création d'itinéraire se fait dans le planificateur. */}
+        <Link href="/planner" className={buttonClassName("sm", "mt-4")}>
+          <Icon name="add" className="size-4" />
+          {t("createItinerary")}
+        </Link>
+      </EmptyState>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Link href="/planner" className={buttonClassName("sm", "self-end")}>
+        <Icon name="add" className="size-4" />
+        {t("createItinerary")}
+      </Link>
+      <ul className="grid gap-3 md:grid-cols-2">
+        {trips.map((trip) => (
+          <li key={trip.id}>
+            <TripCard trip={trip} />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

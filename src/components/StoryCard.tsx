@@ -16,7 +16,13 @@ export type StoryCardData = {
   destination_city: string | null;
   start_date: string;
   // Affiché seulement quand la liste mélange plusieurs auteurs (ex. page d'un lieu).
-  author?: { id: string; display_name: string; avatar_url: string | null; avatar_seed: string | null };
+  author?: {
+    id: string;
+    display_name: string;
+    avatar_url: string | null;
+    avatar_seed: string | null;
+    avatar_background_color?: string | null;
+  };
 };
 
 type StoryCardProps = {
@@ -71,7 +77,11 @@ export function StoryCard({ story, hidden = false, actions }: StoryCardProps) {
           </p>
           {story.author && (
             <p className="mt-1 flex items-center gap-2 text-body-sm text-ink-soft">
-              <Avatar src={story.author.avatar_url} name={story.author.avatar_seed ?? story.author.id} alt="" size={20} />
+              <Avatar
+                src={story.author.avatar_url}
+                name={story.author.avatar_seed ?? story.author.id}
+                backgroundColor={story.author.avatar_background_color}
+                alt="" size={20} />
               {story.author.display_name}
             </p>
           )}

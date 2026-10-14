@@ -120,7 +120,8 @@ async function PostContent({ params }: Pick<PageProps<"/post/[id]">, "params">) 
 
                 <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg bg-surface-muted px-4 py-4">
                   <div className="flex min-w-0 items-center gap-3">
-                    <Avatar src={post.author.avatarUrl} name={post.author.avatarSeed ?? post.author.id} alt="" size={44} />
+                    <Avatar src={post.author.avatarUrl} name={post.author.avatarSeed ?? post.author.id}
+                    backgroundColor={post.author.avatarBackgroundColor} alt="" size={44} />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-display text-label-lg text-ink">{post.author.displayName}</span>
@@ -194,7 +195,8 @@ async function PostContent({ params }: Pick<PageProps<"/post/[id]">, "params">) 
                 )}
 
                 <div className="flex items-center gap-4 rounded-lg bg-surface-muted p-6">
-                  <Avatar src={post.author.avatarUrl} name={post.author.avatarSeed ?? post.author.id} alt="" size={64} />
+                  <Avatar src={post.author.avatarUrl} name={post.author.avatarSeed ?? post.author.id}
+                    backgroundColor={post.author.avatarBackgroundColor} alt="" size={64} />
                   <div>
                     <p className="font-display text-headline-sm text-ink">
                       {t("writtenBy", { name: post.author.displayName })}
