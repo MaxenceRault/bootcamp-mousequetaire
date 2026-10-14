@@ -58,7 +58,7 @@ export async function createPost(authorId: string, input: CreatePostInput): Prom
   const photoPath = `${authorId}/${randomUUID()}.${image.extension}`;
   const photoUrl = await uploadPostPhoto(photoPath, input.photo, image.contentType);
 
-  // Pas de transaction avec le client Supabase : en cas d'échec, on défait ce qui a été créé.
+  // Photo (Cloud Storage) et lignes en base ne peuvent pas partager une transaction : en cas d'échec, on défait ce qui a été créé.
   try {
     const postId = await insertPost({
       author_id: authorId,

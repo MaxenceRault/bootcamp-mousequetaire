@@ -1,7 +1,7 @@
 import { DEMO_POSTS } from "@/lib/demo-posts";
 
 // Types de récit : servent d'onglets au feed et de choix dans l'éditeur.
-// Doivent rester identiques aux slugs de la table archetype (supabase/migrations/).
+// Doivent rester identiques aux slugs de la table archetype (db/migrations/).
 // Libellés affichés : namespace « Archetypes » de messages/fr.json.
 export const POST_ARCHETYPES = [
   "slow_travel_photography",

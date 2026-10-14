@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { POST_ARCHETYPES } from "@/lib/posts";
 
-// Limites alignées sur la table post (supabase/migrations/) et le bucket post-photos.
+// Limites alignées sur la table post (db/migrations/) et le contrôle fait par post.service.
 export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const MAX_TAGS = 10;
