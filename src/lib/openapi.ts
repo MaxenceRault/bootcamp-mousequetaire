@@ -1,6 +1,15 @@
 import "server-only";
 import { z } from "zod";
 import { loginSchema, refreshTokenSchema, registerSchema } from "@/schemas/auth.schema";
+import {
+  adjustTripSchema,
+  createTripItemSchema,
+  createTripSchema,
+  createTripTaskSchema,
+  updateTripItemSchema,
+  updateTripSchema,
+  updateTripTaskSchema,
+} from "@/schemas/trip.schema";
 import { updateProfileSchema } from "@/schemas/user.schema";
 
 // Corps de requête générés à partir des schémas Zod utilisés par les controllers :
@@ -85,6 +94,41 @@ const unauthorized = error("Token absent, invalide, falsifié ou expiré", ["UNA
 const tooManyRequests = error("Trop de tentatives : 5 maximum par IP toutes les 15 minutes", ["TOO_MANY_REQUESTS"]);
 const internalError = error("Erreur serveur (détail uniquement dans les logs serveur)", ["INTERNAL_ERROR"]);
 
+// ─── Planificateur (/trips) ──────────────────────────────────────────────────
+
+const tripDetail = {
+  type: "object",
+  properties: {
+    trip: { type: "object", description: "Voyage (destination, dates, archetype, budget, source_post_count, generated_at)" },
+    items: { type: "array", items: { type: "object" }, description: "Activités, triées par jour et heure" },
+    tasks: { type: "array", items: { type: "object" }, description: "Checklist de préparation" },
+  },
+};
+const notFound = error("Voyage (ou élément) introuvable, ou appartenant à un autre utilisateur", ["NOT_FOUND"]);
+const aiUnavailable = error("L'IA n'a pas répondu ou a renvoyé un format invalide", ["AI_UNAVAILABLE"]);
+const aiRateLimited = error("Trop d'appels à l'IA : 20 maximum par utilisateur et par heure", ["TOO_MANY_REQUESTS"]);
+const idParam = (name: string) => ({ name, in: "path", required: true, schema: { type: "integer", minimum: 1 } });
+
+// Route privée sur un voyage : JWT obligatoire, propriété vérifiée côté serveur.
+function tripRoute(summary: string, options: { params?: string[]; body?: z.ZodType; ok?: object; ai?: boolean; description?: string }) {
+  return {
+    tags: ["Voyages"],
+    summary,
+    ...(options.description ? { description: options.description } : {}),
+    security: [{ bearerAuth: [] }],
+    parameters: (options.params ?? ["id"]).map(idParam),
+    ...(options.body ? { requestBody: requestBody(options.body) } : {}),
+    responses: {
+      ...(options.ok ?? { 200: json("Voyage à jour", tripDetail) }),
+      400: invalidInput,
+      401: unauthorized,
+      404: notFound,
+      ...(options.ai ? { 429: aiRateLimited, 503: aiUnavailable } : {}),
+      500: internalError,
+    },
+  };
+}
+
 export function buildOpenApiDocument() {
   return {
     openapi: "3.0.3",
@@ -104,6 +148,7 @@ export function buildOpenApiDocument() {
     tags: [
       { name: "Auth", description: "Inscription et connexion" },
       { name: "Utilisateurs", description: "Profil de l'utilisateur connecté" },
+      { name: "Voyages", description: "Planificateur : voyages générés par l'IA (Gemini) à partir des posts, puis modifiables" },
     ],
     paths: {
       "/auth/register": {
@@ -164,6 +209,67 @@ export function buildOpenApiDocument() {
             500: internalError,
           },
         },
+      },
+      "/trips": {
+        get: {
+          tags: ["Voyages"],
+          summary: "Mes voyages",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: json("Liste", { type: "object", properties: { trips: { type: "array", items: { type: "object" } } } }),
+            401: unauthorized,
+            500: internalError,
+          },
+        },
+        post: {
+          tags: ["Voyages"],
+          summary: "Générer un voyage avec l'IA",
+          description:
+            "Posts filtrés par lieu (destination ou tags) et par archetype, puis envoyés à Gemini (15 max). " +
+            "Réponse de l'IA revalidée côté serveur. Rien n'est enregistré si l'IA échoue.",
+          security: [{ bearerAuth: [] }],
+          requestBody: requestBody(createTripSchema),
+          responses: {
+            201: json("Voyage créé", { type: "object", properties: { id: { type: "integer" } } }),
+            400: invalidInput,
+            401: unauthorized,
+            429: aiRateLimited,
+            503: aiUnavailable,
+            500: internalError,
+          },
+        },
+      },
+      "/trips/{id}": {
+        get: tripRoute("Détail d'un voyage", {}),
+        patch: tripRoute("Modifier le titre ou le budget", { body: updateTripSchema }),
+        delete: tripRoute("Supprimer un voyage", { ok: { 204: { description: "Supprimé" } } }),
+      },
+      "/trips/{id}/regenerate": {
+        post: tripRoute("Re-générer avec l'IA", {
+          ai: true,
+          description: "Remplace toutes les activités, la checklist et le budget.",
+        }),
+      },
+      "/trips/{id}/adjust": {
+        post: tripRoute("Ajuster avec l'IA", {
+          body: adjustTripSchema,
+          ai: true,
+          description: "Consigne libre (300 caractères max), traitée comme une donnée non fiable par le prompt.",
+        }),
+      },
+      "/trips/{id}/items": {
+        post: tripRoute("Ajouter une activité", { body: createTripItemSchema, ok: { 201: json("Voyage à jour", tripDetail) } }),
+      },
+      "/trips/{id}/items/{itemId}": {
+        patch: tripRoute("Modifier une activité", { params: ["id", "itemId"], body: updateTripItemSchema }),
+        delete: tripRoute("Supprimer une activité", { params: ["id", "itemId"] }),
+      },
+      "/trips/{id}/tasks": {
+        post: tripRoute("Ajouter une tâche", { body: createTripTaskSchema, ok: { 201: json("Voyage à jour", tripDetail) } }),
+      },
+      "/trips/{id}/tasks/{taskId}": {
+        patch: tripRoute("Modifier / cocher une tâche", { params: ["id", "taskId"], body: updateTripTaskSchema }),
+        delete: tripRoute("Supprimer une tâche", { params: ["id", "taskId"] }),
       },
       "/users/me": {
         get: {

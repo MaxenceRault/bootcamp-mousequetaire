@@ -25,7 +25,8 @@ src/
 │   ├── tags/page.tsx          # Récits d'un lieu : /tags?country=FR[&state=IDF&city=Montesson] (destination ou tag)
 │   ├── post/new/page.tsx      # Éditeur de récit (création d'un post)
 │   ├── profile/page.tsx       # Tableau de bord utilisateur
-│   ├── planner/page.tsx       # Planification (Calendrier + Checklist)
+│   ├── planner/page.tsx       # Planificateur : mes voyages + génération par l'IA
+│   ├── planner/[id]/page.tsx  # Planning d'un voyage (jours, activités, checklist, budget, ajustement IA)
 │   ├── login/page.tsx         # Auth : connexion / inscription / mot de passe oublié (?view=)
 │   ├── api-docs/page.tsx      # Swagger UI (dev uniquement, 404 en production)
 │   └── api/v1/                # Couche CONTROLLER (route handlers), toutes les routes sous /api/v1/
@@ -37,6 +38,7 @@ src/
 │       ├── locations/route.ts     # GET /api/v1/locations?q= recherche de villes / pays (country-state-city) → location.controller
 │       ├── users/me/route.ts  # GET / PATCH /api/v1/users/me (profil connecté) → user.controller
 │       ├── openapi.json/route.ts # GET /api/v1/openapi.json : spécification OpenAPI (dev uniquement)
+│       ├── trips/…            # Voyages : CRUD + regenerate / adjust (IA) → trip.controller
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
 ├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (auth.schema.ts, user.schema.ts, post.schema.ts)
 ├── services/                  # Couche SERVICE : logique métier (ex. post.service.ts)
@@ -52,6 +54,9 @@ src/
 │   ├── NavbarAccount.tsx      # Zone compte de la Navbar (client : lit la session du navigateur)
 │   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
+│   ├── TripContextBar.tsx     # Barre destination · dates · type de récit (éditeur de récit + planificateur)
+│   ├── PlannerHome.tsx        # Liste des voyages + formulaire de génération (client)
+│   ├── TripPlanner.tsx        # Planning d'un voyage, modifiable (client)
 │   ├── ShareButton.tsx        # Partage du lien (menu natif ou copie dans le presse-papiers)
 │   ├── StoryCard.tsx          # Carte d'un récit dans une grille (profil, page d'un lieu)
 │   ├── PostEditorForm.tsx     # Formulaire de l'éditeur de récit (client)
@@ -63,7 +68,7 @@ src/
 │   ├── ForgotPasswordForm.tsx # Formulaire mot de passe oublié (client)
 │   └── AIChatDrawer.tsx       # Drawer du chat RAG
 └── lib/
-    ├── ai.ts                  # Helpers Gemini & embeddings
+    ├── ai.ts                  # Gemini 2.5 Flash-Lite sur Vertex AI (auth IAM, sortie JSON imposée)
     ├── posts.ts               # Accès aux posts du feed (seul point à brancher sur l'API back-end)
     └── demo-posts.ts          # Données de démo du feed, en attendant l'API
 db/
@@ -79,7 +84,7 @@ scripts/
 │   ├── session.ts             # Côté client : stockage des tokens, appels API (apiFetch ajoute le Bearer et renouvelle l'access token)
 │   ├── country.ts             # Drapeau emoji et nom du pays à partir du code pays
 │   ├── openapi.ts             # Spécification OpenAPI de l'API (corps de requête générés depuis schemas/)
-│   └── ai.ts                  # Helpers Gemini & embeddings
+│   └── ai.ts                  # Gemini sur Vertex AI
 └── utils/                     # Clients GCP, serveur uniquement : db.ts (Cloud SQL, auth IAM), storage.ts (Cloud Storage)
 db/                            # Scripts SQL à exécuter dans Cloud SQL Studio
 ```
@@ -155,3 +160,4 @@ Seuls les must-have sont exigés : ne pas implémenter les nice-to-have (OAuth/O
 - Ne jamais renvoyer au client plus de données que nécessaire (pas de hash, pas de champs internes).
 - Pas de `dangerouslySetInnerHTML` sur du contenu utilisateur.
 - Chat RAG : traiter la question utilisateur et le contenu des posts comme non fiables (injection de prompt), limiter la taille des entrées.
+- IA (planificateur, chat) : Gemini via Vertex AI (`src/lib/ai.ts`), authentifié par IAM comme la base : aucune clé API (variables `GCP_PROJECT_ID`, `VERTEX_LOCATION`). Réponse du modèle = donnée non fiable, toujours revalidée par Zod. Appels à l'IA limités par utilisateur (rate limit).

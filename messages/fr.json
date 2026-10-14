@@ -165,14 +165,6 @@
     "fields": {
       "title": "Titre",
       "titlePlaceholder": "Où êtes-vous allé ? Ex. Aube silencieuse dans la bambouseraie d'Arashiyama",
-      "destination": "Destination",
-      "destinationPlaceholder": "Ville ou pays…",
-      "destinationPick": "Choisissez une destination dans la liste.",
-      "timeline": "Dates du voyage",
-      "startDate": "Date de début",
-      "endDate": "Date de fin",
-      "archetype": "Type de récit",
-      "archetypePlaceholder": "Choisir un type",
       "shortDescription": "Description courte",
       "shortDescriptionPlaceholder": "Une phrase d'accroche sur votre voyage…",
       "longDescription": "Description longue",
@@ -199,6 +191,119 @@
       "INVALID_INPUT": "Vérifiez les champs du formulaire.",
       "TOO_MANY_REQUESTS": "Trop de publications. Réessayez plus tard.",
       "PAYLOAD_TOO_LARGE": "La photo est trop lourde (5 Mo maximum).",
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+    }
+  },
+  "TripContextBar": {
+    "destination": "Destination",
+    "destinationPlaceholder": "Ville ou pays…",
+    "destinationPick": "Choisissez une destination dans la liste.",
+    "timeline": "Dates du voyage",
+    "startDate": "Date de début",
+    "endDate": "Date de fin",
+    "archetype": "Type de récit",
+    "archetypePlaceholder": "Choisir un type",
+    "placesError": "Impossible de charger les lieux. Réessayez."
+  },
+  "Planner": {
+    "metaTitle": "Planificateur",
+    "heading": "Mes voyages",
+    "subheading": "Choisissez une destination, vos dates et votre style de voyage : l'IA compose un planning à partir des récits de la communauté.",
+    "create": {
+      "title": "Nouveau voyage",
+      "submit": "Générer avec l'IA",
+      "pending": "L'IA prépare votre voyage… (environ 10 secondes)"
+    },
+    "list": {
+      "title": "Voyages générés",
+      "empty": "Aucun voyage pour l'instant. Générez votre premier planning ci-dessus.",
+      "activities": "{count, plural, =0 {Aucune activité} one {# activité} other {# activités}}",
+      "loadError": "Impossible de charger vos voyages. Réessayez."
+    },
+    "trip": {
+      "breadcrumb": "Mes voyages",
+      "editTitle": "Modifier le titre",
+      "titleLabel": "Titre du voyage",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "regenerate": "Re-générer avec l'IA",
+      "regenerating": "Génération en cours…",
+      "regenerateConfirm": "Re-générer remplace toutes les activités, la checklist et le budget. Continuer ?",
+      "delete": "Supprimer",
+      "deleteConfirm": "Supprimer définitivement ce voyage ?",
+      "dates": "{start} – {end}",
+      "budgetChip": "Budget : {total} €",
+      "budgetChipTarget": "Budget : {total} € / {target} € prévus",
+      "aiSynced": "Généré par l'IA · {when}",
+      "sources": "{count, plural, =0 {Aucun récit correspondant : planning général} one {Basé sur # récit de voyageur} other {Basé sur # récits de voyageurs}}",
+      "loadError": "Impossible de charger ce voyage.",
+      "notFound": "Ce voyage n'existe pas ou ne vous appartient pas.",
+      "back": "Retour à mes voyages"
+    },
+    "days": {
+      "title": "Planning",
+      "label": "Jour {number}",
+      "dayTab": "Jour {number} · {date}",
+      "heading": "Jour {number} — {date}",
+      "count": "{count, plural, =0 {Aucune activité} one {# activité} other {# activités}}",
+      "empty": "Aucune activité ce jour-là."
+    },
+    "item": {
+      "edit": "Modifier l'activité {title}",
+      "delete": "Supprimer l'activité {title}",
+      "source": "Inspiré du récit :",
+      "add": "Ajouter une activité",
+      "time": "Heure",
+      "title": "Activité",
+      "titlePlaceholder": "Ex. Balade au marché de Nishiki",
+      "description": "Description",
+      "descriptionPlaceholder": "Détails, adresse, conseils…",
+      "category": "Catégorie",
+      "save": "Enregistrer",
+      "cancel": "Annuler"
+    },
+    "categories": {
+      "transport": "Transport",
+      "lodging": "Logement",
+      "activity": "Activité",
+      "food": "Repas"
+    },
+    "tasks": {
+      "title": "Checklist de préparation",
+      "progress": "{done}/{total} faites",
+      "empty": "Aucune tâche.",
+      "addLabel": "Nouvelle tâche",
+      "addPlaceholder": "Ajouter une tâche ou un rappel…",
+      "add": "Ajouter",
+      "delete": "Supprimer la tâche {label}"
+    },
+    "budget": {
+      "title": "Budget estimé",
+      "total": "{total} €",
+      "totalWithTarget": "{total} € / {target} €",
+      "target": "Budget prévu (€)",
+      "targetPlaceholder": "Optionnel",
+      "lodging": "Logement",
+      "transit": "Transport",
+      "dining": "Repas",
+      "activities": "Activités",
+      "save": "Enregistrer le budget",
+      "saved": "Budget enregistré."
+    },
+    "adjust": {
+      "title": "Ajuster avec l'IA",
+      "hint": "Décrivez une modification, l'IA met le planning à jour en gardant le reste.",
+      "label": "Consigne pour l'IA",
+      "placeholder": "Ex. Ajoute une pause café le jour 2 vers 15 h",
+      "submit": "Appliquer",
+      "pending": "L'IA ajuste votre planning…"
+    },
+    "errors": {
+      "INVALID_INPUT": "Vérifiez les champs du formulaire.",
+      "TOO_MANY_REQUESTS": "Trop de demandes à l'IA. Réessayez dans une heure.",
+      "AI_UNAVAILABLE": "L'IA n'a pas pu générer le planning. Réessayez dans un instant.",
+      "NOT_FOUND": "Élément introuvable.",
+      "UNAUTHORIZED": "Votre session a expiré. Reconnectez-vous.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
     }
   }
