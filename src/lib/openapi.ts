@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { loginSchema, registerSchema } from "@/schemas/auth.schema";
+import { loginSchema, refreshTokenSchema, registerSchema } from "@/schemas/auth.schema";
 import { updateProfileSchema } from "@/schemas/user.schema";
 
 // Corps de requête générés à partir des schémas Zod utilisés par les controllers :
@@ -54,6 +54,12 @@ const authResult = {
   type: "object",
   properties: {
     token: { type: "string", description: "JWT HS256, valable 1 h. À envoyer dans « Authorization: Bearer <token> »." },
+    refreshToken: {
+      type: "string",
+      description:
+        "Token opaque à usage unique (30 jours avec remember, 24 h sinon). À envoyer à /auth/refresh pour obtenir " +
+        "une nouvelle paire : l'ancien devient invalide, et le réutiliser révoque toute la session.",
+    },
     user: publicUser,
   },
 };
@@ -118,13 +124,43 @@ export function buildOpenApiDocument() {
         post: {
           tags: ["Auth"],
           summary: "Se connecter",
-          description: "`remember` choisit seulement le stockage côté navigateur : le token dure toujours 1 h.",
+          description:
+            "`remember` fixe la durée du refresh token (30 jours, sinon 24 h) et le stockage côté navigateur. " +
+            "L'access token dure toujours 1 h.",
           requestBody: requestBody(loginSchema),
           responses: {
             200: json("Connecté", authResult),
             400: invalidInput,
             401: error("Email ou mot de passe incorrect (message volontairement identique)", ["INVALID_CREDENTIALS"]),
             429: tooManyRequests,
+            500: internalError,
+          },
+        },
+      },
+      "/auth/refresh": {
+        post: {
+          tags: ["Auth"],
+          summary: "Renouveler l'access token",
+          description: "Rotation : renvoie une nouvelle paire et invalide le refresh token envoyé.",
+          requestBody: requestBody(refreshTokenSchema),
+          responses: {
+            200: json("Nouvelle paire de tokens", authResult),
+            400: invalidInput,
+            401: error("Refresh token inconnu, expiré, révoqué ou déjà utilisé", ["INVALID_REFRESH_TOKEN"]),
+            429: error("Trop de tentatives : 30 maximum par IP toutes les 15 minutes", ["TOO_MANY_REQUESTS"]),
+            500: internalError,
+          },
+        },
+      },
+      "/auth/logout": {
+        post: {
+          tags: ["Auth"],
+          summary: "Se déconnecter",
+          description: "Révoque toute la session liée au refresh token. Répond 204 même si le token est inconnu.",
+          requestBody: requestBody(refreshTokenSchema),
+          responses: {
+            204: { description: "Session révoquée" },
+            400: invalidInput,
             500: internalError,
           },
         },

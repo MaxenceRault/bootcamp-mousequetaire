@@ -8,8 +8,8 @@ import { Avatar } from "@/components/ui/Avatar";
 import { buttonClassName } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import {
-  clearSession,
   getSessionSnapshot,
+  logout,
   parseSessionUser,
   subscribeSession,
   type SessionUser,
@@ -42,9 +42,9 @@ function AccountMenu({ user }: { user: SessionUser }) {
   const t = useTranslations("Navbar");
   const router = useRouter();
 
-  // Supprime le token du navigateur : la Navbar repasse en visiteur via l'événement de session.
+  // Révoque la session côté serveur et efface les tokens : la Navbar repasse en visiteur via l'événement de session.
   function handleLogout() {
-    clearSession();
+    void logout();
     router.push("/");
   }
 
