@@ -1,16 +1,22 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { POST_ARCHETYPES, type FeedPage, type FeedPost, type PostArchetype } from "@/lib/posts";
 import {
   deletePost,
   deletePostPhoto,
   findArchetypeIdBySlug,
+  findFeedPosts,
   insertPost,
   insertPostTags,
   uploadPostPhoto,
   upsertTags,
+  type FeedPostRow,
 } from "@/lib/repositories/post.repository";
 import type { CreatePostInput, PlaceInput } from "@/schemas/post.schema";
-import { placeExists } from "@/lib/services/location.service";
+import { getStateName, placeExists } from "@/lib/services/location.service";
+
+// Nombre de posts chargés à la fois dans le feed (première page puis chaque « suite »).
+export const FEED_PAGE_SIZE = 10;
 
 export class PostError extends Error {
   constructor(public readonly code: "INVALID_INPUT") {
@@ -103,4 +109,53 @@ function uniquePlaces(places: PlaceInput[]) {
     seen.add(key);
     return true;
   });
+}
+
+// Une page du feed. cursor : id du dernier post déjà affiché (absent pour la première page).
+export async function getFeedPage({
+  archetype,
+  cursor,
+  limit = FEED_PAGE_SIZE,
+}: {
+  archetype?: PostArchetype;
+  cursor?: number;
+  limit?: number;
+}): Promise<FeedPage> {
+  // Un post de plus que demandé : s'il existe, il y a une suite à charger.
+  const rows = await findFeedPosts({ archetype, beforeId: cursor, limit: limit + 1 });
+  const page = rows.slice(0, limit);
+
+  return {
+    posts: page.flatMap(toFeedPost),
+    nextCursor: rows.length > limit ? page[page.length - 1].id : null,
+  };
+}
+
+function toFeedPost(row: FeedPostRow): FeedPost[] {
+  const archetype = POST_ARCHETYPES.find((slug) => slug === row.archetype.slug);
+  // Type de récit inconnu de l'app (ajouté en base sans mettre à jour POST_ARCHETYPES) : post ignoré.
+  if (!archetype) return [];
+
+  const { destination_country_code: country, destination_state_code: state, destination_city: city } = row;
+
+  return [
+    {
+      id: row.id,
+      title: row.title,
+      shortDescription: row.short_description,
+      location: city ?? (state ? getStateName(country, state) : null),
+      countryCode: country,
+      archetype,
+      photoUrl: row.photo_url,
+      photoAlt: row.photo_alt,
+      createdAt: new Date(row.created_at),
+      author: {
+        id: row.author.id,
+        username: row.author.username,
+        displayName: row.author.display_name,
+        avatarUrl: row.author.avatar_url,
+        avatarSeed: row.author.avatar_seed,
+      },
+    },
+  ];
 }

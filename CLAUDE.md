@@ -59,8 +59,7 @@ src/
 │   └── AIChatDrawer.tsx       # Drawer du chat RAG
 └── lib/
     ├── ai.ts                  # Helpers Gemini & embeddings
-    ├── posts.ts               # Accès aux posts du feed (seul point à brancher sur l'API back-end)
-    └── demo-posts.ts          # Données de démo du feed, en attendant l'API
+    └── posts.ts               # Types de récit (POST_ARCHETYPES) et types du feed (FeedPost, FeedPage)
 supabase/
 └── migrations/                # SQL du schéma (à exécuter dans le SQL Editor de Supabase)
 scripts/
@@ -82,7 +81,7 @@ supabase/                      # Scripts SQL à exécuter dans le SQL Editor
 
 - Ne pas créer de dossier ou de fichier hors de cette structure sans le demander d'abord. Si un nouveau fichier est nécessaire, le placer au bon endroit (page → `app/`, composant → `components/`, endpoint → `app/api/v1/`, schéma Zod → `schemas/`, logique métier → `services/`, accès BDD → `repositories/`, helpers/clients externes → `lib/`) et le signaler.
 - Les fichiers existent mais sont vides : ne les remplir que lorsqu'on travaille sur la fonctionnalité concernée. Ne pas inventer d'UI, de textes, de données ou de logique qui n'ont pas été demandés.
-- Base de données : Supabase, **pas branchée dans l'app pour l'instant** (clients et `proxy.ts` retirés). En attendant, le feed lit les données de démo de `src/lib/demo-posts.ts` via `src/lib/posts.ts`. Une fois branchée, les clients Supabase iront dans `src/utils/supabase/` et ne seront importés que par `repositories/`.
+- Base de données : Supabase, via le client serveur `src/utils/supabase/admin.ts` (clé secrète), importé uniquement par `repositories/`. Le feed de la homepage lit la table `post` (Server Component → `post.service` → `post.repository`), pagination par curseur (id du dernier post affiché).
 - Schéma de la base (tables `users`, `post`, `archetype`, `tag`, `post_tag`, RLS en lecture seule ; bucket Storage `post-photos` public en lecture) dans `supabase/migrations/`. Une migration s'exécute **une seule fois** : tout changement de schéma passe par un nouveau fichier daté, jamais en modifiant ou relançant un ancien. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app. `SUPABASE_SECRET_KEY` n'est lue que par ce script.
 - Architecture back : route → controller → service → repository → base. Pas d'accès base hors des repositories.
 - Documentation API : toute nouvelle route sous `/api/v1/` est ajoutée dans `src/lib/openapi.ts` (visible sur `/api-docs` en dev). Les schémas Zod des requêtes vont dans `schemas/` pour être réutilisés par la doc.

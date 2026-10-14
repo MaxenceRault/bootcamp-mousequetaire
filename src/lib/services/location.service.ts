@@ -46,6 +46,11 @@ export function placeExists({ country, state, city }: { country: string; state?:
   return !city || City.getCitiesOfState(country, state).some(({ name }) => name === city);
 }
 
+// Nom d'une région (ex. « IDF » en France → « Île-de-France »), null si inconnue.
+export function getStateName(country: string, state: string) {
+  return State.getStateByCodeAndCountry(state, country)?.name ?? null;
+}
+
 function getIndex() {
   if (index) return index;
 

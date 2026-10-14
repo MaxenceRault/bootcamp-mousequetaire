@@ -9,7 +9,8 @@ import { TravelCard } from "@/components/TravelCard";
 import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
-import { getFeedPosts, POST_ARCHETYPES, type FeedPost, type PostArchetype } from "@/lib/posts";
+import { POST_ARCHETYPES, type FeedPost, type PostArchetype } from "@/lib/posts";
+import { getFeedPage } from "@/lib/services/post.service";
 
 // Allowlist : toute autre valeur de ?archetype= retombe sur le feed complet.
 const archetypeSchema = z.enum(POST_ARCHETYPES);
@@ -66,7 +67,8 @@ async function Feed({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
 
   let posts: FeedPost[] | null;
   try {
-    posts = await getFeedPosts(archetype);
+    // Server Component = couche controller : il appelle directement le service (pas d'appel HTTP à soi-même).
+    ({ posts } = await getFeedPage({ archetype }));
   } catch {
     posts = null;
   }
