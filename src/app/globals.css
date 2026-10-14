@@ -11,6 +11,7 @@
   --color-line: rgb(55 71 79 / 0.12); /* bordures fines */
   --color-accent: #ff5a5f; /* actions principales uniquement, jamais en grand fond */
   --color-on-accent: #ffffff; /* texte posé sur l'accent */
+  --color-logo: #868e96; /* oiseau du logo : gris clair, contraste 3.3:1 sur blanc (WCAG, éléments graphiques) */
   --color-error: #ba1a1a;
 
   /* Typographie : Space Grotesk (display/titres/labels) + Inter (texte) */

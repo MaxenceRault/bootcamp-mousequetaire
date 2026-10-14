@@ -12,8 +12,9 @@ const querySchema = z
   })
   .strict();
 
-// Données statiques : le navigateur peut garder une recherche en cache un jour.
-const CACHE_HEADERS = { "Cache-Control": "public, max-age=86400" };
+// Données quasi statiques : le navigateur garde une recherche en cache une heure
+// (court : un changement de la liste, ex. un pays retiré, est visible rapidement).
+const CACHE_HEADERS = { "Cache-Control": "public, max-age=3600" };
 
 export async function locationsController(request: Request) {
   // Réponse propre à chaque requête : jamais pré-calculée au build (cacheComponents), où l'env n'existe pas.

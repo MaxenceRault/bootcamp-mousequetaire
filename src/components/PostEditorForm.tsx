@@ -13,12 +13,11 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { Label } from "@/components/ui/Label";
 import { FIELD_CLASS_NAME, Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { TripContextBar } from "@/components/TripContextBar";
 import type { PostArchetype } from "@/lib/posts";
 import { apiFetch, getSessionSnapshot } from "@/lib/session";
+import { usePlaceSearch, type Place } from "@/lib/usePlaceSearch";
 
-
-// Lieu renvoyé par GET /api/v1/locations?q=… (pays, ou ville avec sa région et son pays).
-type Place = { key: string; label: string; country: string; state?: string; city?: string };
 
 type PostEditorFormProps = {
   // Slugs des types de récit (libellés dans le namespace « Archetypes » de fr.json).
@@ -34,20 +33,11 @@ const PHOTO_TYPES = "image/jpeg,image/png,image/webp";
 const API_ERRORS = ["INVALID_INPUT", "TOO_MANY_REQUESTS", "PAYLOAD_TOO_LARGE", "INTERNAL_ERROR"] as const;
 type ApiError = (typeof API_ERRORS)[number];
 
-// Attente après la dernière frappe avant de lancer une recherche de lieu.
-const SEARCH_DELAY_MS = 250;
-
-// Champs transparents de la barre de contexte (destination, dates, type de récit).
-const CONTEXT_INPUT_CLASS_NAME =
-  "w-full min-w-0 bg-transparent text-body-md font-medium text-ink placeholder:text-ink-soft/50 focus:outline-none";
-
 export function PostEditorForm({ archetypes }: PostEditorFormProps) {
   const t = useTranslations("PostEditor");
-  const tArchetypes = useTranslations("Archetypes");
   const router = useRouter();
   const photoInput = useRef<HTMLInputElement>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState("");
   const [error, setError] = useState<ApiError | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -112,56 +102,7 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
       </div>
 
       {/* 2. Barre de contexte : destination, dates, type de récit */}
-      <Card className="grid grid-cols-1 gap-2 p-2 md:grid-cols-3">
-        <ContextField icon="pin" label={t("fields.destination")} htmlFor="post-destination">
-          <DestinationField />
-        </ContextField>
-
-        <ContextField icon="calendar" label={t("fields.timeline")}>
-          <div className="flex items-center gap-1">
-            <input
-              name="startDate"
-              type="date"
-              aria-label={t("fields.startDate")}
-              value={startDate}
-              onChange={(event) => setStartDate(event.currentTarget.value)}
-              required
-              className={CONTEXT_INPUT_CLASS_NAME}
-            />
-            <span aria-hidden="true" className="text-ink-soft">
-              →
-            </span>
-            {/* La date de fin ne peut pas précéder la date de début. */}
-            <input
-              name="endDate"
-              type="date"
-              aria-label={t("fields.endDate")}
-              min={startDate || undefined}
-              required
-              className={CONTEXT_INPUT_CLASS_NAME}
-            />
-          </div>
-        </ContextField>
-
-        <ContextField icon="category" label={t("fields.archetype")} htmlFor="post-archetype">
-          <select
-            id="post-archetype"
-            name="archetype"
-            defaultValue=""
-            required
-            className={`cursor-pointer ${CONTEXT_INPUT_CLASS_NAME}`}
-          >
-            <option value="" disabled>
-              {t("fields.archetypePlaceholder")}
-            </option>
-            {archetypes.map((archetype) => (
-              <option key={archetype} value={archetype}>
-                {tArchetypes(archetype)}
-              </option>
-            ))}
-          </select>
-        </ContextField>
-      </Card>
+      <TripContextBar idPrefix="post" archetypes={archetypes} />
 
       {/* 3. Photo de couverture : un seul upload */}
       <section aria-labelledby="post-photo-title" className="flex flex-col gap-2">
@@ -263,99 +204,6 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
   );
 }
 
-// Recherche de lieux (GET /api/v1/locations?q=…) pendant la saisie, partagée par la destination et les tags.
-function usePlaceSearch() {
-  const [query, setQuery] = useState("");
-  const [places, setPlaces] = useState<Place[]>([]);
-  const [error, setError] = useState(false);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  // Numéro de la dernière recherche : une réponse plus ancienne (frappe rapide) est ignorée.
-  const lastRequest = useRef(0);
-
-  useEffect(() => () => clearTimeout(searchTimer.current), []);
-
-  function changeQuery(value: string) {
-    setQuery(value);
-    setError(false);
-    clearTimeout(searchTimer.current);
-
-    if (value.trim().length < 2) {
-      lastRequest.current++;
-      setPlaces([]);
-      return;
-    }
-    searchTimer.current = setTimeout(() => search(value.trim()), SEARCH_DELAY_MS);
-  }
-
-  async function search(text: string) {
-    const requestId = ++lastRequest.current;
-    const response = await fetch(`/api/v1/locations?${new URLSearchParams({ q: text })}`).catch(() => null);
-    const data = response?.ok ? await response.json().catch(() => null) : null;
-    if (requestId !== lastRequest.current) return;
-
-    setError(!data);
-    setPlaces((data?.places as Place[] | undefined) ?? []);
-  }
-
-  // Après un choix : vide les suggestions et remplace le texte saisi.
-  function reset(nextQuery = "") {
-    clearTimeout(searchTimer.current);
-    lastRequest.current++;
-    setQuery(nextQuery);
-    setPlaces([]);
-  }
-
-  return { query, places, error, changeQuery, reset };
-}
-
-// Destination : un lieu à choisir dans les suggestions.
-// Seul un lieu choisi dans la liste est accepté : il part dans des champs cachés (pays, région, ville).
-function DestinationField() {
-  const t = useTranslations("PostEditor");
-  const input = useRef<HTMLInputElement>(null);
-  const { query, places, error, changeQuery, reset } = usePlaceSearch();
-  const [selected, setSelected] = useState<Place | null>(null);
-
-  // Texte saisi sans choisir de suggestion : le navigateur bloque l'envoi avec ce message.
-  useEffect(() => {
-    input.current?.setCustomValidity(query && !selected ? t("fields.destinationPick") : "");
-  }, [query, selected, t]);
-
-  function handleSelect({ key }: Suggestion) {
-    const place = places.find((option) => option.key === key);
-    if (!place) return;
-    setSelected(place);
-    reset(place.label);
-  }
-
-  return (
-    <>
-      <Autocomplete
-        ref={input}
-        id="post-destination"
-        value={query}
-        onValueChange={(value) => {
-          changeQuery(value);
-          setSelected(null);
-        }}
-        suggestions={places.map(({ key, label }) => ({ key, label }))}
-        onSelect={handleSelect}
-        placeholder={t("fields.destinationPlaceholder")}
-        required
-        className={`truncate ${CONTEXT_INPUT_CLASS_NAME}`}
-      />
-      {selected && (
-        <>
-          <input type="hidden" name="destinationCountry" value={selected.country} />
-          {selected.state && <input type="hidden" name="destinationState" value={selected.state} />}
-          {selected.city && <input type="hidden" name="destinationCity" value={selected.city} />}
-        </>
-      )}
-      {error && <FormError>{t("placesError")}</FormError>}
-    </>
-  );
-}
-
 // Tags : des lieux (pays ou villes) choisis dans les suggestions, affichés en pastilles.
 function TagsField() {
   const t = useTranslations("PostEditor");
@@ -414,31 +262,6 @@ function TagsField() {
         className={`h-11 ${FIELD_CLASS_NAME}`}
       />
       {error && <FormError>{t("placesError")}</FormError>}
-    </div>
-  );
-}
-
-// Case de la barre de contexte : icône + petit label en capitales + champ transparent.
-function ContextField({
-  icon,
-  label,
-  htmlFor,
-  children,
-}: {
-  icon: IconName;
-  label: string;
-  htmlFor?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex items-center gap-2 rounded-lg bg-surface-muted px-3 py-2 transition focus-within:ring-2 focus-within:ring-accent/25">
-      <Icon name={icon} className="size-5 text-ink-soft" />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <label htmlFor={htmlFor} className="font-display text-label-sm text-ink-soft uppercase">
-          {label}
-        </label>
-        {children}
-      </div>
     </div>
   );
 }
