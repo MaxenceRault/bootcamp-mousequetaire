@@ -1,0 +1,22 @@
+// Logo de Brb : oiseau en trait épais gris clair, bec en flèche de navigation GPS (accent).
+// Décoratif : le nom de l'app est toujours affiché ou annoncé à côté (ex. aria-label du lien).
+// Même dessin que public/logo.svg et src/app/icon.svg (favicon).
+export function Logo({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true" className={className}>
+      <g transform="translate(0 2)">
+        <g fill="none" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" className="stroke-logo">
+          <path d="M46 18.5 A11 11 0 0 0 27.7 20.2 C 24 31 18 42 7 48" />
+          <path d="M46 29.5 C 45 41 30 49 7 48" />
+        </g>
+        <circle cx="39" cy="23" r="2.6" className="fill-logo" />
+        <path
+          d="M62.5 24 L50.5 18.5 L54.5 24 L50.5 29.5 Z"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          className="fill-accent stroke-accent"
+        />
+      </g>
+    </svg>
+  );
+}

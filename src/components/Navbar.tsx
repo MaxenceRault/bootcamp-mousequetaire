@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { buttonClassName } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
+import { Logo } from "@/components/ui/Logo";
 import { NavbarAccount } from "@/components/NavbarAccount";
 
 // Barre du haut. La zone compte (visiteur / connecté) dépend de la session du navigateur : voir NavbarAccount.
@@ -12,9 +13,7 @@ export async function Navbar() {
     <header className="fixed inset-x-0 top-0 z-50 border-b border-line bg-surface/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-300 items-center justify-between gap-4 px-4 md:gap-6 md:px-6">
         <Link href="/" aria-label={t("home")} className="group flex shrink-0 items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-accent text-on-accent transition group-hover:scale-105">
-            <Icon name="explore" className="size-5" />
-          </span>
+          <Logo className="size-9 transition group-hover:scale-105" />
           <span className="font-display text-headline-sm text-ink">{t("brand")}</span>
         </Link>
 
