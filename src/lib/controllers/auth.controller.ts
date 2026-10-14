@@ -1,25 +1,7 @@
 import "server-only";
-import { z } from "zod";
 import { isRateLimited } from "@/lib/rateLimit";
 import { AuthError, login, register } from "@/lib/services/auth.service";
-
-const email = z.string().trim().toLowerCase().max(254).pipe(z.email());
-
-const loginSchema = z
-  .object({
-    email,
-    password: z.string().min(1).max(72),
-    remember: z.boolean(),
-  })
-  .strict();
-
-const registerSchema = z
-  .object({
-    name: z.string().trim().min(1).max(60),
-    email,
-    password: z.string().min(8).max(72),
-  })
-  .strict();
+import { loginSchema, registerSchema } from "@/schemas/auth.schema";
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
