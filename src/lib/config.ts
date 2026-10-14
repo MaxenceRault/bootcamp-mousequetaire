@@ -16,6 +16,8 @@ const envSchema = z.object({
   DB_USER: z.string().min(1),
   DB_NAME: z.string().min(1),
   JWT_SECRET: z.string().min(32),
+  // Clé des refresh tokens : distincte de JWT_SECRET (un access token ne peut pas servir de refresh token).
+  JWT_REFRESH_SECRET: z.string().min(32),
 
   JWT_EXPIRES_IN: duration.default("1h"),
   // Durée de vie absolue d'une session (refresh token) : « Se souvenir de moi » coché ou non.
@@ -49,6 +51,9 @@ const envSchema = z.object({
   RATE_LIMIT_POST_REACT_WINDOW_SECONDS: seconds.default(60),
   RATE_LIMIT_PROFILE_UPDATE_MAX: count.default(10),
   RATE_LIMIT_PROFILE_UPDATE_WINDOW_SECONDS: seconds.default(15 * 60),
+}).refine((env) => env.JWT_REFRESH_SECRET !== env.JWT_SECRET, {
+  path: ["JWT_REFRESH_SECRET"],
+  message: "doit être différente de JWT_SECRET",
 });
 
 export type RateLimit = { max: number; windowMs: number };
@@ -56,6 +61,7 @@ export type RateLimit = { max: number; windowMs: number };
 export type ServerConfig = {
   db: { instanceConnectionName: string; user: string; database: string };
   jwtSecret: string;
+  jwtRefreshSecret: string;
   jwtExpiresIn: string;
   refreshTokenTtlMs: { remember: number; session: number };
   bcryptSaltRounds: number;
@@ -85,6 +91,7 @@ export function getConfig(): ServerConfig {
   config = {
     db: { instanceConnectionName: env.CLOUD_SQL_INSTANCE, user: env.DB_USER, database: env.DB_NAME },
     jwtSecret: env.JWT_SECRET,
+    jwtRefreshSecret: env.JWT_REFRESH_SECRET,
     jwtExpiresIn: env.JWT_EXPIRES_IN,
     refreshTokenTtlMs: {
       remember: env.REFRESH_TOKEN_REMEMBER_DAYS * 24 * 60 * 60 * 1000,

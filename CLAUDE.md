@@ -169,7 +169,7 @@ Seuls les must-have sont exigés : ne pas implémenter les nice-to-have (OAuth/O
 
 ### Règles complémentaires
 - **Variables sensibles : toujours dans le `.env` (`.env.local`, ignoré par git), jamais en dur dans le code.** Sont sensibles :
-  - les **secrets** : clés et mots de passe (`JWT_SECRET`, future clé Gemini…) ; la base Cloud SQL n'en a pas (authentification IAM) ;
+  - les **secrets** : clés et mots de passe (`JWT_SECRET`, `JWT_REFRESH_SECRET`, future clé Gemini…) ; la base Cloud SQL n'en a pas (authentification IAM) ;
   - les **réglages de sécurité** : durée du token (`JWT_EXPIRES_IN`) et des sessions (`REFRESH_TOKEN_*`), coût bcrypt (`BCRYPT_SALT_ROUNDS`), rate limits (`RATE_LIMIT_*`), et tout nouveau réglage du même type (URL autorisée par CORS…).
   Les secrets sont lus côté serveur uniquement : jamais dans une variable `NEXT_PUBLIC_*`, ni dans un composant `"use client"`, ni dans un log, une réponse d'API ou un commit. Une valeur de secret ne doit jamais apparaître dans le code, même en valeur par défaut.
   Restent dans le code (pas dans le `.env`) : les limites de données qui doivent rester identiques aux contraintes SQL de `db/migrations/` (longueur du titre, des descriptions, taille max de la photo, nombre de tags…).

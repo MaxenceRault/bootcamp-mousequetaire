@@ -108,9 +108,10 @@ const authResult = {
     refreshToken: {
       type: "string",
       description:
-        "Token opaque à usage unique (REFRESH_TOKEN_REMEMBER_DAYS avec remember, 30 jours par défaut ; " +
-        "REFRESH_TOKEN_SESSION_HOURS sinon, 24 h par défaut). À envoyer à /auth/refresh pour obtenir " +
-        "une nouvelle paire : l'ancien devient invalide, et le réutiliser révoque toute la session.",
+        "JWT signé avec une clé distincte de l'access token (JWT_REFRESH_SECRET), à usage unique " +
+        "(REFRESH_TOKEN_REMEMBER_DAYS avec remember, 30 jours par défaut ; REFRESH_TOKEN_SESSION_HOURS sinon, 24 h par défaut). " +
+        "À envoyer à /auth/refresh pour obtenir une nouvelle paire : l'ancien devient invalide, et le réutiliser " +
+        "révoque toute la session.",
     },
     user: publicUser,
   },

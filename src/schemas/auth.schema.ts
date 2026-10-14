@@ -25,9 +25,12 @@ export const registerSchema = z
   })
   .strict();
 
-// POST /api/v1/auth/refresh et /api/v1/auth/logout : token opaque (32 octets en base64url).
+// POST /api/v1/auth/refresh et /api/v1/auth/logout : refresh token au format JWT (header.payload.signature).
 export const refreshTokenSchema = z
   .object({
-    refreshToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+    refreshToken: z
+      .string()
+      .max(1000)
+      .regex(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/),
   })
   .strict();
