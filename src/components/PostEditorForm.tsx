@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
@@ -13,6 +14,7 @@ import { Label } from "@/components/ui/Label";
 import { FIELD_CLASS_NAME, Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import type { PostArchetype } from "@/lib/posts";
+import { clearSession, fetchWithAuth, getSessionSnapshot } from "@/lib/session";
 
 
 // Lieu renvoyé par GET /api/v1/locations?q=… (pays, ou ville avec sa région et son pays).
@@ -28,6 +30,10 @@ const TITLE_MAX = 100;
 const PHOTO_ALT_MAX = 200;
 const SHORT_DESCRIPTION_MAX = 252;
 const PHOTO_TYPES = "image/jpeg,image/png,image/webp";
+// Codes d'erreur de POST /api/v1/posts traduits dans fr.json (PostEditor.errors) ; les autres → INTERNAL_ERROR.
+const API_ERRORS = ["INVALID_INPUT", "TOO_MANY_REQUESTS", "PAYLOAD_TOO_LARGE", "INTERNAL_ERROR"] as const;
+type ApiError = (typeof API_ERRORS)[number];
+
 // Attente après la dernière frappe avant de lancer une recherche de lieu.
 const SEARCH_DELAY_MS = 250;
 
@@ -38,9 +44,18 @@ const CONTEXT_INPUT_CLASS_NAME =
 export function PostEditorForm({ archetypes }: PostEditorFormProps) {
   const t = useTranslations("PostEditor");
   const tArchetypes = useTranslations("Archetypes");
+  const router = useRouter();
   const photoInput = useRef<HTMLInputElement>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [startDate, setStartDate] = useState("");
+  const [error, setError] = useState<ApiError | null>(null);
+  const [pending, setPending] = useState(false);
+
+  // Page réservée aux utilisateurs connectés : sans session valide, direction la connexion.
+  // (Confort uniquement : la vraie protection est la vérification du JWT par l'API.)
+  useEffect(() => {
+    if (!getSessionSnapshot()) router.replace("/login");
+  }, [router]);
 
   // Libère l'URL temporaire de l'aperçu quand elle change ou quand le formulaire disparaît.
   useEffect(() => {
@@ -59,10 +74,26 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
     setPhotoPreview(null);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    // Front uniquement pour l'instant : l'envoi à l'API (route → controller → service → repository)
-    // sera branché à l'étape suivante.
+  // Envoi multipart à POST /api/v1/posts : les noms des champs du formulaire suivent le schéma Zod.
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const body = new FormData(event.currentTarget);
+
+    setPending(true);
+    setError(null);
+    const response = await fetchWithAuth("/api/v1/posts", { method: "POST", body }).catch(() => null);
+    const data = await response?.json().catch(() => null);
+    setPending(false);
+
+    // Token absent, expiré ou falsifié : session effacée, retour à la connexion.
+    if (response?.status === 401) {
+      clearSession();
+      return router.push("/login");
+    }
+    if (!response?.ok) {
+      return setError(API_ERRORS.find((code) => code === data?.error) ?? "INTERNAL_ERROR");
+    }
+    router.push("/");
   }
 
   return (
@@ -225,8 +256,9 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
         </Card>
       </section>
 
-      <div className="flex justify-end">
-        <Button type="submit" className="w-full sm:w-auto">
+      <div className="flex flex-col items-end gap-3">
+        <FormError>{error && t(`errors.${error}`)}</FormError>
+        <Button type="submit" disabled={pending} className="w-full sm:w-auto">
           {t("submit")}
         </Button>
       </div>

@@ -80,3 +80,11 @@ export async function postAuth(path: string, body: unknown) {
   if (!response?.ok || !data?.token) return { error: String(data?.error ?? "INTERNAL_ERROR") };
   return { token: data.token as string, user: data.user as SessionUser };
 }
+
+// Appel d'une route d'API privée : ajoute « Authorization: Bearer <token> » si une session existe.
+export function fetchWithAuth(path: string, init: RequestInit = {}) {
+  const token = getToken();
+  const headers = new Headers(init.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return fetch(path, { ...init, headers });
+}

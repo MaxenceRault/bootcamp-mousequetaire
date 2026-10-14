@@ -29,6 +29,7 @@ src/
 │   └── api/v1/                # Couche CONTROLLER (route handlers), toutes les routes sous /api/v1/
 │       ├── auth/login/route.ts    # POST /api/v1/auth/login → auth.controller
 │       ├── auth/register/route.ts # POST /api/v1/auth/register → auth.controller
+│       ├── posts/route.ts         # POST /api/v1/posts (multipart + Bearer) création d'un post → post.controller
 │       ├── locations/route.ts     # GET /api/v1/locations?q= recherche de villes / pays (country-state-city) → location.controller
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
 ├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (ex. post.schema.ts)
@@ -58,11 +59,12 @@ scripts/
 └── seed.mts                   # Seed manuel : npm run seed (clé secrète, local uniquement)
 ├── lib/
 │   ├── controllers/           # HTTP : validation Zod, rate limit, appel du service, réponse
+│   ├── schemas/               # Schémas Zod `.strict()` partagés (ex. post.schema.ts)
 │   ├── services/              # Règles métier (hash, JWT, règles d'inscription)
 │   ├── repositories/          # Accès base de données (Supabase) uniquement
 │   ├── jwt.ts                 # Signature / vérification JWT (jose)
 │   ├── rateLimit.ts           # Rate limit en mémoire
-│   ├── session.ts             # Côté client : stockage du token + appel API auth
+│   ├── session.ts             # Côté client : stockage du token, appel API auth, fetchWithAuth (Bearer)
 │   └── ai.ts                  # Helpers Gemini & embeddings
 └── utils/supabase/            # Clients Supabase (admin.ts = clé secrète, serveur uniquement)
 supabase/                      # Scripts SQL à exécuter dans le SQL Editor
@@ -71,7 +73,7 @@ supabase/                      # Scripts SQL à exécuter dans le SQL Editor
 - Ne pas créer de dossier ou de fichier hors de cette structure sans le demander d'abord. Si un nouveau fichier est nécessaire, le placer au bon endroit (page → `app/`, composant → `components/`, endpoint → `app/api/v1/`, schéma Zod → `schemas/`, logique métier → `services/`, accès BDD → `repositories/`, helpers/clients externes → `lib/`) et le signaler.
 - Les fichiers existent mais sont vides : ne les remplir que lorsqu'on travaille sur la fonctionnalité concernée. Ne pas inventer d'UI, de textes, de données ou de logique qui n'ont pas été demandés.
 - Base de données : Supabase, **pas branchée dans l'app pour l'instant** (clients et `proxy.ts` retirés). En attendant, le feed lit les données de démo de `src/lib/demo-posts.ts` via `src/lib/posts.ts`. Une fois branchée, les clients Supabase iront dans `src/utils/supabase/` et ne seront importés que par `repositories/`.
-- Schéma de la base (tables `users`, `post`, `archetype`, `tag`, `post_tag`, RLS en lecture seule) dans `supabase/migrations/`. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app. `SUPABASE_SECRET_KEY` n'est lue que par ce script.
+- Schéma de la base (tables `users`, `post`, `archetype`, `tag`, `post_tag`, RLS en lecture seule ; bucket Storage `post-photos` public en lecture) dans `supabase/migrations/`. Une migration s'exécute **une seule fois** : tout changement de schéma passe par un nouveau fichier daté, jamais en modifiant ou relançant un ancien. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app. `SUPABASE_SECRET_KEY` n'est lue que par ce script.
 - Architecture back : route → controller → service → repository → base. Pas d'accès base hors des repositories.
 - **Nommage en anglais** : tables, colonnes, types, variables, fonctions, fichiers et routes (ex. `short_description`, `start_date`, `archetype_id`). Seuls les textes affichés (`messages/fr.json`) et les commentaires sont en français.
 - Imports via l'alias `@/` (→ `src/`).

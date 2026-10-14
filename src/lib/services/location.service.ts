@@ -37,6 +37,15 @@ export function searchPlaces(query: string): Place[] {
     .map(({ key, label, country, state, city }) => ({ key, label, country, state, city }));
 }
 
+// Vérifie qu'un lieu envoyé par le client existe vraiment dans country-state-city.
+// Une ville doit appartenir à la région indiquée, elle-même dans le pays indiqué.
+export function placeExists({ country, state, city }: { country: string; state?: string; city?: string }) {
+  if (!Country.getCountryByCode(country)) return false;
+  if (!state) return !city;
+  if (!State.getStateByCodeAndCountry(state, country)) return false;
+  return !city || City.getCitiesOfState(country, state).some(({ name }) => name === city);
+}
+
 function getIndex() {
   if (index) return index;
 

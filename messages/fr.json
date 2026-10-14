@@ -109,7 +109,7 @@
     "photo": {
       "title": "Photo de couverture",
       "add": "Ajouter une photo",
-      "hint": "JPEG, PNG ou WebP",
+      "hint": "JPEG, PNG ou WebP · 5 Mo maximum",
       "previewAlt": "Aperçu de la photo de couverture",
       "remove": "Retirer la photo",
       "alt": "Décrivez la photo",
@@ -121,6 +121,12 @@
       "placeholder": "Ville ou pays…",
       "remove": "Retirer le tag {name}"
     },
-    "submit": "Publier le récit"
+    "submit": "Publier le récit",
+    "errors": {
+      "INVALID_INPUT": "Vérifiez les champs du formulaire.",
+      "TOO_MANY_REQUESTS": "Trop de publications. Réessayez plus tard.",
+      "PAYLOAD_TOO_LARGE": "La photo est trop lourde (5 Mo maximum).",
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+    }
   }
 }
