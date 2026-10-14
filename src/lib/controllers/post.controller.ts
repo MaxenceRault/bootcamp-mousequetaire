@@ -1,4 +1,5 @@
 import "server-only";
+import { connection } from "next/server";
 import { getConfig } from "@/lib/config";
 import { getUserIdFromRequest } from "@/lib/jwt";
 import { clientIp, isRateLimited } from "@/lib/rateLimit";
@@ -15,6 +16,8 @@ const MAX_BODY_BYTES = PHOTO_MAX_BYTES + 1024 * 1024;
 
 // GET /api/v1/posts?archetype=&cursor=&limit= (public) → { posts, nextCursor }
 export async function getFeedController(request: Request) {
+  // Réponse propre à chaque requête : jamais pré-calculée au build (cacheComponents), où l'env n'existe pas.
+  await connection();
   const { max, windowMs } = getConfig().rateLimits.feed;
   if (isRateLimited(`posts:feed:${clientIp(request)}`, max, windowMs)) {
     return errorResponse(429, "TOO_MANY_REQUESTS");

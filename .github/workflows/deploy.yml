@@ -1,0 +1,77 @@
+# Déploiement continu : chaque push sur main est vérifié (lint), construit en image Docker,
+# puis déployé sur Cloud Run (https://brb-105103278561.europe-west9.run.app).
+# Authentification à GCP sans clé : Workload Identity Federation (jeton OIDC de GitHub, accepté
+# uniquement pour la branche main de ce repo) → compte de service brb-deploy.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Un seul déploiement à la fois ; un push pendant un déploiement attend la fin du précédent.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: biirb-511608
+  REGION: europe-west9
+  SERVICE: brb
+  APP_URL: https://brb-105103278561.europe-west9.run.app
+  IMAGE: europe-west9-docker.pkg.dev/biirb-511608/brb/web:${{ github.sha }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Lint
+        run: |
+          npm ci
+          npm run lint
+
+      - name: Authentification GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/105103278561/locations/global/workloadIdentityPools/github/providers/github-repo
+          service_account: brb-deploy@biirb-511608.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build et push de l'image
+        run: |
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker build --build-arg APP_URL="$APP_URL" -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      # Variables non sensibles en clair ; secrets JWT lus dans Secret Manager par le compte brb-run.
+      # max-instances=1 : les rate limits sont comptés en mémoire, une seule instance les garde cohérents
+      # (et plafonne le coût).
+      - name: Déploiement Cloud Run
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --project="$PROJECT_ID" \
+            --region="$REGION" \
+            --image="$IMAGE" \
+            --service-account="brb-run@$PROJECT_ID.iam.gserviceaccount.com" \
+            --port=8080 \
+            --memory=1Gi \
+            --cpu=1 \
+            --cpu-boost \
+            --min-instances=0 \
+            --max-instances=1 \
+            --set-env-vars="CLOUD_SQL_INSTANCE=$PROJECT_ID:$REGION:biirb-db1,DB_NAME=brb,DB_USER=brb-run@$PROJECT_ID.iam,GCP_PROJECT_ID=$PROJECT_ID,VERTEX_LOCATION=$REGION,TRUSTED_PROXY_HOPS=1" \
+            --set-secrets="JWT_SECRET=brb-jwt-secret:latest,JWT_REFRESH_SECRET=brb-jwt-refresh-secret:latest" \
+            --quiet

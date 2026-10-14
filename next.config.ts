@@ -36,11 +36,35 @@ const securityHeaders = [
   ...(isDev ? [] : [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]),
 ];
 
+// CORS de l'API (CLAUDE.md règle 2) : seule l'URL publique du site est autorisée, jamais « * ».
+// APP_URL est lue au build (les en-têtes sont figés dans le build) : argument du build Docker.
+// Sans APP_URL (dev), aucun en-tête CORS : le navigateur refuse tout appel venant d'une autre origine.
+const appUrl = process.env.APP_URL;
+const corsHeaders = appUrl
+  ? [
+      { key: "Access-Control-Allow-Origin", value: appUrl },
+      { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, PATCH, DELETE, OPTIONS" },
+      { key: "Access-Control-Allow-Headers", value: "Authorization, Content-Type" },
+      { key: "Access-Control-Max-Age", value: "600" },
+      { key: "Vary", value: "Origin" },
+    ]
+  : [];
+
 const nextConfig: NextConfig = {
+  // Image Docker légère (Cloud Run) : serveur Node autonome avec uniquement les dépendances utilisées.
+  output: "standalone",
   // Ne pas annoncer la technologie du serveur (en-tête « X-Powered-By: Next.js »).
   poweredByHeader: false,
+  // Dev conteneurisé (compose.yaml) : les notifications de modification de fichiers ne traversent pas
+  // le montage du code (Podman / Docker sur macOS et Windows) → surveillance par polling. Absent ailleurs.
+  ...(process.env.WATCH_POLL_INTERVAL_MS
+    ? { watchOptions: { pollIntervalMs: Number(process.env.WATCH_POLL_INTERVAL_MS) } }
+    : {}),
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      ...(corsHeaders.length > 0 ? [{ source: "/api/:path*", headers: corsHeaders }] : []),
+    ];
   },
   cacheComponents: true,
   partialPrefetching: true,
