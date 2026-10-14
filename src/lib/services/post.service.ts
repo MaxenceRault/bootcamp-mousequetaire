@@ -159,6 +159,7 @@ function toFeedPost(row: FeedPostRow): FeedPost[] {
       photoUrl: row.photo_url,
       photoAlt: row.photo_alt,
       createdAt: new Date(row.created_at),
+      likeCount: row.like_count,
       author: {
         id: row.author.id,
         username: row.author.username,

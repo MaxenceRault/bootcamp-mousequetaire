@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { PostReactions } from "@/components/PostReactions";
 import { Avatar } from "@/components/ui/Avatar";
 import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -67,6 +68,8 @@ export function TravelCard({ post, now, preload = false }: TravelCardProps) {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+          {/* État chargé pour toute la page par FeedList (store partagé), pas d'appel par carte. */}
+          <PostReactions postId={post.id} initialLikeCount={post.likeCount} loadViewer={false} />
           <Link href={`/post/${post.id}`} className={buttonClassName("sm", "ml-auto")}>
             <Icon name="sparkles" className="size-4" />
             {t("cta")}

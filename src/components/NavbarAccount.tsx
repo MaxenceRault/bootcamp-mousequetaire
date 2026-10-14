@@ -66,7 +66,7 @@ function AccountMenu({ user }: { user: SessionUser }) {
             <p className="font-display text-label-lg text-ink">{user.display_name}</p>
             <p className="text-body-sm text-ink-soft/70">@{user.username}</p>
           </div>
-          <Link href="/profile" className="flex items-center gap-2 px-3 py-2 text-body-md text-ink-soft transition hover:bg-canvas hover:text-ink">
+          <Link href="/profile?tab=saved" className="flex items-center gap-2 px-3 py-2 text-body-md text-ink-soft transition hover:bg-canvas hover:text-ink">
             <Icon name="bookmark" className="size-4" />
             {t("savedTrips")}
           </Link>

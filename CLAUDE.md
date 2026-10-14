@@ -35,8 +35,12 @@ src/
 │       ├── auth/logout/route.ts   # POST /api/v1/auth/logout (révoque la session) → auth.controller
 │       ├── posts/route.ts         # GET (public, feed paginé par curseur) / POST (multipart + Bearer) /api/v1/posts → post.controller
 │       ├── posts/[id]/route.ts    # PATCH (masquer / réafficher) / DELETE /api/v1/posts/{id} — auteur uniquement → post.controller
+│       ├── posts/[id]/like/route.ts      # PUT / DELETE : aimer un post (Bearer, idempotent) → reaction.controller
+│       ├── posts/[id]/save/route.ts      # PUT / DELETE : enregistrer un post (Bearer, idempotent) → reaction.controller
+│       ├── posts/[id]/reactions/route.ts # GET : mes réactions + nombre de likes (Bearer) → reaction.controller
 │       ├── locations/route.ts     # GET /api/v1/locations?q= recherche de villes / pays (country-state-city) → location.controller
 │       ├── users/me/route.ts  # GET / PATCH /api/v1/users/me (profil connecté) → user.controller
+│       ├── users/me/reactions/route.ts # GET ?postIds=1,2,3 : mes likes / enregistrements sur une page du feed (Bearer) → reaction.controller
 │       ├── openapi.json/route.ts # GET /api/v1/openapi.json : spécification OpenAPI (dev uniquement)
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
 ├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (auth.schema.ts, user.schema.ts, post.schema.ts)
@@ -55,6 +59,7 @@ src/
 │   ├── TravelCard.tsx         # Carte de post dans le feed
 │   ├── FeedList.tsx           # Feed à chargement infini (client : GET /api/v1/posts?cursor=)
 │   ├── ShareButton.tsx        # Partage du lien (menu natif ou copie dans le presse-papiers)
+│   ├── PostReactions.tsx      # Boutons J'aime / Enregistrer d'un post (client, mise à jour optimiste)
 │   ├── StoryCard.tsx          # Carte d'un récit dans une grille (profil, page d'un lieu)
 │   ├── PostEditorForm.tsx     # Formulaire de l'éditeur de récit (client)
 │   ├── ProfileView.tsx        # Page profil (client : charge /api/v1/users/me avec le token)
@@ -80,6 +85,7 @@ scripts/
 │   ├── rateLimit.ts           # Rate limit en mémoire
 │   ├── session.ts             # Côté client : stockage des tokens, appels API (apiFetch ajoute le Bearer et renouvelle l'access token)
 │   ├── country.ts             # Drapeau emoji et nom du pays à partir du code pays
+│   ├── reactions-store.ts     # Côté client : likes / enregistrements partagés entre pages et onglets (PostReactions)
 │   ├── openapi.ts             # Spécification OpenAPI de l'API (corps de requête générés depuis schemas/)
 │   └── ai.ts                  # Helpers Gemini & embeddings
 └── utils/                     # Clients GCP, serveur uniquement : db.ts (Cloud SQL, auth IAM), storage.ts (Cloud Storage)
@@ -90,7 +96,7 @@ db/                            # Scripts SQL à exécuter dans Cloud SQL Studio
 - Les fichiers existent mais sont vides : ne les remplir que lorsqu'on travaille sur la fonctionnalité concernée. Ne pas inventer d'UI, de textes, de données ou de logique qui n'ont pas été demandés.
 - Base de données : **Cloud SQL (PostgreSQL)** sur GCP, instance `biirb-511608:europe-west9:biirb-db1`, base `brb`. Connexion via `src/utils/db.ts` (connecteur `@google-cloud/cloud-sql-connector` + `pg`, variables lues via `getConfig()`), en **authentification IAM** : aucun mot de passe de base dans l'app ni dans `.env*`. En local : `gcloud auth application-default login` + variables `CLOUD_SQL_INSTANCE`, `DB_NAME`, `DB_USER` (son email Google). `getDb()` n'est importé que par `repositories/`. Requêtes SQL toujours paramétrées (`$1, $2…`), jamais de concaténation. Le feed de la homepage lit la table `post` (Server Component → `post.service` → `post.repository`), pagination par curseur (id du dernier post affiché).
 - Photos des posts : bucket **Cloud Storage** `biirb-post-photos` (public en lecture), via `src/utils/storage.ts`, importé uniquement par `repositories/`. Écriture réservée au serveur.
-- Schéma de la base (tables `users`, `post` — dont `is_hidden` : post masqué par son auteur, exclu du feed, de la page détail et des pages de lieu —, `archetype`, `tag`, `post_tag`, `refresh_token`) dans `db/migrations/`. Une migration s'exécute **une seule fois** : tout changement de schéma passe par un nouveau fichier daté (jamais de modification à la main dans la console, jamais en modifiant ou relançant un ancien fichier), commençant par `set role brb_admin;`. Rôles Postgres : `brb_admin` (propriétaire, développeurs : migrations + seed) et `brb_app` (droits minimaux de l'app, compte de service Cloud Run `brb-run`) : chaque migration accorde à `brb_app` uniquement les droits utilisés par le code. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app.
+- Schéma de la base (tables `users`, `post` — dont `is_hidden` : post masqué par son auteur, exclu du feed, de la page détail et des pages de lieu —, `archetype`, `tag`, `post_tag`, `refresh_token`, `post_like`, `post_save`) dans `db/migrations/`. Une migration s'exécute **une seule fois** : tout changement de schéma passe par un nouveau fichier daté (jamais de modification à la main dans la console, jamais en modifiant ou relançant un ancien fichier), commençant par `set role brb_admin;`. Rôles Postgres : `brb_admin` (propriétaire, développeurs : migrations + seed) et `brb_app` (droits minimaux de l'app, compte de service Cloud Run `brb-run`) : chaque migration accorde à `brb_app` uniquement les droits utilisés par le code. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app.
 - Architecture back : route → controller → service → repository → base. Pas d'accès base hors des repositories.
 - Documentation API : toute nouvelle route sous `/api/v1/` est ajoutée dans `src/lib/openapi.ts` (visible sur `/api-docs` en dev). Les schémas Zod des requêtes vont dans `schemas/` pour être réutilisés par la doc.
 - **Nommage en anglais** : tables, colonnes, types, variables, fonctions, fichiers et routes (ex. `short_description`, `start_date`, `archetype_id`). Seuls les textes affichés (`messages/fr.json`) et les commentaires sont en français.
