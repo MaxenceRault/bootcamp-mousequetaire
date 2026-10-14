@@ -11,17 +11,13 @@ import type { FeedPost } from "@/lib/posts";
 
 type TravelCardProps = {
   post: FeedPost;
-  // Instant de référence pour « il y a 2 heures » (le même pour toute la liste).
   now: Date;
-  // Précharger l'image (premier post visible à l'écran).
   preload?: boolean;
 };
 
-// Carte d'un post dans le feed. Composant synchrone (hooks next-intl) : rendu aussi bien
-// côté serveur que dans FeedList (client) pour les posts chargés au défilement.
+// Composant synchrone : rendu côté serveur comme dans FeedList (client).
 export function TravelCard({ post, now, preload = false }: TravelCardProps) {
   const t = useTranslations("TravelCard");
-  const tArchetypes = useTranslations("Archetypes");
   const format = useFormatter();
   const country = countryName(post.countryCode, useLocale());
 
@@ -46,9 +42,8 @@ export function TravelCard({ post, now, preload = false }: TravelCardProps) {
               </p>
             </div>
           </div>
-          {/* Badge : type de récit du post (table archetype). */}
           <span className="shrink-0 rounded-lg bg-canvas px-2 py-1 font-display text-label-md text-ink-soft/70">
-            {tArchetypes(post.archetype)}
+            {post.archetype.label}
           </span>
         </div>
 
@@ -69,7 +64,7 @@ export function TravelCard({ post, now, preload = false }: TravelCardProps) {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-          {/* État chargé pour toute la page par FeedList (store partagé), pas d'appel par carte. */}
+          {/* État chargé pour toute la page par FeedList, pas d'appel par carte. */}
           <PostReactions postId={post.id} initialLikeCount={post.likeCount} loadViewer={false} />
           <Link href={`/post/${post.slug}`} className={buttonClassName("sm", "ml-auto")}>
             <Icon name="sparkles" className="size-4" />

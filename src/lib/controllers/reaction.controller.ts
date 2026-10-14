@@ -9,8 +9,7 @@ import { postIdSchema, viewerReactionsQuerySchema } from "@/schemas/post.schema"
 
 type PostRouteContext = { params: Promise<{ id: string }> };
 
-// PUT (ajouter) / DELETE (retirer) /api/v1/posts/{id}/like|save (Bearer) → 200 { likeCount, liked, saved }.
-// Idempotent : liker deux fois ou retirer un like absent ne change rien.
+// PUT / DELETE /api/v1/posts/{id}/like|save — idempotent.
 export function reactionController(kind: ReactionKind, active: boolean) {
   return async (request: Request, { params }: PostRouteContext) => {
     const userId = await getUserIdFromRequest(request);
@@ -30,9 +29,9 @@ export function reactionController(kind: ReactionKind, active: boolean) {
   };
 }
 
-// GET /api/v1/posts/{id}/reactions (Bearer) → 200 { likeCount, liked, saved } : état de l'utilisateur connecté.
+// GET /api/v1/posts/{id}/reactions
 export async function getReactionsController(request: Request, { params }: PostRouteContext) {
-  // Réponse propre à chaque requête : jamais pré-calculée au build (cacheComponents), où l'env n'existe pas.
+  // Jamais pré-calculé au build (cacheComponents).
   await connection();
   const userId = await getUserIdFromRequest(request);
   if (!userId) return errorResponse(401, "UNAUTHORIZED");
@@ -47,10 +46,9 @@ export async function getReactionsController(request: Request, { params }: PostR
   }
 }
 
-// GET /api/v1/users/me/reactions?postIds=1,2,3 (Bearer) → 200 { reactions: [{ postId, liked, saved }] }.
-// Un seul appel pour toute une page du feed.
+// GET /api/v1/users/me/reactions?postIds=1,2,3 — un appel par page du feed.
 export async function getViewerReactionsController(request: Request) {
-  // Réponse propre à chaque requête : jamais pré-calculée au build (cacheComponents), où l'env n'existe pas.
+  // Jamais pré-calculé au build (cacheComponents).
   await connection();
   const userId = await getUserIdFromRequest(request);
   if (!userId) return errorResponse(401, "UNAUTHORIZED");
@@ -72,7 +70,6 @@ function errorResponse(status: number, code: string) {
   return Response.json({ error: code }, { status });
 }
 
-// Détail dans les logs serveur uniquement ; le client reçoit un code générique.
 function handleError(error: unknown) {
   if (error instanceof ReactionError) return errorResponse(404, "NOT_FOUND");
 

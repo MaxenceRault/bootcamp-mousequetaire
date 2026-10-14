@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { ProfileEditForm, type EditableProfile } from "@/components/ProfileEditForm";
+import { RoleBadge } from "@/components/RoleBadge";
 import { StoryCard, storyTitleId, type StoryCardData } from "@/components/StoryCard";
 import { TripCard, type TripSummary } from "@/components/TripCard";
 import { Avatar } from "@/components/ui/Avatar";
@@ -24,11 +25,9 @@ type Story = {
   destination_city: string | null;
   start_date: string;
   created_at: string;
-  // Masqué par l'auteur : absent du feed public, visible ici seulement.
   is_hidden: boolean;
 };
 
-// saved : voyages enregistrés (posts de tous les auteurs), avec leur auteur.
 type ProfileData = { user: EditableProfile; stories: Story[]; storyCount: number; saved: StoryCardData[] };
 
 type LoadState = { status: "loading" } | { status: "error" } | { status: "ready"; profile: ProfileData };
@@ -37,13 +36,10 @@ const TABS = ["stories", "itineraries", "saved"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_ICONS: Record<Tab, IconName> = { stories: "book", itineraries: "sparkles", saved: "bookmark" };
 
-// Onglet ouvert à l'arrivée : ?tab=saved (lien « Voyages enregistrés » du menu), sinon les récits.
 function parseTab(value: string | null): Tab {
   return TABS.find((tab) => tab === value) ?? "stories";
 }
 
-// Page profil de l'utilisateur connecté : GET /api/v1/users/me avec le token du navigateur.
-// Sans session valide, redirection vers la connexion.
 export function ProfileView() {
   const t = useTranslations("Profile");
   const router = useRouter();
@@ -69,7 +65,6 @@ export function ProfileView() {
     return <p className="py-16 text-center text-body-md text-ink-soft">{t("loadError")}</p>;
   }
 
-  // Met à jour le profil affiché après une action (sans recharger la page).
   function updateProfile(change: (profile: ProfileData) => ProfileData) {
     setState((current) => (current.status === "ready" ? { status: "ready", profile: change(current.profile) } : current));
   }
@@ -112,7 +107,6 @@ function Profile({
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<Tab>(() => parseTab(searchParams.get("tab")));
-  // Voyages générés dans le planificateur (même API que /planner).
   const [trips, setTrips] = useState<TripsState>("loading");
 
   useEffect(() => {
@@ -126,7 +120,6 @@ function Profile({
   }, []);
   const { user } = profile;
 
-  // Met à jour la page et la Navbar (nom, pseudo, avatar).
   function applyUser(updated: EditableProfile) {
     onUserChange(updated);
     updateSessionUser({
@@ -136,6 +129,7 @@ function Profile({
       avatar_url: updated.avatar_url,
       avatar_seed: updated.avatar_seed,
       avatar_background_color: updated.avatar_background_color,
+      role: updated.role,
     });
   }
 
@@ -148,7 +142,6 @@ function Profile({
   return (
     <div className="flex flex-col gap-10">
       <Card className="overflow-hidden">
-        {/* Bannière décorative. */}
         <div aria-hidden="true" className="relative h-40 bg-[url(/home-bg.jpg)] bg-cover bg-center sm:h-56">
           <div className="absolute inset-0 bg-linear-to-t from-ink/60 via-ink/20 to-transparent" />
         </div>
@@ -160,7 +153,10 @@ function Profile({
                 backgroundColor={user.avatar_background_color} alt="" size={104} />
             </div>
             <div className="pb-1">
-              <h1 className="font-display text-headline-md text-ink">{user.display_name}</h1>
+              <h1 className="flex flex-wrap items-center gap-2 font-display text-headline-md text-ink">
+                {user.display_name}
+                <RoleBadge role={user.role} showDefault />
+              </h1>
               <p className="mt-0.5 flex flex-wrap items-center gap-2 text-body-sm text-ink-soft/70">
                 <span className="font-medium text-ink-soft">@{user.username}</span>
                 <span aria-hidden="true">•</span>
@@ -294,11 +290,9 @@ function StoriesGrid({ stories, ...actions }: { stories: Story[] } & StoryAction
   );
 }
 
-// Codes d'erreur de PATCH / DELETE /api/v1/posts/{id} traduits dans Profile.errors ; les autres → INTERNAL_ERROR.
 const STORY_ERRORS = ["NOT_FOUND", "TOO_MANY_REQUESTS", "INTERNAL_ERROR"] as const;
 type StoryError = (typeof STORY_ERRORS)[number];
 
-// Récit du profil : carte partagée (StoryCard) + actions de l'auteur (masquer / afficher, supprimer).
 function ProfileStory({ story, onStoryHiddenChange, onStoryDeleted }: { story: Story } & StoryActions) {
   const t = useTranslations("Profile");
   const router = useRouter();
@@ -307,7 +301,6 @@ function ProfileStory({ story, onStoryHiddenChange, onStoryDeleted }: { story: S
   const [error, setError] = useState<StoryError | null>(null);
   const titleId = storyTitleId(story.id);
 
-  // Erreur commune : session expirée → connexion (apiFetch a déjà effacé la session).
   function handleError(code: string) {
     if (code === "UNAUTHORIZED") return router.replace("/login");
     setError(STORY_ERRORS.find((known) => known === code) ?? "INTERNAL_ERROR");
@@ -332,7 +325,7 @@ function ProfileStory({ story, onStoryHiddenChange, onStoryDeleted }: { story: S
     const result = await apiFetch<null>(`/api/v1/posts/${story.id}`, { method: "DELETE" });
     setPending(false);
 
-    // Déjà supprimé (ex. depuis un autre onglet) : on le retire aussi de la grille.
+    // Déjà supprimé ailleurs : on le retire aussi de la grille.
     if ("error" in result && result.error !== "NOT_FOUND") return handleError(result.error);
     onStoryDeleted(story.id);
   }
@@ -344,7 +337,6 @@ function ProfileStory({ story, onStoryHiddenChange, onStoryDeleted }: { story: S
         hidden={story.is_hidden}
         actions={
           <>
-            {/* aria-describedby : le lecteur d'écran annonce le titre du récit concerné. */}
             {confirmingDelete ? (
               <>
                 <p className="w-full text-body-sm text-ink">{t("stories.confirmDelete")}</p>
@@ -388,7 +380,6 @@ function ProfileStory({ story, onStoryHiddenChange, onStoryDeleted }: { story: S
 
 type TripsState = "loading" | "error" | TripSummary[];
 
-// Onglet « Itinéraires IA » : voyages créés dans le planificateur (ouverts au clic dans /planner/{id}).
 function ItinerariesTab({ trips }: { trips: TripsState }) {
   const t = useTranslations("Profile");
 
@@ -406,7 +397,6 @@ function ItinerariesTab({ trips }: { trips: TripsState }) {
     return (
       <EmptyState>
         {t("empty.itineraries")}
-        {/* La création d'itinéraire se fait dans le planificateur. */}
         <Link href="/planner" className={buttonClassName("sm", "mt-4")}>
           <Icon name="add" className="size-4" />
           {t("createItinerary")}

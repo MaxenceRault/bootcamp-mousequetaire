@@ -7,30 +7,22 @@ import { Card } from "@/components/ui/Card";
 import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { FormError } from "@/components/ui/FormError";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import type { PostArchetype } from "@/lib/posts";
+import type { Archetype } from "@/lib/posts";
 import { usePlaceSearch, type Place } from "@/lib/usePlaceSearch";
 
 type TripContextBarProps = {
-  // Préfixe des id des champs (plusieurs formulaires peuvent coexister).
   idPrefix: string;
-  // Slugs des types de récit (libellés dans le namespace « Archetypes » de fr.json).
-  archetypes: readonly PostArchetype[];
-  // Durée maximale (en jours, début et fin inclus) : les dates au-delà sont grisées dans le calendrier.
+  archetypes: readonly Archetype[];
   maxDays?: number;
-  // Interdit les dates passées (planificateur). Un récit, lui, raconte un voyage passé.
   disablePast?: boolean;
 };
 
-// Champs transparents de la barre de contexte.
 const CONTEXT_INPUT_CLASS_NAME =
   "w-full min-w-0 bg-transparent text-body-md font-medium text-ink placeholder:text-ink-soft/50 focus:outline-none";
 
-// Barre « destination · dates · type de récit », partagée par l'éditeur de récit et le planificateur.
-// Les champs partent avec le formulaire parent : destinationCountry / destinationState / destinationCity,
-// startDate, endDate, archetype.
+// Partagée par l'éditeur de récit et le planificateur ; les champs partent avec le formulaire parent.
 export function TripContextBar({ idPrefix, archetypes, maxDays, disablePast }: TripContextBarProps) {
   const t = useTranslations("TripContextBar");
-  const tArchetypes = useTranslations("Archetypes");
 
   return (
     <Card className="grid grid-cols-1 gap-2 p-2 md:grid-cols-3">
@@ -59,9 +51,9 @@ export function TripContextBar({ idPrefix, archetypes, maxDays, disablePast }: T
           <option value="" disabled>
             {t("archetypePlaceholder")}
           </option>
-          {archetypes.map((archetype) => (
-            <option key={archetype} value={archetype}>
-              {tArchetypes(archetype)}
+          {archetypes.map(({ slug, label }) => (
+            <option key={slug} value={slug}>
+              {label}
             </option>
           ))}
         </select>
@@ -70,15 +62,13 @@ export function TripContextBar({ idPrefix, archetypes, maxDays, disablePast }: T
   );
 }
 
-// Destination : un lieu à choisir dans les suggestions.
-// Seul un lieu choisi dans la liste est accepté : il part dans des champs cachés (pays, région, ville).
+// Seul un lieu choisi dans la liste est accepté (champs cachés pays / région / ville).
 function DestinationField({ id }: { id: string }) {
   const t = useTranslations("TripContextBar");
   const input = useRef<HTMLInputElement>(null);
   const { query, places, error, changeQuery, reset } = usePlaceSearch();
   const [selected, setSelected] = useState<Place | null>(null);
 
-  // Texte saisi sans choisir de suggestion : le navigateur bloque l'envoi avec ce message.
   useEffect(() => {
     input.current?.setCustomValidity(query && !selected ? t("destinationPick") : "");
   }, [query, selected, t]);
@@ -118,7 +108,6 @@ function DestinationField({ id }: { id: string }) {
   );
 }
 
-// Case de la barre : icône + petit label en capitales + champ transparent.
 function ContextField({
   icon,
   label,

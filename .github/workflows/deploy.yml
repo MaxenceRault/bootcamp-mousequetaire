@@ -1,7 +1,5 @@
-# Déploiement continu : chaque push sur main est vérifié (lint), construit en image Docker,
-# puis déployé sur Cloud Run (https://brb-105103278561.europe-west9.run.app).
-# Authentification à GCP sans clé : Workload Identity Federation (jeton OIDC de GitHub, accepté
-# uniquement pour la branche main de ce repo) → compte de service brb-deploy.
+# Push sur main → lint → image Docker → Cloud Run.
+# Authentification GCP sans clé (Workload Identity, branche main uniquement).
 name: Deploy
 
 on:
@@ -9,7 +7,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Un seul déploiement à la fois ; un push pendant un déploiement attend la fin du précédent.
 concurrency:
   group: deploy-production
   cancel-in-progress: false
@@ -56,9 +53,7 @@ jobs:
           docker build --build-arg APP_URL="$APP_URL" -t "$IMAGE" .
           docker push "$IMAGE"
 
-      # Variables non sensibles en clair ; secrets JWT lus dans Secret Manager par le compte brb-run.
-      # max-instances=1 : les rate limits sont comptés en mémoire, une seule instance les garde cohérents
-      # (et plafonne le coût).
+      # Secrets JWT dans Secret Manager. Une seule instance : les rate limits sont en mémoire.
       - name: Déploiement Cloud Run
         run: |
           gcloud run deploy "$SERVICE" \

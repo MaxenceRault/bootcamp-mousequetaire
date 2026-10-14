@@ -9,34 +9,37 @@ import { FormError } from "@/components/ui/FormError";
 import { Icon } from "@/components/ui/Icon";
 import { TripCard, type TripSummary } from "@/components/TripCard";
 import { TripContextBar } from "@/components/TripContextBar";
-import type { PostArchetype } from "@/lib/posts";
+import type { Archetype } from "@/lib/posts";
 import { TRIP_MAX_DAYS } from "@/schemas/trip.schema";
 import { apiFetch, getSessionSnapshot } from "@/lib/session";
 import { plannerError, type PlannerError } from "@/components/TripPlanner";
 
-type ListState = { status: "loading" } | { status: "error" } | { status: "ready"; trips: TripSummary[] };
+type AiQuota = { used: number; limit: number | null };
 
-export function PlannerHome({ archetypes }: { archetypes: readonly PostArchetype[] }) {
+type ListState =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "ready"; trips: TripSummary[]; aiQuota: AiQuota };
+
+export function PlannerHome({ archetypes }: { archetypes: readonly Archetype[] }) {
   const t = useTranslations("Planner");
   const router = useRouter();
   const [list, setList] = useState<ListState>({ status: "loading" });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<PlannerError | null>(null);
 
-  // Page réservée aux utilisateurs connectés (confort : la vraie protection est la vérification du JWT par l'API).
+  // Confort uniquement : la vraie protection est la vérification du JWT par l'API.
   useEffect(() => {
     if (!getSessionSnapshot()) return router.replace("/login");
 
-    apiFetch<{ trips: TripSummary[] }>("/api/v1/trips").then((result) => {
-      if ("data" in result) return setList({ status: "ready", trips: result.data.trips });
+    apiFetch<{ trips: TripSummary[]; aiQuota: AiQuota }>("/api/v1/trips").then((result) => {
+      if ("data" in result) return setList({ status: "ready", ...result.data });
       if (result.error === "UNAUTHORIZED") return router.replace("/login");
       setList({ status: "error" });
     });
   }, [router]);
 
-  // Avec cacheComponents, Next garde cette page en mémoire (React Activity) quand on ouvre le voyage créé :
-  // au retour (ex. après avoir supprimé le voyage), le bouton resterait bloqué sur « en cours ».
-  // Le nettoyage s'exécute quand la page est masquée ; le chargement de la liste ci-dessus est relancé au retour.
+  // Next garde la page en mémoire (cacheComponents) : sans ce nettoyage, le bouton resterait « en cours » au retour.
   useEffect(
     () => () => {
       setPending(false);
@@ -45,7 +48,6 @@ export function PlannerHome({ archetypes }: { archetypes: readonly PostArchetype
     [],
   );
 
-  // Génération : POST /api/v1/trips, puis ouverture du planning créé.
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -80,6 +82,11 @@ export function PlannerHome({ archetypes }: { archetypes: readonly PostArchetype
           <TripContextBar idPrefix="trip" archetypes={archetypes} maxDays={TRIP_MAX_DAYS} disablePast />
           <div className="flex flex-col items-end gap-2">
             <FormError>{error && t(`errors.${error}`)}</FormError>
+            {list.status === "ready" && list.aiQuota.limit !== null && (
+              <p className="text-body-sm text-ink-soft">
+                {t("create.quota", { used: list.aiQuota.used, limit: list.aiQuota.limit })}
+              </p>
+            )}
             {pending && (
               <p role="status" className="text-body-sm text-ink-soft">
                 {t("create.pending")}

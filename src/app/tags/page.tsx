@@ -14,8 +14,7 @@ import { placeSchema } from "@/schemas/post.schema";
 
 type SearchParams = PageProps<"/tags">["searchParams"];
 
-// /tags?country=FR[&state=IDF&city=Montesson] : récits liés à un lieu (destination ou tag).
-// Paramètres validés en allowlist (placeSchema .strict()) ; lieu invalide ou inconnu → 404.
+// /tags?country=FR[&state=IDF&city=Montesson]. Lieu invalide ou inconnu → 404.
 const getPlacePosts = cache(async (params: Awaited<SearchParams>): Promise<(PlacePosts & { countryCode: string }) | null> => {
   const place = placeSchema.safeParse(params);
   if (!place.success) return null;
@@ -38,7 +37,7 @@ export default function TagsPage({ searchParams }: PageProps<"/tags">) {
       <Navbar />
       <main className="w-full flex-1 pt-24 pb-20">
         <div className="mx-auto max-w-300 px-4 md:px-6">
-          {/* La liste dépend de l'URL : rendue à la requête, dans un Suspense. */}
+          {/* Dépend de l'URL : rendu à la requête. */}
           <Suspense fallback={<PlaceSkeleton />}>
             <PlacePostsList searchParams={searchParams} />
           </Suspense>
@@ -56,7 +55,6 @@ async function PlacePostsList({ searchParams }: { searchParams: SearchParams }) 
   const t = await getTranslations("Tags");
   const { place, posts } = result;
   const name = place.city ?? place.state ?? place.country;
-  // Lieu parent affiché sous le titre (ex. « Île-de-France, France » pour une ville).
   const parent = [place.city ? place.state : null, place.city || place.state ? place.country : null]
     .filter(Boolean)
     .join(", ");

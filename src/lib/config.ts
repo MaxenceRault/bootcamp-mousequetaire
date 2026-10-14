@@ -1,38 +1,34 @@
 import "server-only";
 import { z } from "zod";
 
-// Configuration serveur, lue depuis les variables d'environnement (liste et exemples : .env.example).
-// Validée au premier appel : une valeur absente ou invalide arrête la requête avec une erreur
-// qui nomme la variable (jamais sa valeur). Lecture paresseuse pour ne pas casser le build.
+// Variables d'environnement validées au premier appel (lecture paresseuse : le build n'en a pas besoin).
+// L'erreur nomme la variable, jamais sa valeur.
 
-// Durée au format de jose : nombre + unité (s, m, h, d), ex. « 1h ».
+// Format de jose, ex. « 1h ».
 const duration = z.string().regex(/^\d+[smhd]$/);
 const count = z.coerce.number().int().positive();
 const seconds = z.coerce.number().int().positive();
 
 const envSchema = z.object({
-  // Cloud SQL (Postgres) : connexion IAM via le connecteur Google, donc pas de mot de passe de base.
   CLOUD_SQL_INSTANCE: z.string().regex(/^[a-z0-9-]+:[a-z0-9-]+:[a-z0-9-]+$/),
   DB_USER: z.string().min(1),
   DB_NAME: z.string().min(1),
   JWT_SECRET: z.string().min(32),
-  // Clé des refresh tokens : distincte de JWT_SECRET (un access token ne peut pas servir de refresh token).
+  // Distincte de JWT_SECRET : un access token ne peut pas servir de refresh token.
   JWT_REFRESH_SECRET: z.string().min(32),
 
   JWT_EXPIRES_IN: duration.default("1h"),
-  // Durée de vie absolue d'une session (refresh token) : « Se souvenir de moi » coché ou non.
   REFRESH_TOKEN_REMEMBER_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   REFRESH_TOKEN_SESSION_HOURS: z.coerce.number().int().min(1).max(168).default(24),
-  // ≥ 10 (règle de sécurité du projet) ; au-delà de 14, chaque connexion devient très lente.
+  // ≥ 10 (règle du projet) ; au-delà de 14, chaque connexion devient très lente.
   BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(10).max(14).default(12),
 
-  // Nombre de proxys de confiance devant l'app (Cloud Run : 1). Sert à lire la vraie IP du client
-  // dans X-Forwarded-For : seules les entrées ajoutées par ces proxys sont fiables.
+  // Proxys de confiance (Cloud Run : 1) : seules leurs entrées de X-Forwarded-For sont fiables.
   TRUSTED_PROXY_HOPS: z.coerce.number().int().min(1).max(5).default(1),
 
   RATE_LIMIT_LOGIN_MAX: count.default(5),
   RATE_LIMIT_LOGIN_WINDOW_SECONDS: seconds.default(15 * 60),
-  // Par compte visé (email), quelle que soit l'IP : contre le bruteforce réparti sur plusieurs IP.
+  // Par email, quelle que soit l'IP : contre le bruteforce réparti.
   RATE_LIMIT_LOGIN_EMAIL_MAX: count.default(10),
   RATE_LIMIT_LOGIN_EMAIL_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_REFRESH_MAX: count.default(30),
@@ -51,6 +47,10 @@ const envSchema = z.object({
   RATE_LIMIT_POST_REACT_WINDOW_SECONDS: seconds.default(60),
   RATE_LIMIT_PROFILE_UPDATE_MAX: count.default(10),
   RATE_LIMIT_PROFILE_UPDATE_WINDOW_SECONDS: seconds.default(15 * 60),
+  RATE_LIMIT_REPORT_MAX: count.default(10),
+  RATE_LIMIT_REPORT_WINDOW_SECONDS: seconds.default(60 * 60),
+  RATE_LIMIT_ADMIN_MAX: count.default(120),
+  RATE_LIMIT_ADMIN_WINDOW_SECONDS: seconds.default(60),
 }).refine((env) => env.JWT_REFRESH_SECRET !== env.JWT_SECRET, {
   path: ["JWT_REFRESH_SECRET"],
   message: "doit être différente de JWT_SECRET",
@@ -67,7 +67,7 @@ export type ServerConfig = {
   bcryptSaltRounds: number;
   trustedProxyHops: number;
   rateLimits: Record<
-    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileUpdate",
+    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileUpdate" | "report" | "admin",
     RateLimit
   >;
 };
@@ -80,7 +80,7 @@ export function getConfig(): ServerConfig {
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
     const names = parsed.error.issues.map((issue) => issue.path.join(".")).join(", ");
-    // Log ici : l'erreur peut être interceptée plus haut (ex. vérification du token → simple 401).
+    // Log ici : l'erreur peut être masquée plus haut (ex. simple 401).
     console.error(JSON.stringify({ level: "error", scope: "config", message: `invalid env: ${names}` }));
     throw new Error(`Configuration invalide ou manquante : ${names}`);
   }
@@ -110,6 +110,8 @@ export function getConfig(): ServerConfig {
       postEdit: rateLimit(env.RATE_LIMIT_POST_EDIT_MAX, env.RATE_LIMIT_POST_EDIT_WINDOW_SECONDS),
       postReact: rateLimit(env.RATE_LIMIT_POST_REACT_MAX, env.RATE_LIMIT_POST_REACT_WINDOW_SECONDS),
       profileUpdate: rateLimit(env.RATE_LIMIT_PROFILE_UPDATE_MAX, env.RATE_LIMIT_PROFILE_UPDATE_WINDOW_SECONDS),
+      report: rateLimit(env.RATE_LIMIT_REPORT_MAX, env.RATE_LIMIT_REPORT_WINDOW_SECONDS),
+      admin: rateLimit(env.RATE_LIMIT_ADMIN_MAX, env.RATE_LIMIT_ADMIN_WINDOW_SECONDS),
     },
   };
   return config;

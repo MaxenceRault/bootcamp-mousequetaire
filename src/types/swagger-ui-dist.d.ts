@@ -1,4 +1,4 @@
-// Types minimaux du bundle navigateur de Swagger UI : swagger-ui-dist n'en fournit pas pour ce fichier.
+// swagger-ui-dist ne fournit pas de types pour ce bundle.
 declare module "swagger-ui-dist/swagger-ui-es-bundle.js" {
   type SwaggerUIOptions = {
     url: string;

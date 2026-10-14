@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/Input";
 
 type PasswordInputProps = Omit<ComponentProps<typeof Input>, "type">;
 
-// Champ mot de passe avec bouton œil pour afficher / masquer la saisie.
 export function PasswordInput({ className = "", ...props }: PasswordInputProps) {
   const t = useTranslations("PasswordInput");
   const [visible, setVisible] = useState(false);

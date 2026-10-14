@@ -1,7 +1,6 @@
 import { getRequestConfig } from "next-intl/server";
 
-// Une seule langue pour l'instant, sans préfixe de langue dans l'URL.
-// Pour en ajouter une : créer messages/<locale>.json et choisir la locale ici.
+// Une seule langue pour l'instant : en ajouter une = messages/<locale>.json + choix de la locale ici.
 export default getRequestConfig(async () => {
   const locale = "fr";
 

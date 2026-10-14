@@ -18,7 +18,6 @@ export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Metadata");
 
   return {
-    // Les pages définissent leur propre titre : « Connexion · Brb ».
     title: { default: t("title"), template: `%s · ${t("title")}` },
     description: t("description"),
   };

@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { POST_ARCHETYPES } from "@/lib/posts";
+import { archetypeSlugSchema } from "@/schemas/archetype.schema";
 
-// Limites alignées sur la table post (db/migrations/) et le contrôle fait par post.service.
+// Alignées sur la table post.
 export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const MAX_TAGS = 10;
@@ -10,7 +10,7 @@ const countryCode = z.string().regex(/^[A-Z]{2}$/);
 const stateCode = z.string().regex(/^[A-Za-z0-9-]{1,10}$/);
 const cityName = z.string().trim().min(1).max(100);
 
-// Lieu de country-state-city : un pays, éventuellement une région et une ville (toujours dans une région).
+// Une ville est toujours dans une région.
 export const placeSchema = z
   .object({
     country: countryCode,
@@ -20,7 +20,7 @@ export const placeSchema = z
   .strict()
   .refine((place) => !place.city || place.state);
 
-// Un tag arrive en JSON dans le formulaire : {"country":"JP","state":"26","city":"Kyoto"}.
+// Un tag arrive en JSON : {"country":"JP","state":"26","city":"Kyoto"}.
 const tagSchema = z
   .string()
   .max(300)
@@ -34,10 +34,9 @@ const tagSchema = z
   })
   .pipe(placeSchema);
 
-// Corps multipart de POST /api/v1/posts (allowlist : tout champ inconnu est rejeté).
 export const createPostSchema = z
   .object({
-    // Le titre est saisi dans un textarea : retours à la ligne et espaces multiples ramenés à un espace.
+    // Saisi dans un textarea : retours à la ligne ramenés à un espace.
     title: z
       .string()
       .transform((value) => value.replace(/\s+/g, " ").trim())
@@ -51,47 +50,44 @@ export const createPostSchema = z
     destinationCity: cityName.optional(),
     startDate: z.iso.date(),
     endDate: z.iso.date(),
-    archetype: z.enum(POST_ARCHETYPES),
+    // Existence et état actif vérifiés par le service.
+    archetype: archetypeSlugSchema,
     tags: z.array(tagSchema).max(MAX_TAGS).default([]),
   })
   .strict()
-  // Dates au format AAAA-MM-JJ : la comparaison de chaînes suit l'ordre chronologique.
+  // Dates AAAA-MM-JJ : l'ordre des chaînes est chronologique.
   .refine((post) => post.endDate >= post.startDate, { path: ["endDate"] })
   .refine((post) => !post.destinationCity || post.destinationState, { path: ["destinationCity"] });
 
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 export type PlaceInput = z.infer<typeof placeSchema>;
 
-// Paramètres de GET /api/v1/posts (feed public, chargement infini).
 export const FEED_MAX_LIMIT = 20;
 
 export const feedQuerySchema = z
   .object({
-    archetype: z.enum(POST_ARCHETYPES).optional(),
-    // Id du dernier post déjà affiché ; borné à l'entier max de Postgres (colonne integer).
+    archetype: archetypeSlugSchema.optional(),
+    // Borné à l'entier max de Postgres.
     cursor: z.coerce.number().int().positive().max(2_147_483_647).optional(),
     limit: z.coerce.number().int().min(1).max(FEED_MAX_LIMIT).optional(),
   })
   .strict();
 
-// Id d'un post dans l'URL (/post/5, /api/v1/posts/5) : entier positif, sans zéro initial ni autre caractère.
+// Sans zéro initial ni autre caractère.
 export const postIdSchema = z
   .string()
   .regex(/^[1-9][0-9]{0,9}$/)
   .transform(Number)
   .pipe(z.number().int().max(2_147_483_647));
 
-// Corps de PATCH /api/v1/posts/{id} : seule la visibilité est modifiable pour l'instant.
 export const updatePostSchema = z
   .object({
     hidden: z.boolean(),
   })
   .strict();
 
-// Nombre maximal de posts dont on demande les réactions en une fois (au-delà d'une page du feed).
 export const MAX_REACTION_POST_IDS = 50;
 
-// GET /api/v1/users/me/reactions?postIds=1,2,3
 export const viewerReactionsQuerySchema = z
   .object({
     postIds: z
@@ -102,15 +98,26 @@ export const viewerReactionsQuerySchema = z
   })
   .strict();
 
-// Recherche de la page d'accueil (/?q=…) : 2 à 100 caractères après nettoyage des espaces.
 export const searchQuerySchema = z
   .string()
   .transform((value) => value.replace(/\s+/g, " ").trim())
   .pipe(z.string().min(2).max(100));
 
-// Slug d'un post dans l'URL (/post/okinawa-et-ile-zamami) : mêmes règles que la contrainte SQL post_slug_format.
+// Mêmes règles que la contrainte SQL post_slug_format.
 export const postSlugSchema = z
   .string()
   .max(120)
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
   .refine((slug) => !/^[0-9]+$/.test(slug));
+
+// Affiché à l'admin en texte brut.
+export const reportPostSchema = z
+  .object({
+    reason: z
+      .string()
+      .trim()
+      .max(500)
+      .transform((value) => value || null)
+      .optional(),
+  })
+  .strict();

@@ -7,7 +7,6 @@ import { buttonClassName } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { getSessionSnapshot, subscribeSession } from "@/lib/session";
 
-// Bouton flottant « Nouveau post » : réservé aux utilisateurs connectés (masqué pour un visiteur).
 export function NewPostButton() {
   const t = useTranslations("Home");
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, () => null);

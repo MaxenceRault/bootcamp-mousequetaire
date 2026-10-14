@@ -1,6 +1,4 @@
-// Logo de Brb : oiseau en trait épais gris clair, bec en flèche de navigation GPS (accent).
-// Décoratif : le nom de l'app est toujours affiché ou annoncé à côté (ex. aria-label du lien).
-// Même dessin que public/logo.svg et src/app/icon.svg (favicon).
+// Décoratif : le nom de l'app est toujours affiché ou annoncé à côté. Même dessin que public/logo.svg et app/icon.svg.
 export function Logo({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 64 64" aria-hidden="true" className={className}>

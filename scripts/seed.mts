@@ -1,13 +1,6 @@
-// Seed manuel : remplit la base avec des données de démo (users, posts, tags).
-// Lancement : npm run seed
-// Relançable sans doublons : users à ids fixes (upsert) ; les posts de ces users sont supprimés puis
-// recréés (post_tag suit en cascade) ; les tags (lieux) sont réutilisés s'ils existent déjà.
-// Les comptes de démo n'ont ni email ni mot de passe : impossible de s'y connecter.
-// Les autres utilisateurs et leurs posts ne sont jamais touchés. Tout passe dans une transaction :
-// en cas d'erreur, rien n'est écrit.
-//
-// Se connecte à Cloud SQL avec ton identité Google (gcloud auth application-default login),
-// qui doit avoir le rôle brb_admin. Ce script tourne uniquement en local, jamais dans l'app.
+// Seed manuel des données de démo : npm run seed (local uniquement, rôle brb_admin).
+// Relançable : seuls les comptes et posts de démo sont recréés, dans une transaction.
+// Les comptes de démo n'ont ni email ni mot de passe.
 
 import { AuthTypes, Connector, IpAddressTypes } from "@google-cloud/cloud-sql-connector";
 import { City, Country, State } from "country-state-city";
@@ -57,14 +50,11 @@ const USERS = [
 
 const [elena, marcoSophie, ines, thomas, mai] = USERS.map((user) => user.id);
 
-// Lieu de country-state-city (mêmes règles que l'API : une ville est toujours dans une région).
 type Place = { country: string; state?: string; city?: string };
 
 type DemoPost = {
   author_id: string;
-  // Ancienneté souhaitée au moment du seed (resserrée si besoin, voir plus bas).
   minutesAgo: number;
-  // Durée du voyage en jours (dates calculées : fin une semaine avant la publication).
   days: number;
   archetype: string;
   destination: Place;
@@ -197,7 +187,7 @@ const POSTS: DemoPost[] = [
   },
 ];
 
-// Vérifie un lieu dans country-state-city avant de l'écrire (même contrôle que post.service).
+// Même contrôle que post.service.
 function placeExists({ country, state, city }: Place) {
   if (!Country.getCountryByCode(country)) return false;
   if (!state) return !city;
@@ -206,7 +196,6 @@ function placeExists({ country, state, city }: Place) {
 }
 
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
-// Description courte = première phrase de la description longue.
 const firstSentence = (text: string) => text.split(/(?<=[.!?])\s/)[0].slice(0, 252);
 
 for (const post of POSTS) {
@@ -244,12 +233,11 @@ try {
   const { rows: archetypes } = await client.query<{ id: number; slug: string }>("select id, slug from archetype");
   const archetypeIds = new Map(archetypes.map(({ id, slug }) => [slug, id]));
 
-  // Relançable : on repart des posts de démo uniquement (jamais ceux des vrais utilisateurs).
+  // Jamais les posts des vrais utilisateurs.
   const demoIds = USERS.map(({ id }) => id);
   await client.query("delete from post where author_id = any($1::uuid[])", [demoIds]);
 
-  // Le feed est trié par id : les dates doivent suivre l'ordre d'insertion. Les posts de démo (insérés
-  // en dernier) sont donc tous datés après le plus récent post réel, en gardant leurs écarts relatifs.
+  // Le feed est trié par id : les posts de démo sont datés après le plus récent post réel.
   const { rows: newest } = await client.query<{ created_at: Date | null }>(
     "select max(created_at) as created_at from post where not (author_id = any($1::uuid[]))",
     [demoIds],
@@ -264,7 +252,6 @@ try {
 
   let tagLinks = 0;
 
-  // Du plus ancien au plus récent : les ids (ordre du feed) suivent ainsi les dates de publication.
   for (const { minutesAgo, days, archetype, destination, ...post } of [...POSTS].reverse()) {
     const archetypeId = archetypeIds.get(archetype);
     if (!archetypeId) throw new Error(`type de récit inconnu : ${archetype}`);
@@ -296,7 +283,6 @@ try {
       ],
     );
 
-    // Tags : le pays, plus la destination si elle est plus précise (lieux existants réutilisés).
     const places = destination.state ? [{ country: destination.country }, destination] : [destination];
     const { rows: tags } = await client.query<{ id: number }>(
       `insert into tag (country_code, state_code, city)
