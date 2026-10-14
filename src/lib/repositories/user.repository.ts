@@ -1,5 +1,6 @@
 import "server-only";
-import { createAdminClient } from "@/utils/supabase/admin";
+import { DatabaseError } from "pg";
+import { getDb } from "@/utils/db";
 
 export type PublicUser = {
   id: string;
@@ -36,47 +37,43 @@ const PROFILE_COLUMNS = `${PUBLIC_COLUMNS}, location, created_at`;
 const UNIQUE_VIOLATION = "23505";
 
 export async function findUserByEmail(email: string): Promise<UserWithPassword | null> {
-  const { data, error } = await createAdminClient()
-    .from("users")
-    .select(`${PUBLIC_COLUMNS}, password_hash`)
-    .eq("email", email)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data as UserWithPassword | null;
+  const db = await getDb();
+  const { rows } = await db.query<UserWithPassword>(
+    `select ${PUBLIC_COLUMNS}, password_hash from users where email = $1`,
+    [email],
+  );
+  return rows[0] ?? null;
 }
 
 export async function createUser(user: NewUser): Promise<PublicUser> {
-  const { data, error } = await createAdminClient()
-    .from("users")
-    .insert(user)
-    .select(PUBLIC_COLUMNS)
-    .single();
-
-  if (error) throw error;
-  return data as PublicUser;
+  const db = await getDb();
+  const { rows } = await db.query<PublicUser>(
+    `insert into users (email, username, display_name, password_hash)
+     values ($1, $2, $3, $4)
+     returning ${PUBLIC_COLUMNS}`,
+    [user.email, user.username, user.display_name, user.password_hash],
+  );
+  return rows[0];
 }
 
 export async function findProfileById(id: string): Promise<ProfileUser | null> {
-  const { data, error } = await createAdminClient()
-    .from("users")
-    .select(PROFILE_COLUMNS)
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data as ProfileUser | null;
+  const db = await getDb();
+  const { rows } = await db.query<ProfileUser>(`select ${PROFILE_COLUMNS} from users where id = $1`, [id]);
+  return rows[0] ?? null;
 }
 
 export async function updateProfile(id: string, changes: ProfileChanges): Promise<ProfileUser | null> {
-  const { data, error } = await createAdminClient()
-    .from("users")
-    .update(changes)
-    .eq("id", id)
-    .select(PROFILE_COLUMNS)
-    .maybeSingle();
-
-  if (error?.code === UNIQUE_VIOLATION) throw new UsernameTakenError();
-  if (error) throw error;
-  return data as ProfileUser | null;
+  const db = await getDb();
+  try {
+    const { rows } = await db.query<ProfileUser>(
+      `update users set username = $2, display_name = $3, location = $4, avatar_seed = $5
+       where id = $1
+       returning ${PROFILE_COLUMNS}`,
+      [id, changes.username, changes.display_name, changes.location, changes.avatar_seed],
+    );
+    return rows[0] ?? null;
+  } catch (error) {
+    if (error instanceof DatabaseError && error.code === UNIQUE_VIOLATION) throw new UsernameTakenError();
+    throw error;
+  }
 }

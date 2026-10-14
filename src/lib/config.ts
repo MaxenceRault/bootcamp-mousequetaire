@@ -11,16 +11,23 @@ const count = z.coerce.number().int().positive();
 const seconds = z.coerce.number().int().positive();
 
 const envSchema = z.object({
-  NEXT_PUBLIC_SUPABASE_URL: z.url(),
-  SUPABASE_SECRET_KEY: z.string().min(1),
+  // Cloud SQL (Postgres) : connexion IAM via le connecteur Google, donc pas de mot de passe de base.
+  CLOUD_SQL_INSTANCE: z.string().regex(/^[a-z0-9-]+:[a-z0-9-]+:[a-z0-9-]+$/),
+  DB_USER: z.string().min(1),
+  DB_NAME: z.string().min(1),
   JWT_SECRET: z.string().min(32),
 
   JWT_EXPIRES_IN: duration.default("1h"),
+  // Durée de vie absolue d'une session (refresh token) : « Se souvenir de moi » coché ou non.
+  REFRESH_TOKEN_REMEMBER_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+  REFRESH_TOKEN_SESSION_HOURS: z.coerce.number().int().min(1).max(168).default(24),
   // ≥ 10 (règle de sécurité du projet) ; au-delà de 14, chaque connexion devient très lente.
   BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(10).max(14).default(12),
 
   RATE_LIMIT_LOGIN_MAX: count.default(5),
   RATE_LIMIT_LOGIN_WINDOW_SECONDS: seconds.default(15 * 60),
+  RATE_LIMIT_REFRESH_MAX: count.default(30),
+  RATE_LIMIT_REFRESH_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_REGISTER_MAX: count.default(5),
   RATE_LIMIT_REGISTER_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_LOCATIONS_MAX: count.default(60),
@@ -38,12 +45,12 @@ const envSchema = z.object({
 export type RateLimit = { max: number; windowMs: number };
 
 export type ServerConfig = {
-  supabaseUrl: string;
-  supabaseSecretKey: string;
+  db: { instanceConnectionName: string; user: string; database: string };
   jwtSecret: string;
   jwtExpiresIn: string;
+  refreshTokenTtlMs: { remember: number; session: number };
   bcryptSaltRounds: number;
-  rateLimits: Record<"login" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "profileUpdate", RateLimit>;
+  rateLimits: Record<"login" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "profileUpdate", RateLimit>;
 };
 
 let config: ServerConfig | null = null;
@@ -63,13 +70,17 @@ export function getConfig(): ServerConfig {
   const rateLimit = (max: number, windowSeconds: number) => ({ max, windowMs: windowSeconds * 1000 });
 
   config = {
-    supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
-    supabaseSecretKey: env.SUPABASE_SECRET_KEY,
+    db: { instanceConnectionName: env.CLOUD_SQL_INSTANCE, user: env.DB_USER, database: env.DB_NAME },
     jwtSecret: env.JWT_SECRET,
     jwtExpiresIn: env.JWT_EXPIRES_IN,
+    refreshTokenTtlMs: {
+      remember: env.REFRESH_TOKEN_REMEMBER_DAYS * 24 * 60 * 60 * 1000,
+      session: env.REFRESH_TOKEN_SESSION_HOURS * 60 * 60 * 1000,
+    },
     bcryptSaltRounds: env.BCRYPT_SALT_ROUNDS,
     rateLimits: {
       login: rateLimit(env.RATE_LIMIT_LOGIN_MAX, env.RATE_LIMIT_LOGIN_WINDOW_SECONDS),
+      refresh: rateLimit(env.RATE_LIMIT_REFRESH_MAX, env.RATE_LIMIT_REFRESH_WINDOW_SECONDS),
       register: rateLimit(env.RATE_LIMIT_REGISTER_MAX, env.RATE_LIMIT_REGISTER_WINDOW_SECONDS),
       locations: rateLimit(env.RATE_LIMIT_LOCATIONS_MAX, env.RATE_LIMIT_LOCATIONS_WINDOW_SECONDS),
       feed: rateLimit(env.RATE_LIMIT_FEED_MAX, env.RATE_LIMIT_FEED_WINDOW_SECONDS),

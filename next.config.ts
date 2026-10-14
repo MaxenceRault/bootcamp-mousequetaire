@@ -1,24 +1,16 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
-// Hôte Supabase (ex. abcd.supabase.co) : les photos des posts sont servies par son Storage.
-// next.config est lu au démarrage, hors de src/ : seule exception à la règle « getConfig() ».
-const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
-  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
-  : null;
-
 const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
   images: {
     remotePatterns: [
-      // Photos et avatars des données de démo (seed).
+      // Photos et avatars des données de démo.
       { protocol: "https", hostname: "images.unsplash.com", pathname: "/photo-**" },
-      // Photos de couverture envoyées depuis l'éditeur (bucket post-photos, lecture publique).
-      ...(supabaseHost
-        ? [{ protocol: "https" as const, hostname: supabaseHost, pathname: "/storage/v1/object/public/post-photos/**" }]
-        : []),
+      // Photos de couverture des posts (uniquement le bucket Cloud Storage biirb-post-photos).
+      { protocol: "https", hostname: "storage.googleapis.com", pathname: "/biirb-post-photos/**" },
     ],
   },
   turbopack: {

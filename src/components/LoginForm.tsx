@@ -33,7 +33,7 @@ export function LoginForm() {
     setPending(false);
 
     if ("error" in result) return setError(t(`errors.${result.error}`));
-    saveSession(result.token, result.user, remember);
+    saveSession(result.token, result.refreshToken, result.user, remember);
     router.push("/");
   }
 

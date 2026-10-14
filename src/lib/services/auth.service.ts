@@ -1,10 +1,17 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { getConfig } from "@/lib/config";
 import { signToken } from "@/lib/jwt";
 import {
+  findRefreshTokenByHash,
+  insertRefreshToken,
+  revokeRefreshToken,
+  revokeRefreshTokenFamily,
+} from "@/lib/repositories/refresh-token.repository";
+import {
   createUser,
+  findProfileById,
   findUserByEmail,
   type PublicUser,
 } from "@/lib/repositories/user.repository";
@@ -18,21 +25,21 @@ function getDummyHash() {
 }
 
 export class AuthError extends Error {
-  constructor(public readonly code: "INVALID_CREDENTIALS" | "EMAIL_TAKEN") {
+  constructor(public readonly code: "INVALID_CREDENTIALS" | "EMAIL_TAKEN" | "INVALID_REFRESH_TOKEN") {
     super(code);
   }
 }
 
-export type AuthResult = { token: string; user: PublicUser };
+export type AuthResult = { token: string; refreshToken: string; user: PublicUser };
 
-export async function login(email: string, password: string): Promise<AuthResult> {
+export async function login(email: string, password: string, remember: boolean): Promise<AuthResult> {
   const user = await findUserByEmail(email);
   const valid = await bcrypt.compare(password, user?.password_hash ?? (await getDummyHash()));
 
   if (!user || !user.password_hash || !valid) throw new AuthError("INVALID_CREDENTIALS");
 
   const { id, username, display_name, avatar_url, avatar_seed } = user;
-  return createSession({ id, username, display_name, avatar_url, avatar_seed });
+  return createSession({ id, username, display_name, avatar_url, avatar_seed }, remember);
 }
 
 export async function register(name: string, email: string, password: string): Promise<AuthResult> {
@@ -45,12 +52,54 @@ export async function register(name: string, email: string, password: string): P
     password_hash: await bcrypt.hash(password, getConfig().bcryptSaltRounds),
   });
 
-  return createSession(user);
+  return createSession(user, false);
 }
 
-async function createSession(user: PublicUser): Promise<AuthResult> {
-  const token = await signToken(user.id);
-  return { token, user };
+// Échange un refresh token contre une nouvelle paire (rotation : l'ancien devient inutilisable).
+export async function refreshSession(refreshToken: string): Promise<AuthResult> {
+  const stored = await findRefreshTokenByHash(hashToken(refreshToken));
+  if (!stored || new Date(stored.expires_at) <= new Date()) throw new AuthError("INVALID_REFRESH_TOKEN");
+
+  // Token déjà utilisé (ou deux refresh simultanés) : vol probable, toute la session est coupée.
+  if (stored.revoked_at || !(await revokeRefreshToken(stored.id))) {
+    await revokeRefreshTokenFamily(stored.family_id);
+    throw new AuthError("INVALID_REFRESH_TOKEN");
+  }
+
+  const profile = await findProfileById(stored.user_id);
+  if (!profile) throw new AuthError("INVALID_REFRESH_TOKEN");
+
+  const { id, username, display_name, avatar_url, avatar_seed } = profile;
+  const next = await issueRefreshToken(id, stored.family_id, new Date(stored.expires_at));
+  return { token: await signToken(id), refreshToken: next, user: { id, username, display_name, avatar_url, avatar_seed } };
+}
+
+// Déconnexion : révoque toute la session (famille) du refresh token. Silencieux si token inconnu.
+export async function logout(refreshToken: string) {
+  const stored = await findRefreshTokenByHash(hashToken(refreshToken));
+  if (stored) await revokeRefreshTokenFamily(stored.family_id);
+}
+
+async function createSession(user: PublicUser, remember: boolean): Promise<AuthResult> {
+  // Durée de vie absolue du refresh token (et donc de la session) : « Se souvenir de moi » ou non.
+  const { remember: rememberMs, session: sessionMs } = getConfig().refreshTokenTtlMs;
+  const expiresAt = new Date(Date.now() + (remember ? rememberMs : sessionMs));
+  const [token, refreshToken] = await Promise.all([
+    signToken(user.id),
+    issueRefreshToken(user.id, randomUUID(), expiresAt),
+  ]);
+  return { token, refreshToken, user };
+}
+
+// Token opaque aléatoire (256 bits) ; seule son empreinte SHA-256 est stockée en base.
+async function issueRefreshToken(userId: string, familyId: string, expiresAt: Date) {
+  const token = randomBytes(32).toString("base64url");
+  await insertRefreshToken({ user_id: userId, family_id: familyId, token_hash: hashToken(token), expires_at: expiresAt });
+  return token;
+}
+
+function hashToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 function makeUsername(name: string) {

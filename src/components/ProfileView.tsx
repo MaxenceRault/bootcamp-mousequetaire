@@ -1,16 +1,15 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { ProfileEditForm, type EditableProfile } from "@/components/ProfileEditForm";
+import { StoryCard, storyTitleId } from "@/components/StoryCard";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button, buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { countryName, flagEmoji } from "@/lib/country";
 import { apiFetch, updateSessionUser } from "@/lib/session";
 
 type Story = {
@@ -254,7 +253,7 @@ function StoriesGrid({ stories, ...actions }: { stories: Story[] } & StoryAction
   return (
     <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {stories.map((story) => (
-        <StoryCard key={story.id} story={story} {...actions} />
+        <ProfileStory key={story.id} story={story} {...actions} />
       ))}
     </ul>
   );
@@ -264,16 +263,14 @@ function StoriesGrid({ stories, ...actions }: { stories: Story[] } & StoryAction
 const STORY_ERRORS = ["NOT_FOUND", "TOO_MANY_REQUESTS", "INTERNAL_ERROR"] as const;
 type StoryError = (typeof STORY_ERRORS)[number];
 
-// Carte d'un récit du profil : lien vers le post + actions de l'auteur (masquer / afficher, supprimer).
-function StoryCard({ story, onStoryHiddenChange, onStoryDeleted }: { story: Story } & StoryActions) {
+// Récit du profil : carte partagée (StoryCard) + actions de l'auteur (masquer / afficher, supprimer).
+function ProfileStory({ story, onStoryHiddenChange, onStoryDeleted }: { story: Story } & StoryActions) {
   const t = useTranslations("Profile");
-  const format = useFormatter();
-  const locale = useLocale();
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState<StoryError | null>(null);
-  const titleId = `story-title-${story.id}`;
+  const titleId = storyTitleId(story.id);
 
   // Erreur commune : session expirée → connexion (apiFetch a déjà effacé la session).
   function handleError(code: string) {
@@ -307,81 +304,49 @@ function StoryCard({ story, onStoryHiddenChange, onStoryDeleted }: { story: Stor
 
   return (
     <li>
-      <Card className="flex h-full flex-col overflow-hidden shadow-xs transition hover:shadow-md">
-        <Link href={`/post/${story.id}`} className="group block flex-1">
-          <div className="relative aspect-4/3 overflow-hidden bg-surface-muted">
-            {/* unoptimized : l'hébergement des photos n'est pas encore choisi, on ne peut pas
-                déclarer l'hôte dans next.config (remotePatterns). */}
-            <Image
-              src={story.photo_url}
-              alt={story.photo_alt}
-              fill
-              unoptimized
-              className={`object-cover transition duration-500 group-hover:scale-105 ${story.is_hidden ? "opacity-50" : ""}`}
-            />
-            {story.is_hidden && (
-              <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-lg bg-ink/80 px-2 py-1 font-display text-label-sm text-surface">
-                <Icon name="visibilityOff" className="size-3.5" />
-                {t("stories.hiddenBadge")}
-              </span>
+      <StoryCard
+        story={story}
+        hidden={story.is_hidden}
+        actions={
+          <>
+            {/* aria-describedby : le lecteur d'écran annonce le titre du récit concerné. */}
+            {confirmingDelete ? (
+              <>
+                <p className="w-full text-body-sm text-ink">{t("stories.confirmDelete")}</p>
+                <Button size="sm" variant="danger" disabled={pending} onClick={remove} aria-describedby={titleId}>
+                  {t("stories.confirmDeleteYes")}
+                </Button>
+                <Button size="sm" variant="secondary" disabled={pending} onClick={() => setConfirmingDelete(false)}>
+                  {t("form.cancel")}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button size="sm" variant="secondary" disabled={pending} onClick={toggleHidden} aria-describedby={titleId}>
+                  <Icon name={story.is_hidden ? "visibility" : "visibilityOff"} className="size-4" />
+                  {story.is_hidden ? t("stories.show") : t("stories.hide")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={pending}
+                  onClick={() => {
+                    setError(null);
+                    setConfirmingDelete(true);
+                  }}
+                  aria-describedby={titleId}
+                >
+                  <Icon name="delete" className="size-4 text-error" />
+                  {t("stories.delete")}
+                </Button>
+              </>
             )}
-          </div>
-          <div className="flex flex-col gap-1.5 p-4">
-            <h3 id={titleId} className="font-display text-label-lg text-ink">
-              {story.title}
-            </h3>
-            <p className="flex flex-wrap items-center gap-1.5 text-body-sm text-ink-soft/70">
-              <span>
-                {story.destination_city ?? countryName(story.destination_country_code, locale)}{" "}
-                <span aria-hidden="true">{flagEmoji(story.destination_country_code)}</span>
-              </span>
-              <span aria-hidden="true">•</span>
-              {/* Date du voyage (début du séjour). */}
-              <time dateTime={story.start_date}>
-                {format.dateTime(new Date(story.start_date), { month: "short", year: "numeric" })}
-              </time>
+            <p role="status" aria-live="polite" className="w-full text-body-sm text-error empty:hidden">
+              {error && t(`errors.${error}`)}
             </p>
-          </div>
-        </Link>
-
-        {/* Actions de l'auteur. aria-describedby : le lecteur d'écran annonce le titre du récit concerné. */}
-        <div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
-          {confirmingDelete ? (
-            <>
-              <p className="w-full text-body-sm text-ink">{t("stories.confirmDelete")}</p>
-              <Button size="sm" variant="danger" disabled={pending} onClick={remove} aria-describedby={titleId}>
-                {t("stories.confirmDeleteYes")}
-              </Button>
-              <Button size="sm" variant="secondary" disabled={pending} onClick={() => setConfirmingDelete(false)}>
-                {t("form.cancel")}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button size="sm" variant="secondary" disabled={pending} onClick={toggleHidden} aria-describedby={titleId}>
-                <Icon name={story.is_hidden ? "visibility" : "visibilityOff"} className="size-4" />
-                {story.is_hidden ? t("stories.show") : t("stories.hide")}
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={pending}
-                onClick={() => {
-                  setError(null);
-                  setConfirmingDelete(true);
-                }}
-                aria-describedby={titleId}
-              >
-                <Icon name="delete" className="size-4 text-error" />
-                {t("stories.delete")}
-              </Button>
-            </>
-          )}
-          <p role="status" aria-live="polite" className="w-full text-body-sm text-error empty:hidden">
-            {error && t(`errors.${error}`)}
-          </p>
-        </div>
-      </Card>
+          </>
+        }
+      />
     </li>
   );
 }

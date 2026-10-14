@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { loginSchema, registerSchema } from "@/schemas/auth.schema";
+import { loginSchema, refreshTokenSchema, registerSchema } from "@/schemas/auth.schema";
 import { createPostSchema, FEED_MAX_LIMIT, updatePostSchema } from "@/schemas/post.schema";
 import { updateProfileSchema } from "@/schemas/user.schema";
 import { POST_ARCHETYPES } from "@/lib/posts";
@@ -93,6 +93,13 @@ const authResult = {
       type: "string",
       description: "JWT HS256, durée JWT_EXPIRES_IN (1 h par défaut). À envoyer dans « Authorization: Bearer <token> ».",
     },
+    refreshToken: {
+      type: "string",
+      description:
+        "Token opaque à usage unique (REFRESH_TOKEN_REMEMBER_DAYS avec remember, 30 jours par défaut ; " +
+        "REFRESH_TOKEN_SESSION_HOURS sinon, 24 h par défaut). À envoyer à /auth/refresh pour obtenir " +
+        "une nouvelle paire : l'ancien devient invalide, et le réutiliser révoque toute la session.",
+    },
     user: publicUser,
   },
 };
@@ -141,7 +148,7 @@ export function buildOpenApiDocument() {
     tags: [
       { name: "Auth", description: "Inscription et connexion" },
       { name: "Utilisateurs", description: "Profil de l'utilisateur connecté" },
-      { name: "Posts", description: "Feed public et création de récits" },
+      { name: "Posts", description: "Feed public, création, masquage et suppression de récits" },
       { name: "Lieux", description: "Recherche de villes et pays (country-state-city)" },
     ],
     paths: {
@@ -163,13 +170,43 @@ export function buildOpenApiDocument() {
         post: {
           tags: ["Auth"],
           summary: "Se connecter",
-          description: "`remember` choisit seulement le stockage côté navigateur : le token dure toujours 1 h.",
+          description:
+            "`remember` fixe la durée du refresh token (30 jours, sinon 24 h) et le stockage côté navigateur. " +
+            "L'access token dure toujours 1 h.",
           requestBody: requestBody(loginSchema),
           responses: {
             200: json("Connecté", authResult),
             400: invalidInput,
             401: error("Email ou mot de passe incorrect (message volontairement identique)", ["INVALID_CREDENTIALS"]),
             429: tooManyRequests,
+            500: internalError,
+          },
+        },
+      },
+      "/auth/refresh": {
+        post: {
+          tags: ["Auth"],
+          summary: "Renouveler l'access token",
+          description: "Rotation : renvoie une nouvelle paire et invalide le refresh token envoyé.",
+          requestBody: requestBody(refreshTokenSchema),
+          responses: {
+            200: json("Nouvelle paire de tokens", authResult),
+            400: invalidInput,
+            401: error("Refresh token inconnu, expiré, révoqué ou déjà utilisé", ["INVALID_REFRESH_TOKEN"]),
+            429: tooManyRequests,
+            500: internalError,
+          },
+        },
+      },
+      "/auth/logout": {
+        post: {
+          tags: ["Auth"],
+          summary: "Se déconnecter",
+          description: "Révoque toute la session liée au refresh token. Répond 204 même si le token est inconnu.",
+          requestBody: requestBody(refreshTokenSchema),
+          responses: {
+            204: { description: "Session révoquée" },
+            400: invalidInput,
             500: internalError,
           },
         },

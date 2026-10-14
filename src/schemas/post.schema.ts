@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { POST_ARCHETYPES } from "@/lib/posts";
 
-// Limites alignées sur la table post (supabase/migrations/) et le bucket post-photos.
+// Limites alignées sur la table post (db/migrations/) et le contrôle fait par post.service.
 export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const MAX_TAGS = 10;
@@ -74,8 +74,12 @@ export const feedQuerySchema = z
   })
   .strict();
 
-// Id d'un post dans l'URL (/api/v1/posts/{id}) : entier positif, borné à l'entier max de Postgres.
-export const postIdSchema = z.coerce.number().int().positive().max(2_147_483_647);
+// Id d'un post dans l'URL (/post/5, /api/v1/posts/5) : entier positif, sans zéro initial ni autre caractère.
+export const postIdSchema = z
+  .string()
+  .regex(/^[1-9][0-9]{0,9}$/)
+  .transform(Number)
+  .pipe(z.number().int().max(2_147_483_647));
 
 // Corps de PATCH /api/v1/posts/{id} : seule la visibilité est modifiable pour l'instant.
 export const updatePostSchema = z

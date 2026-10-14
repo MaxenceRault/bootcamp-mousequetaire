@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Mêmes règles que les contraintes de la table users (supabase/migrations).
+// Mêmes règles que les contraintes de la table users (db/migrations).
 export const USERNAME_PATTERN = "^[a-z0-9_]{3,30}$";
 const AVATAR_SEED_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 

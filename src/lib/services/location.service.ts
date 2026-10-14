@@ -46,11 +46,6 @@ export function placeExists({ country, state, city }: { country: string; state?:
   return !city || City.getCitiesOfState(country, state).some(({ name }) => name === city);
 }
 
-// Nom d'une région (ex. « IDF » en France → « Île-de-France »), null si inconnue.
-export function getStateName(country: string, state: string) {
-  return State.getStateByCodeAndCountry(state, country)?.name ?? null;
-}
-
 function getIndex() {
   if (index) return index;
 
@@ -90,4 +85,13 @@ function getIndex() {
 // Insensible à la casse et aux accents : « kyoto » trouve « Kyōto ».
 function normalize(value: string) {
   return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+}
+
+export type PlaceNames = { city: string | null; state: string | null; country: string };
+
+// Noms lisibles d'un lieu enregistré (codes ISO → noms), pour l'affichage.
+export function describePlace({ country, state, city }: { country: string; state?: string | null; city?: string | null }): PlaceNames {
+  const countryName = new Intl.DisplayNames(["fr"], { type: "region" }).of(country) ?? country;
+  const stateName = state ? (State.getStateByCodeAndCountry(state, country)?.name ?? null) : null;
+  return { city: city ?? null, state: stateName, country: countryName };
 }

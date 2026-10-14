@@ -3,23 +3,22 @@
 // Relançable sans doublons : users à ids fixes (upsert) ; les posts de ces users sont supprimés puis
 // recréés (post_tag suit en cascade) ; les tags (lieux) sont réutilisés s'ils existent déjà.
 // Les comptes de démo n'ont ni email ni mot de passe : impossible de s'y connecter.
-// Les autres utilisateurs et leurs posts ne sont jamais touchés.
+// Les autres utilisateurs et leurs posts ne sont jamais touchés. Tout passe dans une transaction :
+// en cas d'erreur, rien n'est écrit.
 //
-// Utilise la clé secrète Supabase (SUPABASE_SECRET_KEY dans .env.local), qui contourne RLS :
-// ce script tourne uniquement en local, jamais dans l'app.
+// Se connecte à Cloud SQL avec ton identité Google (gcloud auth application-default login),
+// qui doit avoir le rôle brb_admin. Ce script tourne uniquement en local, jamais dans l'app.
 
-import { createClient } from "@supabase/supabase-js";
+import { AuthTypes, Connector, IpAddressTypes } from "@google-cloud/cloud-sql-connector";
 import { City, Country, State } from "country-state-city";
+import pg from "pg";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const secretKey = process.env.SUPABASE_SECRET_KEY;
+const { CLOUD_SQL_INSTANCE, DB_USER, DB_NAME } = process.env;
 
-if (!url || !secretKey) {
-  console.error("NEXT_PUBLIC_SUPABASE_URL et SUPABASE_SECRET_KEY doivent être définies dans .env.local");
+if (!CLOUD_SQL_INSTANCE || !DB_USER || !DB_NAME) {
+  console.error("CLOUD_SQL_INSTANCE, DB_USER et DB_NAME doivent être définies dans .env.local");
   process.exit(1);
 }
-
-const supabase = createClient(url, secretKey, { auth: { persistSession: false } });
 
 const unsplash = (id: string) => `https://images.unsplash.com/photo-${id}?w=1600&q=80&fm=jpg`;
 
@@ -198,11 +197,6 @@ const POSTS: DemoPost[] = [
   },
 ];
 
-function fail(step: string, message: string): never {
-  console.error(`Échec du seed (${step}) :`, message);
-  process.exit(1);
-}
-
 // Vérifie un lieu dans country-state-city avant de l'écrire (même contrôle que post.service).
 function placeExists({ country, state, city }: Place) {
   if (!Country.getCountryByCode(country)) return false;
@@ -211,87 +205,120 @@ function placeExists({ country, state, city }: Place) {
   return !city || City.getCitiesOfState(country, state).some(({ name }) => name === city);
 }
 
-const toTag = ({ country, state, city }: Place) => ({ country_code: country, state_code: state ?? null, city: city ?? null });
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 // Description courte = première phrase de la description longue.
 const firstSentence = (text: string) => text.split(/(?<=[.!?])\s/)[0].slice(0, 252);
 
 for (const post of POSTS) {
-  if (!placeExists(post.destination)) fail("lieux", `destination inconnue pour « ${post.title} »`);
+  if (!placeExists(post.destination)) {
+    console.error(`Échec du seed (lieux) : destination inconnue pour « ${post.title} »`);
+    process.exit(1);
+  }
 }
 
-const { error: usersError } = await supabase.from("users").upsert(USERS, { onConflict: "id" });
-if (usersError) fail("users", usersError.message);
+const connector = new Connector();
+const client = new pg.Client({
+  ...(await connector.getOptions({
+    instanceConnectionName: CLOUD_SQL_INSTANCE,
+    ipType: IpAddressTypes.PUBLIC,
+    authType: AuthTypes.IAM,
+  })),
+  user: DB_USER,
+  database: DB_NAME,
+});
 
-const { data: archetypes, error: archetypesError } = await supabase.from("archetype").select("id, slug");
-if (archetypesError) fail("archetype", archetypesError.message);
-const archetypeIds = new Map(archetypes.map(({ id, slug }) => [slug, id as number]));
+try {
+  await client.connect();
+  await client.query("begin");
 
-// Relançable : on repart des posts de démo uniquement (jamais ceux des vrais utilisateurs).
-const demoIds = USERS.map(({ id }) => id);
-const { error: deleteError } = await supabase.from("post").delete().in("author_id", demoIds);
-if (deleteError) fail("nettoyage", deleteError.message);
+  for (const user of USERS) {
+    await client.query(
+      `insert into users (id, username, display_name, avatar_url)
+       values ($1, $2, $3, $4)
+       on conflict (id) do update
+         set username = excluded.username, display_name = excluded.display_name, avatar_url = excluded.avatar_url`,
+      [user.id, user.username, user.display_name, user.avatar_url],
+    );
+  }
 
-// Le feed est trié par id : les dates doivent suivre l'ordre d'insertion. Les posts de démo (insérés
-// en dernier) sont donc tous datés après le plus récent post réel, en gardant leurs écarts relatifs.
-const { data: newestReal, error: newestError } = await supabase
-  .from("post")
-  .select("created_at")
-  .not("author_id", "in", `(${demoIds.join(",")})`)
-  .order("created_at", { ascending: false })
-  .limit(1)
-  .maybeSingle();
-if (newestError) fail("dates", newestError.message);
+  const { rows: archetypes } = await client.query<{ id: number; slug: string }>("select id, slug from archetype");
+  const archetypeIds = new Map(archetypes.map(({ id, slug }) => [slug, id]));
 
-const now = Date.now();
-const maxMinutesAgo = Math.max(...POSTS.map(({ minutesAgo }) => minutesAgo));
-const windowStart = Math.max(
-  now - maxMinutesAgo * 60_000,
-  newestReal ? new Date(newestReal.created_at).getTime() + 1_000 : 0,
-);
-const publishedAt = (minutesAgo: number) => new Date(now - (minutesAgo / maxMinutesAgo) * (now - windowStart));
+  // Relançable : on repart des posts de démo uniquement (jamais ceux des vrais utilisateurs).
+  const demoIds = USERS.map(({ id }) => id);
+  await client.query("delete from post where author_id = any($1::uuid[])", [demoIds]);
 
-let tagLinks = 0;
+  // Le feed est trié par id : les dates doivent suivre l'ordre d'insertion. Les posts de démo (insérés
+  // en dernier) sont donc tous datés après le plus récent post réel, en gardant leurs écarts relatifs.
+  const { rows: newest } = await client.query<{ created_at: Date | null }>(
+    "select max(created_at) as created_at from post where not (author_id = any($1::uuid[]))",
+    [demoIds],
+  );
+  const now = Date.now();
+  const maxMinutesAgo = Math.max(...POSTS.map(({ minutesAgo }) => minutesAgo));
+  const windowStart = Math.max(
+    now - maxMinutesAgo * 60_000,
+    newest[0].created_at ? new Date(newest[0].created_at).getTime() + 1_000 : 0,
+  );
+  const publishedAt = (minutesAgo: number) => new Date(now - (minutesAgo / maxMinutesAgo) * (now - windowStart));
 
-// Du plus ancien au plus récent : les ids (ordre du feed) suivent ainsi les dates de publication.
-for (const { minutesAgo, days, archetype, destination, ...post } of [...POSTS].reverse()) {
-  const archetypeId = archetypeIds.get(archetype);
-  if (!archetypeId) fail("archetype", `slug inconnu : ${archetype}`);
+  let tagLinks = 0;
 
-  const createdAt = publishedAt(minutesAgo);
-  const endDate = new Date(createdAt.getTime() - 7 * 86_400_000);
-  const startDate = new Date(endDate.getTime() - (days - 1) * 86_400_000);
+  // Du plus ancien au plus récent : les ids (ordre du feed) suivent ainsi les dates de publication.
+  for (const { minutesAgo, days, archetype, destination, ...post } of [...POSTS].reverse()) {
+    const archetypeId = archetypeIds.get(archetype);
+    if (!archetypeId) throw new Error(`type de récit inconnu : ${archetype}`);
 
-  const { data: inserted, error: postError } = await supabase
-    .from("post")
-    .insert({
-      ...post,
-      short_description: firstSentence(post.long_description),
-      destination_country_code: destination.country,
-      destination_state_code: destination.state ?? null,
-      destination_city: destination.city ?? null,
-      start_date: isoDate(startDate),
-      end_date: isoDate(endDate),
-      archetype_id: archetypeId,
-      created_at: createdAt.toISOString(),
-    })
-    .select("id")
-    .single();
-  if (postError) fail("posts", postError.message);
+    const createdAt = publishedAt(minutesAgo);
+    const endDate = new Date(createdAt.getTime() - 7 * 86_400_000);
+    const startDate = new Date(endDate.getTime() - (days - 1) * 86_400_000);
 
-  // Tags : le pays, plus la destination si elle est plus précise.
-  const places = destination.state ? [{ country: destination.country }, destination] : [destination];
-  const { data: tags, error: tagsError } = await supabase
-    .from("tag")
-    .upsert(places.map(toTag), { onConflict: "country_code,state_code,city" })
-    .select("id");
-  if (tagsError) fail("tags", tagsError.message);
+    const { rows: inserted } = await client.query<{ id: number }>(
+      `insert into post (author_id, title, photo_url, photo_alt, short_description, long_description,
+         destination_country_code, destination_state_code, destination_city, start_date, end_date,
+         archetype_id, created_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       returning id`,
+      [
+        post.author_id,
+        post.title,
+        post.photo_url,
+        post.photo_alt,
+        firstSentence(post.long_description),
+        post.long_description,
+        destination.country,
+        destination.state ?? null,
+        destination.city ?? null,
+        isoDate(startDate),
+        isoDate(endDate),
+        archetypeId,
+        createdAt,
+      ],
+    );
 
-  const { error: linkError } = await supabase
-    .from("post_tag")
-    .insert(tags.map(({ id }) => ({ post_id: inserted.id, tag_id: id })));
-  if (linkError) fail("post_tag", linkError.message);
-  tagLinks += tags.length;
+    // Tags : le pays, plus la destination si elle est plus précise (lieux existants réutilisés).
+    const places = destination.state ? [{ country: destination.country }, destination] : [destination];
+    const { rows: tags } = await client.query<{ id: number }>(
+      `insert into tag (country_code, state_code, city)
+       select * from unnest($1::char(2)[], $2::varchar[], $3::varchar[])
+       on conflict (country_code, state_code, city) do update set country_code = excluded.country_code
+       returning id`,
+      [places.map((p) => p.country), places.map((p) => p.state ?? null), places.map((p) => p.city ?? null)],
+    );
+    await client.query("insert into post_tag (post_id, tag_id) select $1, unnest($2::int[])", [
+      inserted[0].id,
+      tags.map(({ id }) => id),
+    ]);
+    tagLinks += tags.length;
+  }
+
+  await client.query("commit");
+  console.log(`Seed terminé : ${USERS.length} users, ${POSTS.length} posts, ${tagLinks} liens post-tag.`);
+} catch (error) {
+  await client.query("rollback").catch(() => {});
+  console.error("Échec du seed :", (error as Error).message);
+  process.exitCode = 1;
+} finally {
+  await client.end();
+  connector.close();
 }
-
-console.log(`Seed terminé : ${USERS.length} users, ${POSTS.length} posts, ${tagLinks} liens post-tag.`);
