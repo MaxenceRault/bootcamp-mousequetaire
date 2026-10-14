@@ -10,21 +10,22 @@ import { Field } from "@/components/ui/Field";
 import { FormError } from "@/components/ui/FormError";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Label } from "@/components/ui/Label";
-import { FIELD_CLASS_NAME } from "@/components/ui/Input";
+import { FIELD_CLASS_NAME, Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import type { PostArchetype } from "@/lib/posts";
 
-// Élément d'une table de référence (archetype) : id entier + nom affiché.
-export type PostOption = { id: number; name: string };
 
 // Lieu renvoyé par GET /api/v1/locations?q=… (pays, ou ville avec sa région et son pays).
 type Place = { key: string; label: string; country: string; state?: string; city?: string };
 
 type PostEditorFormProps = {
-  archetypes: PostOption[];
+  // Slugs des types de récit (libellés dans le namespace « Archetypes » de fr.json).
+  archetypes: readonly PostArchetype[];
 };
 
-// Limites alignées sur les colonnes de la table post (titre char 100, desc_courte char 252).
+// Limites alignées sur les colonnes de la table post (title 100, photo_alt 200, short_description 252).
 const TITLE_MAX = 100;
+const PHOTO_ALT_MAX = 200;
 const SHORT_DESCRIPTION_MAX = 252;
 const PHOTO_TYPES = "image/jpeg,image/png,image/webp";
 // Attente après la dernière frappe avant de lancer une recherche de lieu.
@@ -36,6 +37,7 @@ const CONTEXT_INPUT_CLASS_NAME =
 
 export function PostEditorForm({ archetypes }: PostEditorFormProps) {
   const t = useTranslations("PostEditor");
+  const tArchetypes = useTranslations("Archetypes");
   const photoInput = useRef<HTMLInputElement>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [startDate, setStartDate] = useState("");
@@ -116,7 +118,7 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
         <ContextField icon="category" label={t("fields.archetype")} htmlFor="post-archetype">
           <select
             id="post-archetype"
-            name="archetypeId"
+            name="archetype"
             defaultValue=""
             required
             className={`cursor-pointer ${CONTEXT_INPUT_CLASS_NAME}`}
@@ -125,8 +127,8 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
               {t("fields.archetypePlaceholder")}
             </option>
             {archetypes.map((archetype) => (
-              <option key={archetype.id} value={archetype.id}>
-                {archetype.name}
+              <option key={archetype} value={archetype}>
+                {tArchetypes(archetype)}
               </option>
             ))}
           </select>
@@ -138,7 +140,7 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
         <SectionTitle id="post-photo-title" icon="image">
           {t("photo.title")}
         </SectionTitle>
-        <Card className="p-4">
+        <Card className="flex flex-col gap-4 p-4">
           {/* Toujours rendu (même avec l'aperçu affiché) pour que le fichier parte avec le formulaire. */}
           <input
             ref={photoInput}
@@ -175,6 +177,17 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
               <span className="text-body-sm text-ink-soft">{t("photo.hint")}</span>
             </label>
           )}
+
+          {/* Texte alternatif : décrit la photo pour les lecteurs d'écran (colonne photo_alt). */}
+          <Field id="post-photo-alt" label={t("photo.alt")}>
+            <Input
+              id="post-photo-alt"
+              name="photoAlt"
+              maxLength={PHOTO_ALT_MAX}
+              placeholder={t("photo.altPlaceholder")}
+              required
+            />
+          </Field>
         </Card>
       </section>
 

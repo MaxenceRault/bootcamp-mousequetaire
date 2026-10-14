@@ -20,17 +20,17 @@
   },
   "Home": {
     "title": "Les derniers voyages de la communauté",
-    "categoriesLabel": "Filtrer par catégorie",
-    "categories": {
-      "all": "Tendances",
-      "culture": "Pépites culturelles",
-      "coast": "Littoral",
-      "food": "Gastronomie",
-      "ai_curated": "Sélection IA"
-    },
+    "archetypesLabel": "Filtrer par type de récit",
+    "allArchetypes": "Tendances",
     "empty": "Aucun post pour le moment.",
     "error": "Impossible de charger les posts. Réessayez plus tard.",
     "newPost": "Nouveau post"
+  },
+  "Archetypes": {
+    "slow_travel_photography": "Slow travel & photo",
+    "solo_architecture": "Architecture en solo",
+    "culinary_heritage": "Patrimoine culinaire",
+    "mountain_trek": "Trek en montagne"
   },
   "TravelCard": {
     "cta": "Voir / Demander à l'IA"
@@ -111,7 +111,9 @@
       "add": "Ajouter une photo",
       "hint": "JPEG, PNG ou WebP",
       "previewAlt": "Aperçu de la photo de couverture",
-      "remove": "Retirer la photo"
+      "remove": "Retirer la photo",
+      "alt": "Décrivez la photo",
+      "altPlaceholder": "Ex. Ruelle de Kyoto au lever du soleil, lanternes encore allumées"
     },
     "tags": {
       "title": "Tags",
