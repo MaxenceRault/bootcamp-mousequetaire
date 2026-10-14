@@ -300,6 +300,7 @@
     },
     "errors": {
       "INVALID_INPUT": "Vérifiez les champs du formulaire.",
+      "TRIP_TOO_LONG": "Un voyage dure 14 jours maximum : raccourcissez les dates.",
       "TOO_MANY_REQUESTS": "Trop de demandes à l'IA. Réessayez dans une heure.",
       "AI_UNAVAILABLE": "L'IA n'a pas pu générer le planning. Réessayez dans un instant.",
       "NOT_FOUND": "Élément introuvable.",

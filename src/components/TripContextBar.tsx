@@ -14,6 +14,8 @@ type TripContextBarProps = {
   idPrefix: string;
   // Slugs des types de récit (libellés dans le namespace « Archetypes » de fr.json).
   archetypes: readonly PostArchetype[];
+  // Durée maximale (en jours, début et fin inclus) : la date de fin ne peut pas la dépasser.
+  maxDays?: number;
 };
 
 // Champs transparents de la barre de contexte.
@@ -23,7 +25,7 @@ const CONTEXT_INPUT_CLASS_NAME =
 // Barre « destination · dates · type de récit », partagée par l'éditeur de récit et le planificateur.
 // Les champs partent avec le formulaire parent : destinationCountry / destinationState / destinationCity,
 // startDate, endDate, archetype.
-export function TripContextBar({ idPrefix, archetypes }: TripContextBarProps) {
+export function TripContextBar({ idPrefix, archetypes, maxDays }: TripContextBarProps) {
   const t = useTranslations("TripContextBar");
   const tArchetypes = useTranslations("Archetypes");
   const [startDate, setStartDate] = useState("");
@@ -48,12 +50,13 @@ export function TripContextBar({ idPrefix, archetypes }: TripContextBarProps) {
           <span aria-hidden="true" className="text-ink-soft">
             →
           </span>
-          {/* La date de fin ne peut pas précéder la date de début. */}
+          {/* La date de fin ne peut pas précéder la date de début (ni dépasser la durée maximale). */}
           <input
             name="endDate"
             type="date"
             aria-label={t("endDate")}
             min={startDate || undefined}
+            max={startDate && maxDays ? addDays(startDate, maxDays - 1) : undefined}
             required
             className={CONTEXT_INPUT_CLASS_NAME}
           />
@@ -80,6 +83,13 @@ export function TripContextBar({ idPrefix, archetypes }: TripContextBarProps) {
       </ContextField>
     </Card>
   );
+}
+
+// Date « AAAA-MM-JJ » décalée de n jours (calcul en UTC : pas de décalage dû au fuseau horaire).
+function addDays(day: string, days: number) {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 // Destination : un lieu à choisir dans les suggestions.

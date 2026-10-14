@@ -11,6 +11,7 @@ import { Icon } from "@/components/ui/Icon";
 import { TripContextBar } from "@/components/TripContextBar";
 import { countryName, flagEmoji } from "@/lib/country";
 import type { PostArchetype } from "@/lib/posts";
+import { TRIP_MAX_DAYS } from "@/schemas/trip.schema";
 import { apiFetch, getSessionSnapshot } from "@/lib/session";
 import { plannerError, type PlannerError } from "@/components/TripPlanner";
 
@@ -78,7 +79,7 @@ export function PlannerHome({ archetypes }: { archetypes: readonly PostArchetype
           {t("create.title")}
         </h2>
         <form method="post" onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <TripContextBar idPrefix="trip" archetypes={archetypes} />
+          <TripContextBar idPrefix="trip" archetypes={archetypes} maxDays={TRIP_MAX_DAYS} />
           <div className="flex flex-col items-end gap-2">
             <FormError>{error && t(`errors.${error}`)}</FormError>
             {pending && (

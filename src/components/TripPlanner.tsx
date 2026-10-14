@@ -55,6 +55,7 @@ type TripDetail = { trip: Trip; items: TripItem[]; tasks: TripTask[] };
 // Codes d'erreur de l'API traduits dans fr.json (Planner.errors) ; les autres → INTERNAL_ERROR.
 const PLANNER_ERRORS = [
   "INVALID_INPUT",
+  "TRIP_TOO_LONG",
   "TOO_MANY_REQUESTS",
   "AI_UNAVAILABLE",
   "NOT_FOUND",

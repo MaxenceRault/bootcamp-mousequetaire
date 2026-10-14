@@ -231,7 +231,7 @@ export function buildOpenApiDocument() {
           requestBody: requestBody(createTripSchema),
           responses: {
             201: json("Voyage créé", { type: "object", properties: { id: { type: "integer" } } }),
-            400: invalidInput,
+            400: error("Champ invalide, ou voyage de plus de 14 jours", ["INVALID_INPUT", "TRIP_TOO_LONG"]),
             401: unauthorized,
             429: aiRateLimited,
             503: aiUnavailable,

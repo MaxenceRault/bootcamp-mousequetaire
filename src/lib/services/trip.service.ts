@@ -33,7 +33,7 @@ import {
 } from "@/schemas/trip.schema";
 
 export class TripError extends Error {
-  constructor(public readonly code: "INVALID_INPUT" | "NOT_FOUND" | "AI_UNAVAILABLE") {
+  constructor(public readonly code: "INVALID_INPUT" | "TRIP_TOO_LONG" | "NOT_FOUND" | "AI_UNAVAILABLE") {
     super(code);
   }
 }
@@ -61,7 +61,8 @@ export async function getTrip(userId: string, tripId: number) {
 // Crée le voyage et son planning. Rien n'est enregistré si l'IA échoue.
 export async function createTrip(userId: string, input: CreateTripInput): Promise<{ id: number }> {
   const place = { country: input.destinationCountry, state: input.destinationState, city: input.destinationCity };
-  if (!placeExists(place) || tripLength(input.startDate, input.endDate) > TRIP_MAX_DAYS) throw new TripError("INVALID_INPUT");
+  if (!placeExists(place)) throw new TripError("INVALID_INPUT");
+  if (tripLength(input.startDate, input.endDate) > TRIP_MAX_DAYS) throw new TripError("TRIP_TOO_LONG");
 
   const archetypeId = await findArchetypeIdBySlug(input.archetype);
   if (!archetypeId) throw new TripError("INVALID_INPUT");
