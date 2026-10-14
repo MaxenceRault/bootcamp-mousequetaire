@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { ProfileEditForm, type EditableProfile } from "@/components/ProfileEditForm";
-import { StoryCard, storyTitleId } from "@/components/StoryCard";
+import { StoryCard, storyTitleId, type StoryCardData } from "@/components/StoryCard";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button, buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -26,13 +26,19 @@ type Story = {
   is_hidden: boolean;
 };
 
-type ProfileData = { user: EditableProfile; stories: Story[]; storyCount: number };
+// saved : voyages enregistrés (posts de tous les auteurs), avec leur auteur.
+type ProfileData = { user: EditableProfile; stories: Story[]; storyCount: number; saved: StoryCardData[] };
 
 type LoadState = { status: "loading" } | { status: "error" } | { status: "ready"; profile: ProfileData };
 
 const TABS = ["stories", "itineraries", "saved"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_ICONS: Record<Tab, IconName> = { stories: "book", itineraries: "sparkles", saved: "bookmark" };
+
+// Onglet ouvert à l'arrivée : ?tab=saved (lien « Voyages enregistrés » du menu), sinon les récits.
+function parseTab(value: string | null): Tab {
+  return TABS.find((tab) => tab === value) ?? "stories";
+}
 
 // Page profil de l'utilisateur connecté : GET /api/v1/users/me avec le token du navigateur.
 // Sans session valide, redirection vers la connexion.
@@ -100,9 +106,10 @@ function Profile({
 }: { profile: ProfileData; onUserChange: (user: EditableProfile) => void } & StoryActions) {
   const t = useTranslations("Profile");
   const format = useFormatter();
+  const searchParams = useSearchParams();
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [tab, setTab] = useState<Tab>("stories");
+  const [tab, setTab] = useState<Tab>(() => parseTab(searchParams.get("tab")));
   const { user } = profile;
 
   function handleSaved(updated: EditableProfile) {
@@ -204,6 +211,7 @@ function Profile({
               <Icon name={TAB_ICONS[key]} className={`size-4 ${tab === key ? "text-accent" : ""}`} />
               {t(`tabs.${key}`)}
               {key === "stories" && <span className="text-label-sm text-ink-soft/70">{profile.storyCount}</span>}
+              {key === "saved" && <span className="text-label-sm text-ink-soft/70">{profile.saved.length}</span>}
             </button>
           ))}
         </div>
@@ -226,7 +234,18 @@ function Profile({
               </Link>
             </EmptyState>
           )}
-          {tab === "saved" && <EmptyState>{t("empty.saved")}</EmptyState>}
+          {tab === "saved" &&
+            (profile.saved.length === 0 ? (
+              <EmptyState>{t("empty.saved")}</EmptyState>
+            ) : (
+              <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {profile.saved.map((story) => (
+                  <li key={story.id}>
+                    <StoryCard story={story} />
+                  </li>
+                ))}
+              </ul>
+            ))}
         </div>
       </section>
     </div>

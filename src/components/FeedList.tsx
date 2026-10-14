@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { TravelCard } from "@/components/TravelCard";
 import { Button } from "@/components/ui/Button";
 import type { FeedPost, PostArchetype } from "@/lib/posts";
+import { setReactionFromServer, type ReactionState } from "@/lib/reactions-store";
+import { apiFetch, getSessionSnapshot } from "@/lib/session";
 
 type FeedListProps = {
   // Première page, rendue par le serveur.
@@ -17,6 +19,8 @@ type FeedListProps = {
 
 // Distance avant le bas de la liste à laquelle la page suivante est demandée.
 const PRELOAD_MARGIN = "600px";
+// Même limite que viewerReactionsQuerySchema (MAX_REACTION_POST_IDS) côté serveur.
+const MAX_REACTION_IDS = 50;
 
 // Liste du feed avec chargement infini : la page suivante (GET /api/v1/posts?cursor=…)
 // est chargée quand le bas de la liste approche de l'écran.
@@ -26,6 +30,27 @@ export function FeedList({ initialPosts, initialCursor, archetype, now }: FeedLi
   const [cursor, setCursor] = useState(initialCursor);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const sentinel = useRef<HTMLDivElement>(null);
+  // Posts dont l'état « aimé / enregistré » a déjà été demandé (rangé ensuite dans le store partagé).
+  const requested = useRef(new Set<number>());
+
+  // Un seul appel par lot de posts affichés (première page, puis chaque page chargée au défilement).
+  useEffect(() => {
+    if (!getSessionSnapshot()) return;
+    const ids = posts.map(({ id }) => id).filter((id) => !requested.current.has(id));
+    if (ids.length === 0) return;
+    ids.forEach((id) => requested.current.add(id));
+
+    // L'API accepte 50 ids par appel (une page du feed en contient bien moins).
+    for (let start = 0; start < ids.length; start += MAX_REACTION_IDS) {
+      const batch = ids.slice(start, start + MAX_REACTION_IDS);
+      apiFetch<{ reactions: ({ postId: number } & ReactionState)[] }>(
+        `/api/v1/users/me/reactions?postIds=${batch.join(",")}`,
+      ).then((result) => {
+        if ("error" in result) return;
+        for (const { postId, ...state } of result.data.reactions) setReactionFromServer(postId, state);
+      });
+    }
+  }, [posts]);
 
   async function loadMore() {
     if (cursor === null) return;

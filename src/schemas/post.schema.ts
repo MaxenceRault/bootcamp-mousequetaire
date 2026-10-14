@@ -87,3 +87,17 @@ export const updatePostSchema = z
     hidden: z.boolean(),
   })
   .strict();
+
+// Nombre maximal de posts dont on demande les réactions en une fois (au-delà d'une page du feed).
+export const MAX_REACTION_POST_IDS = 50;
+
+// GET /api/v1/users/me/reactions?postIds=1,2,3
+export const viewerReactionsQuerySchema = z
+  .object({
+    postIds: z
+      .string()
+      .regex(/^[1-9][0-9]{0,9}(,[1-9][0-9]{0,9})*$/)
+      .transform((value) => [...new Set(value.split(",").map(Number))])
+      .pipe(z.array(z.number().int().max(2_147_483_647)).min(1).max(MAX_REACTION_POST_IDS)),
+  })
+  .strict();
