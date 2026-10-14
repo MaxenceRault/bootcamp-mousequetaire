@@ -1,8 +1,7 @@
 import "server-only";
 import { City, Country, State } from "country-state-city";
 
-// Recherche de lieux (pays et villes) dans country-state-city.
-// Serveur uniquement : la librairie pèse ~17 Mo, elle ne doit pas partir dans le bundle client.
+// Serveur uniquement : la librairie pèse ~17 Mo.
 
 export type Place = {
   key: string;
@@ -23,8 +22,7 @@ export function searchPlaces(query: string): Place[] {
   const search = normalize(query);
   const matches = getIndex().filter((place) => place.search.startsWith(search));
 
-  // Nom exact d'abord, puis les noms les plus courts (les plus proches de la saisie).
-  // Les pays passent avant les villes à égalité.
+  // Nom exact d'abord, puis les plus courts ; les pays avant les villes.
   return matches
     .sort(
       (a, b) =>
@@ -37,8 +35,7 @@ export function searchPlaces(query: string): Place[] {
     .map(({ key, label, country, state, city }) => ({ key, label, country, state, city }));
 }
 
-// Vérifie qu'un lieu envoyé par le client existe vraiment dans country-state-city.
-// Une ville doit appartenir à la région indiquée, elle-même dans le pays indiqué.
+// Une ville doit être dans la région indiquée, elle-même dans le pays.
 export function placeExists({ country, state, city }: { country: string; state?: string; city?: string }) {
   if (EXCLUDED_COUNTRIES.has(country)) return false;
   if (!Country.getCountryByCode(country)) return false;
@@ -50,7 +47,7 @@ export function placeExists({ country, state, city }: { country: string; state?:
 function getIndex() {
   if (index) return index;
 
-  // Noms des pays en français à partir du code ISO (la librairie ne les a qu'en anglais).
+  // La librairie n'a les noms qu'en anglais.
   const displayNames = new Intl.DisplayNames(["fr"], { type: "region" });
   const countryNames = new Map(
     Country.getAllCountries()
@@ -68,7 +65,7 @@ function getIndex() {
     search: normalize(name),
   }));
 
-  // Clé unique : une même région peut contenir deux villes du même nom.
+  // Une région peut contenir deux villes du même nom.
   const seen = new Set<string>();
   const cities = City.getAllCities().flatMap(({ name, countryCode, stateCode }) => {
     if (EXCLUDED_COUNTRIES.has(countryCode)) return [];
@@ -86,14 +83,13 @@ function getIndex() {
   return index;
 }
 
-// Insensible à la casse et aux accents : « kyoto » trouve « Kyōto ».
+// « kyoto » trouve « Kyōto ».
 function normalize(value: string) {
   return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
 }
 
 export type PlaceNames = { city: string | null; state: string | null; country: string };
 
-// Noms lisibles d'un lieu enregistré (codes ISO → noms), pour l'affichage.
 export function describePlace({ country, state, city }: { country: string; state?: string | null; city?: string | null }): PlaceNames {
   const countryName = new Intl.DisplayNames(["fr"], { type: "region" }).of(country) ?? country;
   const stateName = state ? (State.getStateByCodeAndCountry(state, country)?.name ?? null) : null;

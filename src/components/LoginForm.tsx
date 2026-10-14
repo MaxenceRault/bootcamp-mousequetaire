@@ -38,7 +38,7 @@ export function LoginForm() {
   }
 
   return (
-    // method="post" : si le JS n'est pas encore chargé, le mot de passe ne part jamais dans l'URL.
+    // method="post" : sans JS chargé, le mot de passe ne part jamais dans l'URL.
     <form method="post" onSubmit={handleSubmit} className="flex flex-col gap-4">
       <Field id="login-email" label={t("fields.email")}>
         <Input

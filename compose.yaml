@@ -1,9 +1,5 @@
-# Environnement de développement conteneurisé : même version de Node et mêmes outils pour toute l'équipe,
-# quelle que soit la machine. Démarrage : docker compose up (puis http://localhost:3000).
-#
-# Prérequis sur la machine : Docker, et gcloud pour l'identité GCP (une seule fois :
-# gcloud auth application-default login). Le conteneur réutilise ces identifiants en lecture seule :
-# aucune clé ni mot de passe dans le repo. Variables de l'app : .env.local (voir .env.example).
+# Dev conteneurisé : podman compose up (ou docker compose up) → http://localhost:3000.
+# Prérequis : gcloud auth application-default login ; variables dans .env.local.
 services:
   app:
     build:
@@ -15,18 +11,16 @@ services:
       - path: .env.local
         required: true
     environment:
-      # Identifiants Google de la machine (ADC), montés ci-dessous.
       GOOGLE_APPLICATION_CREDENTIALS: /gcloud/application_default_credentials.json
-      # Rechargement à chaud : les modifications du code monté sont détectées par polling (next.config.ts).
+      # Les notifications de fichiers ne traversent pas le montage : polling (recompilation et nouvelles routes).
       WATCH_POLL_INTERVAL_MS: "1000"
+      WATCHPACK_POLLING: "true"
     volumes:
-      # Code source de la machine : modifications prises en compte à chaud.
       - .:/app
-      # Dépendances et build propres au conteneur (binaires Linux), jamais mélangés avec ceux de la machine.
+      # Binaires Linux du conteneur, jamais mélangés avec ceux de la machine.
       - node_modules:/app/node_modules
       - next:/app/.next
-      # Dossier de configuration gcloud : ~/.config/gcloud (macOS, Linux) ; sous Windows, définir
-      # GCLOUD_CONFIG_DIR=%APPDATA%\gcloud avant docker compose up.
+      # Windows : GCLOUD_CONFIG_DIR=%APPDATA%\gcloud.
       - ${GCLOUD_CONFIG_DIR:-${HOME}/.config/gcloud}:/gcloud:ro
 
 volumes:

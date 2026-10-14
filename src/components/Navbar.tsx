@@ -5,7 +5,6 @@ import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
 import { NavbarAccount } from "@/components/NavbarAccount";
 
-// Barre du haut. La zone compte (visiteur / connecté) dépend de la session du navigateur : voir NavbarAccount.
 export async function Navbar() {
   const t = await getTranslations("Navbar");
 
@@ -17,8 +16,6 @@ export async function Navbar() {
           <span className="font-display text-headline-sm text-ink">{t("brand")}</span>
         </Link>
 
-        {/* Interface seule : la recherche IA sera branchée avec le chat RAG. */}
-        {/* Recherche : envoie vers l'accueil (/?q=…), qui affiche les récits classés par pertinence. */}
         <form role="search" action="/" method="get" className="mx-auto hidden max-w-xl flex-1 sm:block">
           <div className="flex items-center rounded-lg border border-transparent bg-surface-muted p-1.5 transition focus-within:border-accent focus-within:bg-surface">
             <Icon name="search" className="ml-2 size-4.5 text-ink-soft" />

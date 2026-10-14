@@ -1,12 +1,13 @@
 import "server-only";
 import { detectImage } from "@/lib/images";
 import { randomUUID } from "node:crypto";
-import { POST_ARCHETYPES, type FeedPage, type FeedPost, type PostArchetype } from "@/lib/posts";
+import type { Archetype, FeedPage, FeedPost } from "@/lib/posts";
+import type { UserRole } from "@/lib/roles";
+import { findSelectableArchetype } from "@/lib/services/archetype.service";
 import {
   deleteAuthorPost,
   deletePost,
   deletePostPhoto,
-  findArchetypeIdBySlug,
   findFeedPosts,
   findPostOwnership,
   findPostDetail,
@@ -27,7 +28,6 @@ import {
 import type { CreatePostInput, PlaceInput } from "@/schemas/post.schema";
 import { describePlace, placeExists, searchPlaces, type PlaceNames } from "@/lib/services/location.service";
 
-// Nombre de posts chargés à la fois dans le feed (première page puis chaque « suite »).
 export const FEED_PAGE_SIZE = 10;
 
 export class PostError extends Error {
@@ -36,27 +36,26 @@ export class PostError extends Error {
   }
 }
 
-// Nombre d'essais si deux posts du même titre sont créés au même instant (même slug calculé par la base).
+// Deux posts du même titre au même instant : même slug calculé.
 const SLUG_ATTEMPTS = 3;
 
 export async function createPost(authorId: string, input: CreatePostInput): Promise<{ id: number; slug: string }> {
   const destination = { country: input.destinationCountry, state: input.destinationState, city: input.destinationCity };
   const tags = uniquePlaces(input.tags);
 
-  // Lieux inventés ou incohérents (ville hors de sa région…) refusés.
   if (![destination, ...tags].every(placeExists)) throw new PostError("INVALID_INPUT");
 
   const image = await detectImage(input.photo);
   if (!image) throw new PostError("INVALID_INPUT");
 
-  const archetypeId = await findArchetypeIdBySlug(input.archetype);
-  if (!archetypeId) throw new PostError("INVALID_INPUT");
+  const archetype = await findSelectableArchetype(input.archetype);
+  if (!archetype) throw new PostError("INVALID_INPUT");
 
-  // Nom de fichier généré côté serveur : jamais le nom envoyé par le client.
+  // Jamais le nom de fichier envoyé par le client.
   const photoPath = `${authorId}/${randomUUID()}.${image.extension}`;
   const photoUrl = await uploadPostPhoto(photoPath, input.photo, image.contentType);
 
-  // Photo (Cloud Storage) et lignes en base ne peuvent pas partager une transaction : en cas d'échec, on défait ce qui a été créé.
+  // Bucket et base ne partagent pas de transaction : on défait ce qui a été créé.
   try {
     const fields = {
       author_id: authorId,
@@ -70,10 +69,9 @@ export async function createPost(authorId: string, input: CreatePostInput): Prom
       destination_city: destination.city ?? null,
       start_date: input.startDate,
       end_date: input.endDate,
-      archetype_id: archetypeId,
+      archetype_id: archetype.id,
     };
 
-    // Le slug (unique, tiré du titre) est généré par la base ; il ne change plus ensuite.
     let created: { id: number; slug: string } | null = null;
     for (let attempt = 0; attempt < SLUG_ATTEMPTS && !created; attempt++) {
       created = await insertPost(fields);
@@ -100,8 +98,6 @@ export async function createPost(authorId: string, input: CreatePostInput): Prom
   }
 }
 
-
-// Un même lieu envoyé deux fois ne compte qu'une fois.
 function uniquePlaces(places: PlaceInput[]) {
   const seen = new Set<string>();
   return places.filter(({ country, state, city }) => {
@@ -112,80 +108,69 @@ function uniquePlaces(places: PlaceInput[]) {
   });
 }
 
-// Une page du feed. cursor : id du dernier post déjà affiché (absent pour la première page).
 export async function getFeedPage({
   archetype,
   cursor,
   limit = FEED_PAGE_SIZE,
 }: {
-  archetype?: PostArchetype;
+  archetype?: string;
   cursor?: number;
   limit?: number;
 }): Promise<FeedPage> {
-  // Un post de plus que demandé : s'il existe, il y a une suite à charger.
+  // Un post de plus que demandé : s'il existe, il y a une suite.
   const rows = await findFeedPosts({ archetype, beforeId: cursor, limit: limit + 1 });
   const page = rows.slice(0, limit);
 
   return {
-    posts: page.flatMap(toFeedPost),
+    posts: page.map(toFeedPost),
     nextCursor: rows.length > limit ? page[page.length - 1].id : null,
   };
 }
 
-function toFeedPost(row: FeedPostRow): FeedPost[] {
-  const archetype = POST_ARCHETYPES.find((slug) => slug === row.archetype.slug);
-  // Type de récit inconnu de l'app (ajouté en base sans mettre à jour POST_ARCHETYPES) : post ignoré.
-  if (!archetype) return [];
-
+function toFeedPost(row: FeedPostRow): FeedPost {
   const { destination_country_code: country, destination_state_code: state, destination_city: city } = row;
 
-  return [
-    {
-      id: row.id,
-      title: row.title,
-      slug: row.slug,
-      shortDescription: row.short_description,
-      // Ville, sinon nom de la région (describePlace) ; null pour un pays entier.
-      location: city ?? describePlace({ country, state }).state,
-      countryCode: country,
-      archetype,
-      photoUrl: row.photo_url,
-      photoAlt: row.photo_alt,
-      createdAt: new Date(row.created_at),
-      likeCount: row.like_count,
-      author: {
-        id: row.author.id,
-        username: row.author.username,
-        displayName: row.author.display_name,
-        avatarUrl: row.author.avatar_url,
-        avatarSeed: row.author.avatar_seed,
-        avatarBackgroundColor: row.author.avatar_background_color,
-      },
+  return {
+    id: row.id,
+    title: row.title,
+    slug: row.slug,
+    shortDescription: row.short_description,
+    location: city ?? describePlace({ country, state }).state,
+    countryCode: country,
+    archetype: row.archetype,
+    photoUrl: row.photo_url,
+    photoAlt: row.photo_alt,
+    createdAt: new Date(row.created_at),
+    likeCount: row.like_count,
+    author: {
+      id: row.author.id,
+      username: row.author.username,
+      displayName: row.author.display_name,
+      avatarUrl: row.author.avatar_url,
+      avatarSeed: row.author.avatar_seed,
+      avatarBackgroundColor: row.author.avatar_background_color,
     },
-  ];
+  };
 }
 
-// Seul l'auteur peut modifier son post. Post inexistant ou d'un autre auteur : même erreur NOT_FOUND,
-// pour ne pas révéler l'existence des posts des autres.
+// Post d'un autre auteur : même erreur que s'il n'existait pas.
 async function requireOwnPost(postId: number, userId: string) {
   const post = await findPostOwnership(postId);
   if (!post || post.author_id !== userId) throw new PostError("NOT_FOUND");
   return post;
 }
 
-// Masquer (hidden = true) ou réafficher un post : un post masqué disparaît du feed public.
 export async function setPostHidden(userId: string, postId: number, hidden: boolean) {
   await requireOwnPost(postId, userId);
   if (!(await updatePostVisibility(postId, userId, hidden))) throw new PostError("NOT_FOUND");
   return { id: postId, hidden };
 }
 
-// Suppression définitive : le post, ses liens post_tag (cascade) et sa photo dans le bucket.
 export async function deleteOwnPost(userId: string, postId: number) {
   const post = await requireOwnPost(postId, userId);
   if (!(await deleteAuthorPost(postId, userId))) throw new PostError("NOT_FOUND");
 
-  // Le post est déjà supprimé : un échec sur la photo ne doit pas faire échouer la requête.
+  // Le post est supprimé : un échec sur la photo ne doit pas faire échouer la requête.
   const photoPath = photoPathFromUrl(post.photo_url);
   if (photoPath) await deletePostPhoto(photoPath).catch(() => {});
 }
@@ -197,7 +182,7 @@ export type PostDetail = {
   photoUrl: string;
   photoAlt: string;
   shortDescription: string;
-  // Texte long découpé en paragraphes (lignes vides) : affiché en texte brut, jamais en HTML.
+  // Affiché en texte brut, jamais en HTML.
   paragraphs: string[];
   destination: PlaceNames & { countryCode: string; stateCode: string | null };
   startDate: string;
@@ -205,17 +190,14 @@ export type PostDetail = {
   durationDays: number;
   readingMinutes: number;
   createdAt: string;
-  archetype: string;
-  author: { id: string; username: string; displayName: string; avatarUrl: string | null; avatarSeed: string | null; avatarBackgroundColor: string | null };
-  // Codes du lieu (liens vers /tags) + libellé affiché.
+  archetype: Archetype;
+  author: { id: string; username: string; displayName: string; avatarUrl: string | null; avatarSeed: string | null; avatarBackgroundColor: string | null; role: UserRole };
   tags: { label: string; countryCode: string; stateCode: string | null; city: string | null }[];
 };
 
-// Vitesse de lecture moyenne utilisée pour « X min de lecture ».
 const WORDS_PER_MINUTE = 200;
 const DAY_MS = 86_400_000;
 
-// Post complet pour la page détail (par son slug) ; null s'il n'existe pas ou s'il est masqué par son auteur.
 export async function getPostDetail(slug: string): Promise<PostDetail | null> {
   const row = await findPostDetail({ slug });
   if (!row) return null;
@@ -242,14 +224,15 @@ export async function getPostDetail(slug: string): Promise<PostDetail | null> {
     durationDays: Math.round((Date.parse(row.end_date) - Date.parse(row.start_date)) / DAY_MS) + 1,
     readingMinutes: Math.max(1, Math.round(words / WORDS_PER_MINUTE)),
     createdAt: row.created_at,
-    archetype: row.archetype.slug,
+    archetype: row.archetype,
     author: {
       id: row.author.id,
       username: row.author.username,
       displayName: row.author.display_name,
       avatarUrl: row.author.avatar_url,
       avatarSeed: row.author.avatar_seed,
-        avatarBackgroundColor: row.author.avatar_background_color,
+      avatarBackgroundColor: row.author.avatar_background_color,
+      role: row.author.role,
     },
     tags: row.post_tag.map(({ tag }) => {
       const names = describePlace({ country: tag.country_code, state: tag.state_code, city: tag.city });
@@ -267,7 +250,6 @@ const PLACE_POSTS_LIMIT = 48;
 
 export type PlacePosts = { place: PlaceNames; posts: PostSummaryWithAuthor[] };
 
-// Récits liés à un lieu (destination ou tag). null si le lieu n'existe pas dans country-state-city.
 export async function getPostsByPlace(place: PlaceFilter): Promise<PlacePosts | null> {
   if (!placeExists(place)) return null;
 
@@ -280,9 +262,7 @@ export async function getPostsByPlace(place: PlaceFilter): Promise<PlacePosts | 
 
 const SEARCH_LIMIT = 30;
 
-// Recherche de la page d'accueil : lieux (tags, destination), puis titres, puis textes.
-// Les lieux viennent de l'index country-state-city : « Japon », « kyo » ou « Île-de-France » trouvent
-// les posts de ces lieux même si le mot n'apparaît pas dans leur texte.
+// Les lieux viennent de country-state-city : « Japon » trouve les posts du Japon même sans le mot.
 export async function searchPosts(query: string): Promise<FeedPost[]> {
   const places = searchPlaces(query).map(({ country, state, city }) => ({
     country,
@@ -290,10 +270,9 @@ export async function searchPosts(query: string): Promise<FeedPost[]> {
     city: city ?? null,
   }));
   const rows = await searchFeedPosts({ text: query, places, limit: SEARCH_LIMIT });
-  return rows.flatMap(toFeedPost);
+  return rows.map(toFeedPost);
 }
 
-// Slug d'un post visible à partir de son id : redirection des anciens liens /post/30. null si introuvable.
 export function getPostSlug(id: number): Promise<string | null> {
   return findPostSlugById(id);
 }

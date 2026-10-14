@@ -6,9 +6,9 @@ import { isRateLimited } from "@/lib/rateLimit";
 import { getMyProfile, ProfileError, setMyAvatar, updateMyProfile } from "@/lib/services/user.service";
 import { PROFILE_IMAGE_MAX_BYTES, profileImageSchema, updateProfileSchema } from "@/schemas/user.schema";
 
-// GET /api/v1/users/me : profil de l'utilisateur connecté + ses récits.
+// GET /api/v1/users/me
 export async function getMeController(request: Request) {
-  // Réponse propre à chaque requête : jamais pré-calculée au build (cacheComponents), où l'env n'existe pas.
+  // Jamais pré-calculé au build (cacheComponents).
   await connection();
   const userId = await getUserIdFromRequest(request);
   if (!userId) return errorResponse(401, "UNAUTHORIZED");
@@ -20,12 +20,11 @@ export async function getMeController(request: Request) {
   }
 }
 
-// PATCH /api/v1/users/me : modification du nom, du pseudo et de la ville.
+// PATCH /api/v1/users/me
 export async function updateMeController(request: Request) {
   const userId = await getUserIdFromRequest(request);
   if (!userId) return errorResponse(401, "UNAUTHORIZED");
 
-  // Par utilisateur : limite les écritures en boucle et la recherche de pseudos pris (409).
   const { max, windowMs } = getConfig().rateLimits.profileUpdate;
   if (isRateLimited(`users:update:${userId}`, max, windowMs)) {
     return errorResponse(429, "TOO_MANY_REQUESTS");
@@ -41,11 +40,10 @@ export async function updateMeController(request: Request) {
   }
 }
 
-// Marge pour l'enveloppe multipart autour de l'image.
+// Marge pour l'enveloppe multipart.
 const MAX_IMAGE_BODY_BYTES = PROFILE_IMAGE_MAX_BYTES + 64 * 1024;
 
-// PUT (multipart, champ « image ») / DELETE /api/v1/users/me/avatar (Bearer)
-// → 200 { user } : photo de profil de l'utilisateur connecté.
+// PUT (multipart, champ « image ») / DELETE /api/v1/users/me/avatar
 export function avatarController(upload: boolean) {
   return async (request: Request) => {
     const userId = await getUserIdFromRequest(request);
@@ -84,7 +82,6 @@ function errorResponse(status: number, code: string) {
 
 function handleError(error: unknown) {
   if (error instanceof ProfileError) {
-    // Compte introuvable avec un token valide : traité comme une session invalide.
     if (error.code === "USERNAME_TAKEN") return errorResponse(409, "USERNAME_TAKEN");
     if (error.code === "INVALID_INPUT") return errorResponse(400, "INVALID_INPUT");
     return errorResponse(401, "UNAUTHORIZED");

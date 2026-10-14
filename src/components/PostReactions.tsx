@@ -18,17 +18,12 @@ type Kind = "like" | "save";
 
 type PostReactionsProps = {
   postId: number;
-  // Nombre de likes rendu par le serveur, affiché tant que le store n'a rien de plus récent.
   initialLikeCount: number;
-  // false : le parent charge l'état pour plusieurs posts à la fois (feed) ; pas d'appel par post.
+  // false : le parent charge l'état de plusieurs posts à la fois (feed).
   loadViewer?: boolean;
 };
 
-// Boutons « J'aime » et « Enregistrer » d'un post (utilisateur connecté).
-// Visiteur : seul le nombre de likes est affiché, sans action possible.
-// L'état vient du store partagé (lib/reactions-store) : il reste synchronisé entre les pages,
-// entre plusieurs cartes du même post et entre les onglets.
-// Mise à jour optimiste : l'interface change tout de suite et revient en arrière si l'API refuse.
+// Mise à jour optimiste : l'interface revient en arrière si l'API refuse.
 export function PostReactions({ postId, initialLikeCount, loadViewer = true }: PostReactionsProps) {
   const t = useTranslations("Post");
   const router = useRouter();
@@ -39,10 +34,9 @@ export function PostReactions({ postId, initialLikeCount, loadViewer = true }: P
     () => undefined,
   );
   const reactions: ReactionState = stored ?? { likeCount: initialLikeCount, liked: false, saved: false };
-  // Session du navigateur (le token n'est pas dans un cookie) : inconnue pendant le rendu serveur.
+  // Token dans le navigateur : session inconnue pendant le rendu serveur.
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, () => null);
 
-  // Page détail : état de l'utilisateur connecté (et nombre de likes à jour) chargé via l'API.
   useEffect(() => {
     if (!loadViewer || !getSessionSnapshot()) return;
     let cancelled = false;
@@ -57,7 +51,6 @@ export function PostReactions({ postId, initialLikeCount, loadViewer = true }: P
   }, [postId, loadViewer]);
 
   async function toggle(kind: Kind) {
-    // Visiteur : il faut un compte pour aimer ou enregistrer.
     if (!getSessionSnapshot()) return router.push("/login");
 
     const previous = reactions;

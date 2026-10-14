@@ -28,8 +28,9 @@ src/
 │   ├── tags/page.tsx          # Récits d'un lieu : /tags?country=FR[&state=IDF&city=Montesson] (destination ou tag)
 │   ├── post/new/page.tsx      # Éditeur de récit (création d'un post)
 │   ├── profile/page.tsx       # Tableau de bord utilisateur
+│   ├── admin/page.tsx         # Administration (rôle admin) : modération, rôles, types de récit, réglages IA, journal
 │   ├── planner/page.tsx       # Planificateur : mes voyages + génération par l'IA
-│   ├── planner/[id]/page.tsx  # Planning d'un voyage (jours, activités, checklist, budget, discussion avec l'IA)
+│   ├── planner/[id]/page.tsx  # Planning d'un voyage (note de saison, jours, activités, checklist, budget, discussion avec l'IA)
 │   ├── login/page.tsx         # Auth : connexion / inscription / mot de passe oublié (?view=)
 │   ├── api-docs/page.tsx      # Swagger UI (dev uniquement, 404 en production)
 │   └── api/v1/                # Couche CONTROLLER (route handlers), toutes les routes sous /api/v1/
@@ -58,13 +59,16 @@ src/
 ├── i18n/
 │   └── request.ts             # Config next-intl (locale + chargement des messages)
 ├── components/
-│   ├── ui/                    # Design system : Button, Input, Textarea, Autocomplete, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar, Logo
+│   ├── ui/                    # Design system : Button, Input, Textarea, Autocomplete, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar, Logo, Badge
 │   ├── Navbar.tsx             # Barre du haut (version visiteur / connecté)
 │   ├── NavbarAccount.tsx      # Zone compte de la Navbar (client : lit la session du navigateur)
 │   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
 │   ├── TripContextBar.tsx     # Barre destination · dates · type de récit (éditeur de récit + planificateur)
 │   ├── PlannerHome.tsx        # Liste des voyages + formulaire de génération (client)
+│   ├── AdminView.tsx          # Page d'administration (client, onglets) → /api/v1/admin/*
+│   ├── ReportButton.tsx       # « Signaler » un récit (page détail)
+│   ├── RoleBadge.tsx          # Badge du rôle d'un utilisateur (profil, auteur d'un récit, admin)
 │   ├── TripPlanner.tsx        # Planning d'un voyage, modifiable (client)
 │   ├── FeedList.tsx           # Feed à chargement infini (client : GET /api/v1/posts?cursor=)
 │   ├── ShareButton.tsx        # Partage du lien (menu natif ou copie dans le presse-papiers)
@@ -82,7 +86,8 @@ src/
 │   └── AIChatDrawer.tsx       # Drawer du chat RAG
 └── lib/
     ├── ai.ts                  # Gemini 2.5 Flash-Lite sur Vertex AI (auth IAM, sortie JSON imposée)
-    └── posts.ts               # Types de récit (POST_ARCHETYPES) et types du feed (FeedPost, FeedPage)
+    ├── roles.ts               # Rôles des utilisateurs (USER_ROLES) : traveler, globetrotter, dreamer, patron (badges) et admin
+    └── posts.ts               # Types du feed (FeedPost, FeedPage) et type de récit (Archetype : slug + libellé)
 db/
 └── migrations/                # SQL du schéma Cloud SQL (à exécuter dans Cloud SQL Studio)
 scripts/
@@ -111,9 +116,10 @@ compose.yaml                   # Dev conteneurisé : code monté, node_modules d
 - Les fichiers existent mais sont vides : ne les remplir que lorsqu'on travaille sur la fonctionnalité concernée. Ne pas inventer d'UI, de textes, de données ou de logique qui n'ont pas été demandés.
 - Base de données : **Cloud SQL (PostgreSQL)** sur GCP, instance `biirb-511608:europe-west9:biirb-db1`, base `brb`. Connexion via `src/utils/db.ts` (connecteur `@google-cloud/cloud-sql-connector` + `pg`, variables lues via `getConfig()`), en **authentification IAM** : aucun mot de passe de base dans l'app ni dans `.env*`. En local : `gcloud auth application-default login` + variables `CLOUD_SQL_INSTANCE`, `DB_NAME`, `DB_USER` (son email Google). `getDb()` n'est importé que par `repositories/`. Requêtes SQL toujours paramétrées (`$1, $2…`), jamais de concaténation. Le feed de la homepage lit la table `post` (Server Component → `post.service` → `post.repository`), pagination par curseur (id du dernier post affiché).
 - Photos des posts : bucket **Cloud Storage** `biirb-post-photos` (public en lecture), via `src/utils/storage.ts`, importé uniquement par `repositories/`. Écriture réservée au serveur.
-- Schéma de la base (tables `users`, `post` — dont `slug` : identifiant de l'URL, unique, généré par la base à la création (trigger `post_fill_slug`) et jamais modifié ; dont `is_hidden` : post masqué par son auteur, exclu du feed, de la page détail et des pages de lieu —, `archetype`, `tag`, `post_tag`, `refresh_token`, `post_like`, `post_save`) dans `db/migrations/`. Une migration s'exécute **une seule fois** : tout changement de schéma passe par un nouveau fichier daté (jamais de modification à la main dans la console, jamais en modifiant ou relançant un ancien fichier), commençant par `set role brb_admin;`. Rôles Postgres : `brb_admin` (propriétaire, développeurs : migrations + seed) et `brb_app` (droits minimaux de l'app, compte de service Cloud Run `brb-run`) : chaque migration accorde à `brb_app` uniquement les droits utilisés par le code. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app.
+- Schéma de la base (tables `users`, `post` — dont `slug` : identifiant de l'URL, unique, généré par la base à la création (trigger `post_fill_slug`) et jamais modifié ; dont `is_hidden` : post masqué par son auteur, exclu du feed, de la page détail et des pages de lieu —, `archetype` — types de récit gérés depuis l'admin (libellé, description, actif), jamais écrits en dur dans le code —, `tag`, `post_tag`, `refresh_token`, `post_like`, `post_save`, `trip*`, `post_report`, `ai_usage`, `app_settings`, `admin_action`) dans `db/migrations/`. Une migration s'exécute **une seule fois** : tout changement de schéma passe par un nouveau fichier daté (jamais de modification à la main dans la console, jamais en modifiant ou relançant un ancien fichier), commençant par `set role brb_admin;`. Rôles Postgres : `brb_admin` (propriétaire, développeurs : migrations + seed) et `brb_app` (droits minimaux de l'app, compte de service Cloud Run `brb-run`) : chaque migration accorde à `brb_app` uniquement les droits utilisés par le code. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app.
 - Architecture back : route → controller → service → repository → base. Pas d'accès base hors des repositories.
 - Documentation API : toute nouvelle route sous `/api/v1/` est ajoutée dans `src/lib/openapi.ts` (visible sur `/api-docs` en dev). Les schémas Zod des requêtes vont dans `schemas/` pour être réutilisés par la doc.
+- **Commentaires** : uniquement l'essentiel, c'est-à-dire le *pourquoi* non évident (sécurité, contournement, contrainte), en une ligne si possible. Pas de commentaire qui répète le code, pas de bandeau de section.
 - **Nommage en anglais** : tables, colonnes, types, variables, fonctions, fichiers et routes (ex. `short_description`, `start_date`, `archetype_id`). Seuls les textes affichés (`messages/fr.json`) et les commentaires sont en français.
 - Imports via l'alias `@/` (→ `src/`).
 
@@ -193,5 +199,8 @@ Seuls les must-have sont exigés : ne pas implémenter les nice-to-have (OAuth/O
 - Ne jamais renvoyer au client plus de données que nécessaire (pas de hash, pas de champs internes).
 - Pas de `dangerouslySetInnerHTML` sur du contenu utilisateur.
 - Chat RAG : traiter la question utilisateur et le contenu des posts comme non fiables (injection de prompt), limiter la taille des entrées.
-- IA (planificateur, chat) : Gemini via Vertex AI (`src/lib/ai.ts`), authentifié par IAM comme la base : aucune clé API (variables `GCP_PROJECT_ID`, `VERTEX_LOCATION`). Réponse du modèle = donnée non fiable, toujours revalidée par Zod. Appels à l'IA limités par utilisateur (rate limit).
-- Discussion IA d'un voyage (`/trips/[id]/messages`) : limitée au voyage et à sa destination (hors sujet refusé, non renvoyé dans l'historique), message ≤ 500 caractères, historique court, 30 messages/heure/utilisateur et 50 par voyage. Les activités proposées par l'IA ne rejoignent le planning qu'après un « oui » de l'utilisateur.
+- IA (planificateur, chat) : Gemini via Vertex AI (`src/lib/ai.ts`), authentifié par IAM comme la base : aucune clé API (variables `GCP_PROJECT_ID`, `VERTEX_LOCATION`). Réponse du modèle = donnée non fiable, toujours revalidée par Zod. Tout appel à l'IA passe d'abord par `consumeAiCall` (`ai-quota.service.ts`) : **15 appels par jour et par utilisateur** (admins illimités, compteur en base `ai_usage`, jour de Paris), plafond global et interrupteur réglables par l'admin (`app_settings`), compte banni refusé.
+- Planificateur : départ à n'importe quelle date future, durée de 1 mois maximum **à partir du départ choisi** (`TRIP_MAX_DAYS`). La génération tient compte de la saison (mois du voyage) : météo moyenne, risques (typhons, mousson…), affluence et prix, résumés dans `trip.season_note`.
+- **Administration** : seul le rôle `admin` donne des droits ; les autres rôles sont des badges. Le rôle est **relu en base à chaque requête** (`requireAdmin`), jamais lu dans le JWT ni dans la session du navigateur (le lien « Administration » de la Navbar n'est qu'un affichage). Un admin ne peut ni se rétrograder, ni se bannir, ni se supprimer, ni bannir / supprimer un autre admin sans l'avoir rétrogradé. Toute action admin modifiante est inscrite au journal `admin_action`. La liste des utilisateurs de l'admin n'expose jamais d'email ni de hash.
+- **Bannissement** : connexion refusée (`ACCOUNT_BANNED`, révélé seulement après un mot de passe correct), refresh refusé, sessions révoquées ; l'access token en cours reste valide au plus 1 h, mais l'IA, les signalements et l'admin relisent le compte en base.
+- Discussion IA d'un voyage (`/trips/[id]/messages`) : enthousiaste pour toute envie liée au voyage (l'IA cherche où et quand la caser), impassible sur le reste. Trois barrières contre l'injection (`trip.service.ts`) : 1) filtre d'entrée déterministe (`ATTACK_PATTERNS` : « ignore tes instructions », jailbreak, balises / champs du prompt…) → refus sans appeler l'IA ; 2) consignes du modèle (contenu utilisateur = données, règles confidentielles, illégal refusé) ; 3) filtre de sortie (`INSTRUCTION_MARKERS`) → une réponse qui laisse fuiter les consignes est bloquée. Tout changement du prompt se vérifie avec une batterie d'attaques (injection directe, via un récit, jailbreak, fuite, données d'autres utilisateurs). Hors sujet non renvoyé dans l'historique, message ≤ 500 caractères, historique court, 30 messages/heure/utilisateur et 50 par voyage. Les activités proposées par l'IA ne rejoignent le planning qu'après un « oui » de l'utilisateur.

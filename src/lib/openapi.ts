@@ -11,27 +11,30 @@ import {
   updateTripSchema,
   updateTripTaskSchema,
 } from "@/schemas/trip.schema";
-import { createPostSchema, FEED_MAX_LIMIT, updatePostSchema } from "@/schemas/post.schema";
+import { createPostSchema, FEED_MAX_LIMIT, reportPostSchema, updatePostSchema } from "@/schemas/post.schema";
+import {
+  adminCloseReportsSchema,
+  adminUpdatePostSchema,
+  adminUpdateSettingsSchema,
+  adminUpdateUserSchema,
+} from "@/schemas/admin.schema";
+import { createArchetypeSchema, updateArchetypeSchema } from "@/schemas/archetype.schema";
 import { profileImageSchema, updateProfileSchema } from "@/schemas/user.schema";
-import { POST_ARCHETYPES } from "@/lib/posts";
 
-// Corps de requête générés à partir des schémas Zod utilisés par les controllers :
-// la doc suit automatiquement les règles de validation.
+// Générés depuis les schémas Zod des controllers : la doc suit la validation.
 function requestBody(schema: z.ZodType) {
-  // OpenAPI 3.0 (et non 3.1) : le moteur 3.1 de Swagger UI ne fonctionne pas une fois compilé par Turbopack.
+  // OpenAPI 3.0 : le moteur 3.1 de Swagger UI casse une fois compilé par Turbopack.
   const jsonSchema: Record<string, unknown> = z.toJSONSchema(schema, { io: "input", target: "openapi-3.0" });
   delete jsonSchema.$schema;
   return { required: true, content: { "application/json": { schema: jsonSchema } } };
 }
 
-// Variante multipart/form-data (envoi de fichier), même génération à partir du schéma Zod.
 function multipartBody(schema: z.ZodType) {
   const jsonSchema: Record<string, unknown> = z.toJSONSchema(schema, { io: "input", target: "openapi-3.0" });
   delete jsonSchema.$schema;
   return { required: true, content: { "multipart/form-data": { schema: jsonSchema } } };
 }
 
-// Réponses : écrites à la main (elles reprennent les types des repositories).
 const publicUser = {
   type: "object",
   properties: {
@@ -72,7 +75,6 @@ const postSummary = {
   },
 };
 
-// Carte du feed (FeedPost de src/lib/posts.ts).
 const feedPost = {
   type: "object",
   properties: {
@@ -82,7 +84,11 @@ const feedPost = {
     shortDescription: { type: "string" },
     location: { type: "string", nullable: true, description: "Ville, sinon région ; null pour un pays entier" },
     countryCode: { type: "string", example: "JP" },
-    archetype: { type: "string", enum: [...POST_ARCHETYPES] },
+    archetype: {
+      type: "object",
+      description: "Type de récit (géré depuis l'admin)",
+      properties: { slug: { type: "string", example: "culinary_heritage" }, label: { type: "string", example: "Patrimoine culinaire" } },
+    },
     photoUrl: { type: "string" },
     photoAlt: { type: "string" },
     createdAt: { type: "string", format: "date-time" },
@@ -119,7 +125,6 @@ const authResult = {
   },
 };
 
-// Erreur générique : jamais de détail technique (CLAUDE.md, règle 6).
 function error(description: string, codes: string[]) {
   return {
     description,
@@ -140,11 +145,49 @@ const unauthorized = error("Token absent, invalide, falsifié ou expiré", ["UNA
 const tooManyRequests = error("Trop de requêtes : limite atteinte (réglable par variables RATE_LIMIT_*, voir .env.example)", [
   "TOO_MANY_REQUESTS",
 ]);
-// Même réponse pour un post inexistant ou appartenant à un autre utilisateur (on ne révèle rien).
 const notFound = error("Post introuvable ou appartenant à un autre utilisateur", ["NOT_FOUND"]);
 const internalError = error("Erreur serveur (détail uniquement dans les logs serveur)", ["INTERNAL_ERROR"]);
 
-// ─── Planificateur (/trips) ──────────────────────────────────────────────────
+const adminForbidden = error("Token valide mais pas administrateur (rôle relu en base à chaque requête), ou compte banni", ["FORBIDDEN"]);
+const adminConflict = error("Action refusée : son propre compte, un autre admin (à rétrograder d'abord) ou nom déjà pris", [
+  "CANNOT_TARGET_SELF",
+  "TARGET_IS_ADMIN",
+  "ARCHETYPE_TAKEN",
+]);
+
+function adminRoute(
+  summary: string,
+  options: { body?: z.ZodType; ok?: object; params?: { name: string; schema: object }[]; query?: object[]; description?: string; conflict?: boolean },
+) {
+  return {
+    tags: ["Administration"],
+    summary,
+    ...(options.description ? { description: options.description } : {}),
+    security: [{ bearerAuth: [] }],
+    parameters: [
+      ...(options.params ?? []).map(({ name, schema }) => ({ name, in: "path", required: true, schema })),
+      ...(options.query ?? []),
+    ],
+    ...(options.body ? { requestBody: requestBody(options.body) } : {}),
+    responses: {
+      ...(options.ok ?? { 200: json("OK", { type: "object" }) }),
+      400: invalidInput,
+      401: unauthorized,
+      403: adminForbidden,
+      404: error("Élément introuvable", ["NOT_FOUND"]),
+      ...(options.conflict ? { 409: adminConflict } : {}),
+      429: tooManyRequests,
+      500: internalError,
+    },
+  };
+}
+const userIdParam = { name: "id", schema: { type: "string", format: "uuid" } };
+const numericIdParam = (name: string) => ({ name, schema: { type: "integer", minimum: 1 } });
+const searchQuery = [
+  { name: "q", in: "query", schema: { type: "string", minLength: 1, maxLength: 60 } },
+  { name: "page", in: "query", schema: { type: "integer", minimum: 1, default: 1 }, description: "50 lignes par page" },
+];
+const noContent = { 204: { description: "Fait" } };
 
 const tripDetail = {
   type: "object",
@@ -181,7 +224,6 @@ const aiUnavailable = error("L'IA n'a pas répondu ou a renvoyé un format inval
 const aiRateLimited = error("Trop d'appels à l'IA : 20 maximum par utilisateur et par heure", ["TOO_MANY_REQUESTS"]);
 const idParam = (name: string) => ({ name, in: "path", required: true, schema: { type: "integer", minimum: 1 } });
 
-// Route privée sur un voyage : JWT obligatoire, propriété vérifiée côté serveur.
 function tripRoute(summary: string, options: { params?: string[]; body?: z.ZodType; ok?: object; ai?: boolean; description?: string }) {
   return {
     tags: ["Voyages"],
@@ -196,13 +238,12 @@ function tripRoute(summary: string, options: { params?: string[]; body?: z.ZodTy
       404: tripNotFound,
       ...(options.ai ? { 429: aiRateLimited, 503: aiUnavailable } : {}),
       500: internalError,
-      // En dernier : peut remplacer une réponse par défaut (ex. le 429 de la discussion).
+      // En dernier : peut remplacer une réponse par défaut.
       ...(options.ok ?? { 200: json("Voyage à jour", tripDetail) }),
     },
   };
 }
 
-// Photo de profil : envoi (PUT multipart) ou retrait (DELETE), enregistré immédiatement.
 function profileImagePaths(label: string, description: string) {
   const responses = {
     200: json("Profil à jour", { type: "object", properties: { user: profileUser } }),
@@ -233,7 +274,6 @@ function profileImagePaths(label: string, description: string) {
   };
 }
 
-// Likes et enregistrements d'un post.
 const reactions = {
   type: "object",
   properties: {
@@ -296,6 +336,7 @@ export function buildOpenApiDocument() {
       { name: "Posts", description: "Feed public, création, masquage et suppression de récits" },
       { name: "Lieux", description: "Recherche de villes et pays (country-state-city)" },
       { name: "Réactions", description: "Likes et voyages enregistrés" },
+      { name: "Administration", description: "Réservé au rôle admin : modération, rôles, types de récit, réglages de l'IA, journal" },
     ],
     paths: {
       "/auth/register": {
@@ -363,7 +404,17 @@ export function buildOpenApiDocument() {
           summary: "Mes voyages",
           security: [{ bearerAuth: [] }],
           responses: {
-            200: json("Liste", { type: "object", properties: { trips: { type: "array", items: { type: "object" } } } }),
+            200: json("Liste et quota IA du jour", {
+              type: "object",
+              properties: {
+                trips: { type: "array", items: { type: "object" } },
+                aiQuota: {
+                  type: "object",
+                  description: "Appels IA (génération, re-génération, discussion) du jour ; limit null = illimité (admin)",
+                  properties: { used: { type: "integer" }, limit: { type: "integer", nullable: true } },
+                },
+              },
+            }),
             401: unauthorized,
             500: internalError,
           },
@@ -394,7 +445,7 @@ export function buildOpenApiDocument() {
             "Pagination par curseur (chargement infini) : renvoyer `nextCursor` dans `cursor` pour la page suivante. " +
             "`nextCursor` vaut null quand il n'y a plus rien à charger.",
           parameters: [
-            { name: "archetype", in: "query", schema: { type: "string", enum: [...POST_ARCHETYPES] } },
+            { name: "archetype", in: "query", schema: { type: "string", pattern: "^[a-z][a-z_]{0,39}$" }, description: "Slug d'un type de récit actif" },
             { name: "cursor", in: "query", schema: { type: "integer", minimum: 1 }, description: "Id du dernier post déjà affiché" },
             { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: FEED_MAX_LIMIT, default: 10 } },
           ],
@@ -642,6 +693,69 @@ export function buildOpenApiDocument() {
             500: internalError,
           },
         },
+      },
+      "/posts/{id}/report": {
+        post: {
+          tags: ["Posts"],
+          summary: "Signaler un récit à la modération",
+          description: "Motif facultatif (500 caractères). Signaler deux fois le même récit n'a pas d'effet de plus.",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer", minimum: 1 } }],
+          requestBody: requestBody(reportPostSchema),
+          responses: {
+            204: { description: "Signalement enregistré" },
+            400: error("Champ invalide, ou signalement de son propre récit", ["INVALID_INPUT", "OWN_POST"]),
+            401: unauthorized,
+            403: error("Compte banni", ["FORBIDDEN"]),
+            404: error("Récit introuvable", ["NOT_FOUND"]),
+            429: tooManyRequests,
+            500: internalError,
+          },
+        },
+      },
+      "/admin/dashboard": {
+        get: adminRoute("Tableau de bord", { description: "Compteurs, signalements en attente, requêtes IA des 7 derniers jours, dernières inscriptions." }),
+      },
+      "/admin/users": {
+        get: adminRoute("Utilisateurs", { query: searchQuery, description: "Recherche par pseudo ou nom. Jamais d'email ni de hash." }),
+      },
+      "/admin/users/{id}": {
+        patch: adminRoute("Changer le rôle / bannir", {
+          params: [userIdParam],
+          body: adminUpdateUserSchema,
+          conflict: true,
+          description: "Bannir coupe toutes les sessions (refresh tokens révoqués, connexion refusée).",
+        }),
+        delete: adminRoute("Supprimer un compte", { params: [userIdParam], ok: noContent, conflict: true, description: "Récits, voyages et photos supprimés avec lui." }),
+      },
+      "/admin/posts": {
+        get: adminRoute("Récits (masqués compris)", {
+          query: [...searchQuery, { name: "visibility", in: "query", schema: { type: "string", enum: ["all", "visible", "hidden"], default: "all" } }],
+        }),
+      },
+      "/admin/posts/{id}": {
+        patch: adminRoute("Masquer / réafficher un récit", { params: [numericIdParam("id")], body: adminUpdatePostSchema, description: "Masquer règle aussi ses signalements ouverts." }),
+        delete: adminRoute("Supprimer un récit", { params: [numericIdParam("id")], ok: noContent }),
+      },
+      "/admin/reports": {
+        get: adminRoute("Signalements en attente", { description: "Regroupés par récit, du plus signalé au moins signalé." }),
+      },
+      "/admin/reports/{postId}": {
+        patch: adminRoute("Classer sans suite", { params: [numericIdParam("postId")], body: adminCloseReportsSchema, ok: noContent }),
+      },
+      "/admin/archetypes": {
+        get: adminRoute("Types de récit (actifs ou non)", {}),
+        post: adminRoute("Créer un type de récit", { body: createArchetypeSchema, ok: { 201: json("Créé", { type: "object" }) }, conflict: true }),
+      },
+      "/admin/archetypes/{id}": {
+        patch: adminRoute("Modifier / (dés)activer un type de récit", { params: [numericIdParam("id")], body: updateArchetypeSchema, conflict: true }),
+      },
+      "/admin/settings": {
+        get: adminRoute("Réglages de l'IA", {}),
+        patch: adminRoute("Couper l'IA / changer le plafond global", { body: adminUpdateSettingsSchema }),
+      },
+      "/admin/actions": {
+        get: adminRoute("Journal des actions admin", { description: "200 dernières actions." }),
       },
     },
   };

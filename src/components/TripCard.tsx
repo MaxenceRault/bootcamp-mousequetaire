@@ -3,9 +3,8 @@ import { useFormatter, useTranslations } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { countryName, flagEmoji } from "@/lib/country";
-import type { PostArchetype } from "@/lib/posts";
+import type { Archetype } from "@/lib/posts";
 
-// Voyage dans une liste (GET /api/v1/trips).
 export type TripSummary = {
   id: number;
   title: string;
@@ -13,14 +12,12 @@ export type TripSummary = {
   destination_city: string | null;
   start_date: string;
   end_date: string;
-  archetype: PostArchetype;
+  archetype: Archetype;
   item_count: number;
 };
 
-// Carte d'un voyage généré : planificateur et onglet « Itinéraires IA » du profil.
 export function TripCard({ trip }: { trip: TripSummary }) {
   const t = useTranslations("Planner");
-  const tArchetypes = useTranslations("Archetypes");
   const format = useFormatter();
 
   return (
@@ -45,7 +42,7 @@ export function TripCard({ trip }: { trip: TripSummary }) {
           </span>
           <span className="inline-flex items-center gap-1">
             <Icon name="category" className="size-4" />
-            {tArchetypes(trip.archetype)}
+            {trip.archetype.label}
           </span>
           <span>{t("list.activities", { count: trip.item_count })}</span>
         </span>

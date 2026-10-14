@@ -11,9 +11,7 @@ type AutocompleteProps = Omit<ComponentProps<"input">, "value" | "onChange" | "o
   onSelect: (suggestion: Suggestion) => void;
 };
 
-// Champ texte avec liste de suggestions sous la saisie (motif ARIA « combobox ») :
-// flèches haut/bas pour naviguer, Entrée pour choisir, Échap pour fermer.
-// Le style du champ est laissé à l'appelant (className).
+// Motif ARIA « combobox » : flèches, Entrée, Échap. Style du champ laissé à l'appelant.
 export function Autocomplete({
   value,
   onValueChange,
@@ -48,7 +46,6 @@ export function Autocomplete({
       event.preventDefault();
       setActive(Math.max(activeIndex - 1, 0));
     } else if (event.key === "Enter" && expanded && activeIndex >= 0) {
-      // Entrée choisit la suggestion au lieu d'envoyer le formulaire.
       event.preventDefault();
       select(suggestions[activeIndex]);
     } else if (event.key === "Escape") {
@@ -96,7 +93,7 @@ export function Autocomplete({
               id={`${listId}-${index}`}
               role="option"
               aria-selected={index === activeIndex}
-              // mousedown empêché : le champ garde le focus, la liste ne se ferme pas avant le clic.
+              // Le champ garde le focus : la liste ne se ferme pas avant le clic.
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => select(suggestion)}
               className={`cursor-pointer truncate rounded-lg px-3 py-2 text-body-md text-ink ${

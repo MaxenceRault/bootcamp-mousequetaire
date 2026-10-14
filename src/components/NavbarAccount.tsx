@@ -15,8 +15,7 @@ import {
   type SessionUser,
 } from "@/lib/session";
 
-// Zone compte de la Navbar. Visiteur : bouton « Se connecter ». Connecté (token valide) : avatar + menu.
-// La session est stockée dans le navigateur : côté serveur, on ne sait pas encore → emplacement réservé.
+// Session dans le navigateur : inconnue côté serveur → emplacement réservé.
 export function NavbarAccount() {
   const t = useTranslations("Navbar");
   const snapshot = useSyncExternalStore(subscribeSession, getSessionSnapshot, () => undefined);
@@ -37,12 +36,10 @@ export function NavbarAccount() {
   return <AccountMenu user={user} />;
 }
 
-// Menu déroulant du compte : s'ouvre au survol ou au focus clavier.
 function AccountMenu({ user }: { user: SessionUser }) {
   const t = useTranslations("Navbar");
   const router = useRouter();
 
-  // Révoque la session côté serveur et efface les tokens : la Navbar repasse en visiteur via l'événement de session.
   function handleLogout() {
     void logout();
     router.push("/");
@@ -75,6 +72,13 @@ function AccountMenu({ user }: { user: SessionUser }) {
             <Icon name="settings" className="size-4" />
             {t("settings")}
           </Link>
+          {/* Affichage seulement : l'API vérifie le rôle en base. */}
+          {user.role === "admin" && (
+            <Link href="/admin" className="flex items-center gap-2 px-3 py-2 text-body-md text-ink-soft transition hover:bg-canvas hover:text-ink">
+              <Icon name="shield" className="size-4" />
+              {t("admin")}
+            </Link>
+          )}
           <div className="mt-1 border-t border-line pt-1">
             <button
               type="button"

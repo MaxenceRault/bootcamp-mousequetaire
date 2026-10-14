@@ -9,6 +9,7 @@ import { Field } from "@/components/ui/Field";
 import { FormError } from "@/components/ui/FormError";
 import { Icon } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/Input";
+import type { UserRole } from "@/lib/roles";
 import { apiFetch } from "@/lib/session";
 import {
   AVATAR_BACKGROUND_COLORS,
@@ -26,29 +27,26 @@ export type EditableProfile = {
   avatar_background_color: string | null;
   location: string | null;
   created_at: string;
+  role: UserRole;
 };
 
 type ProfileEditFormProps = {
   user: EditableProfile;
   onSaved: (user: EditableProfile) => void;
   onCancel: () => void;
-  // Photo ou fond envoyé / retiré (enregistré tout de suite, le formulaire reste ouvert).
+  // Photo ou fond enregistrés tout de suite, le formulaire reste ouvert.
   onImageChange: (user: EditableProfile) => void;
 };
 
-// Nombre de nouveaux blobatars proposés à chaque « Autres propositions ».
 const AVATAR_CHOICES = 7;
 
-// Formulaire de modification du profil : PATCH /api/v1/users/me.
 export function ProfileEditForm({ user, onSaved, onCancel, onImageChange }: ProfileEditFormProps) {
   const t = useTranslations("Profile");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  // Avatar actuel : le seed choisi, sinon l'id (avatar par défaut).
   const currentSeed = user.avatar_seed ?? user.id;
   const [avatarSeed, setAvatarSeed] = useState(currentSeed);
   const [round, setRound] = useState(0);
-  // Couleur de fond du blobatar (enregistrée avec le reste du formulaire).
   const [backgroundColor, setBackgroundColor] = useState(user.avatar_background_color);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -99,7 +97,6 @@ export function ProfileEditForm({ user, onSaved, onCancel, onImageChange }: Prof
           <BackgroundColorPicker selected={backgroundColor} onSelect={setBackgroundColor} />
         </fieldset>
 
-        {/* Le choix du blobatar n'a de sens que sans photo de profil. */}
         {!user.avatar_url && (
           <AvatarPicker
             userId={user.id}
@@ -175,14 +172,10 @@ type AvatarPickerProps = {
   round: number;
   onSelect: (seed: string) => void;
   onShuffle: () => void;
-  // Image de fond de l'utilisateur, affichée aussi derrière chaque proposition.
-  // Couleur de fond choisie, affichée aussi derrière chaque proposition.
   backgroundColor: string | null;
 };
 
-// Choix du blobatar : l'avatar actuel, celui sélectionné, puis des propositions.
-// Les propositions sont dérivées de l'id et du numéro de tirage : pas d'aléatoire, et
-// chaque utilisateur a ses propres propositions.
+// Propositions dérivées de l'id et du numéro de tirage : stables et propres à chaque utilisateur.
 function AvatarPicker({ userId, currentSeed, selected, round, onSelect, onShuffle, backgroundColor }: AvatarPickerProps) {
   const t = useTranslations("Profile");
   const proposals = Array.from({ length: AVATAR_CHOICES }, (_, i) => `${userId}-${round}-${i}`);
@@ -190,7 +183,6 @@ function AvatarPicker({ userId, currentSeed, selected, round, onSelect, onShuffl
 
   return (
     <fieldset className="flex flex-col gap-2">
-      {/* Même style que Label : un groupe de boutons radio se titre avec <legend>. */}
       <legend className="mb-2 font-display text-label-md text-ink">{t("form.avatar")}</legend>
       <div className="flex flex-wrap items-center gap-2">
         {choices.map((seed, index) => (
@@ -224,7 +216,6 @@ function AvatarPicker({ userId, currentSeed, selected, round, onSelect, onShuffl
   );
 }
 
-// Codes d'erreur de l'API traduits (namespace Profile.errors) ; tout autre code → erreur générique.
 const IMAGE_ERRORS = ["INVALID_INPUT", "PAYLOAD_TOO_LARGE", "LENGTH_REQUIRED", "TOO_MANY_REQUESTS", "UNAUTHORIZED"] as const;
 
 type AvatarPhotoFieldProps = {
@@ -235,7 +226,6 @@ type AvatarPhotoFieldProps = {
   onChange: (user: EditableProfile) => void;
 };
 
-// Envoi (PUT, multipart) ou retrait (DELETE) de la photo de profil, enregistré immédiatement.
 function AvatarPhotoField({ user, label, hint, preview, onChange }: AvatarPhotoFieldProps) {
   const t = useTranslations("Profile");
   const inputId = useId();
@@ -262,7 +252,7 @@ function AvatarPhotoField({ user, label, hint, preview, onChange }: AvatarPhotoF
   function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    // Vérification rapide côté navigateur ; le serveur revérifie la taille et le type réel.
+    // Contrôle rapide ; le serveur revérifie la taille et le type réel.
     if (file.size > PROFILE_IMAGE_MAX_BYTES) {
       event.target.value = "";
       return setError(t("errors.PAYLOAD_TOO_LARGE"));
@@ -290,7 +280,6 @@ function AvatarPhotoField({ user, label, hint, preview, onChange }: AvatarPhotoF
             disabled={pending}
             onChange={handleFile}
           />
-          {/* Le label ouvre le sélecteur de fichier (accessible au clavier via l'input). */}
           <label
             htmlFor={inputId}
             className={`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-surface-muted px-3.5 font-display text-label-md text-ink transition peer-focus-visible:ring-4 peer-focus-visible:ring-accent/25 hover:bg-surface ${pending ? "pointer-events-none opacity-50" : ""}`}
@@ -310,7 +299,7 @@ function AvatarPhotoField({ user, label, hint, preview, onChange }: AvatarPhotoF
   );
 }
 
-// Couleur de fond du blobatar : palette fixe (validée aussi côté serveur) ou aucune (fond neutre).
+// Palette fixe, validée aussi côté serveur.
 function BackgroundColorPicker({ selected, onSelect }: { selected: string | null; onSelect: (color: string | null) => void }) {
   const t = useTranslations("Profile");
   const choices: (string | null)[] = [null, ...AVATAR_BACKGROUND_COLORS];

@@ -11,15 +11,14 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle") };
 }
 
-// Le token est stocké dans le navigateur (pas de cookie) : les données du profil sont
-// chargées côté client par ProfileView, via l'API.
+// Token dans le navigateur (pas de cookie) : profil chargé côté client.
 export default function ProfilePage() {
   return (
     <>
       <Navbar />
       <main className="w-full flex-1 pt-24 pb-20">
         <div className="mx-auto max-w-300 px-4 md:px-6">
-          {/* ProfileView lit ?tab= (useSearchParams) : rendu dans un Suspense. */}
+          {/* useSearchParams : rendu dans un Suspense. */}
           <Suspense>
             <ProfileView />
           </Suspense>

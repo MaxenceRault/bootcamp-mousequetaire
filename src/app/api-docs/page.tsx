@@ -9,7 +9,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle") };
 }
 
-// Page /api-docs : Swagger UI. Développement uniquement (404 en production).
+// Développement uniquement (404 en production).
 export default function ApiDocsPage() {
   if (process.env.NODE_ENV === "production") notFound();
 

@@ -10,13 +10,14 @@ export type TripSummary = {
   destination_city: string | null;
   start_date: string;
   end_date: string;
-  archetype: string;
+  archetype: { slug: string; label: string };
   item_count: number;
   created_at: string;
 };
 
 export type TripRow = Omit<TripSummary, "item_count"> & {
   user_id: string;
+  archetype_id: number;
   budget_lodging: number;
   budget_transit: number;
   budget_dining: number;
@@ -24,6 +25,7 @@ export type TripRow = Omit<TripSummary, "item_count"> & {
   budget_target: number | null;
   source_post_count: number;
   generated_at: string | null;
+  season_note: string | null;
 };
 
 export type TripItemRow = {
@@ -49,12 +51,12 @@ export type NewTrip = {
   archetype_id: number;
 };
 
-// Planning complet produit par l'IA (remplace le précédent d'un bloc).
 export type TripPlan = {
   items: { day: string; start_time: string; title: string; description: string | null; category: TripItemCategory; source_post_id: number | null }[];
   tasks: { label: string; detail: string | null; done: boolean }[];
   budget: { lodging: number; transit: number; dining: number; activities: number };
   source_post_count: number;
+  season_note: string | null;
 };
 
 export type TripChanges = Partial<{
@@ -89,7 +91,6 @@ export type TripMessageRow = {
   suggestions: TripSuggestionRow[];
 };
 
-// Échange de la discussion : message de l'utilisateur + réponse de l'IA et ses propositions.
 export type NewTripExchange = {
   user_content: string;
   assistant_content: string;
@@ -97,15 +98,15 @@ export type NewTripExchange = {
   suggestions: (TripItemFields & { source_post_id: number | null })[];
 };
 
-// Colonnes modifiables : les noms viennent de cette liste, jamais de l'entrée utilisateur.
+// Noms de colonnes issus de cette liste, jamais de l'entrée utilisateur.
 const TRIP_COLUMNS = ["title", "budget_target", "budget_lodging", "budget_transit", "budget_dining", "budget_activities"] as const;
 const ITEM_COLUMNS = ["day", "start_time", "title", "description", "category"] as const;
 const TASK_COLUMNS = ["label", "done"] as const;
 
 const TRIP_SUMMARY_COLUMNS = `t.id, t.title, t.destination_country_code, t.destination_state_code, t.destination_city,
-  t.start_date, t.end_date, a.slug as archetype, t.created_at`;
+  t.start_date, t.end_date, json_build_object('slug', a.slug, 'label', a.label) as archetype, t.created_at`;
 
-// « HH:MM » (le type time de Postgres renvoie « HH:MM:SS »).
+// Postgres renvoie « HH:MM:SS ».
 const ITEM_COLUMNS_SELECT = `i.id, i.day, to_char(i.start_time, 'HH24:MI') as start_time, i.title, i.description, i.category,
   case when p.id is null then null else json_build_object('id', p.id, 'title', p.title, 'slug', p.slug) end as source_post`;
 
@@ -145,8 +146,8 @@ export async function findTripsByUser(userId: string): Promise<TripSummary[]> {
 export async function findTripById(id: number): Promise<TripRow | null> {
   const db = await getDb();
   const { rows } = await db.query<TripRow>(
-    `select ${TRIP_SUMMARY_COLUMNS}, t.user_id, t.budget_lodging, t.budget_transit, t.budget_dining,
-       t.budget_activities, t.budget_target, t.source_post_count, t.generated_at
+    `select ${TRIP_SUMMARY_COLUMNS}, t.user_id, t.archetype_id, t.budget_lodging, t.budget_transit, t.budget_dining,
+       t.budget_activities, t.budget_target, t.source_post_count, t.generated_at, t.season_note
      from trip t join archetype a on a.id = t.archetype_id
      where t.id = $1`,
     [id],
@@ -191,7 +192,7 @@ export async function findTripTasks(tripId: number): Promise<TripTaskRow[]> {
   return rows;
 }
 
-// Remplace activités, tâches et budget en une transaction : jamais de planning à moitié enregistré.
+// Une transaction : jamais de planning à moitié enregistré.
 export async function replaceTripPlan(tripId: number, plan: TripPlan) {
   const client = await (await getDb()).connect();
   try {
@@ -225,9 +226,9 @@ export async function replaceTripPlan(tripId: number, plan: TripPlan) {
 
     await client.query(
       `update trip set budget_lodging = $2, budget_transit = $3, budget_dining = $4, budget_activities = $5,
-         source_post_count = $6, generated_at = now()
+         source_post_count = $6, season_note = $7, generated_at = now()
        where id = $1`,
-      [tripId, plan.budget.lodging, plan.budget.transit, plan.budget.dining, plan.budget.activities, plan.source_post_count],
+      [tripId, plan.budget.lodging, plan.budget.transit, plan.budget.dining, plan.budget.activities, plan.source_post_count, plan.season_note],
     );
     await client.query("commit");
   } catch (error) {
@@ -249,7 +250,6 @@ export async function insertTripItem(tripId: number, item: TripItemFields): Prom
   return rows[0].id;
 }
 
-// Modifie une activité de ce voyage uniquement. false si elle n'existe pas (ou pas dans ce voyage).
 export async function updateTripItem(tripId: number, itemId: number, changes: Partial<TripItemFields>): Promise<boolean> {
   const entries = ITEM_COLUMNS.filter((column) => changes[column] !== undefined).map((column) => [column, changes[column]] as const);
   if (entries.length === 0) return true;
@@ -297,9 +297,6 @@ export async function deleteTripTask(tripId: number, taskId: number): Promise<bo
   return rowCount === 1;
 }
 
-// ─── Discussion avec l'IA ───────────────────────────────────────────────────
-
-// Messages du voyage dans l'ordre, chacun avec les propositions de l'IA qu'il contient.
 export async function findTripMessages(tripId: number): Promise<TripMessageRow[]> {
   const db = await getDb();
   const { rows } = await db.query<TripMessageRow>(
@@ -331,7 +328,7 @@ export async function countTripUserMessages(tripId: number): Promise<number> {
   return rows[0].count;
 }
 
-// Enregistre l'échange en une transaction : jamais de question sans sa réponse.
+// Une transaction : jamais de question sans sa réponse.
 export async function insertTripExchange(tripId: number, exchange: NewTripExchange) {
   const client = await (await getDb()).connect();
   try {
@@ -371,8 +368,7 @@ export async function insertTripExchange(tripId: number, exchange: NewTripExchan
   }
 }
 
-// Répond à une proposition encore en attente de ce voyage ; acceptée, elle est copiée dans le planning.
-// false si elle n'existe pas, appartient à un autre voyage ou a déjà reçu une réponse.
+// Acceptée, la proposition est copiée dans le planning. false si déjà traitée ou d'un autre voyage.
 export async function answerTripSuggestion(tripId: number, suggestionId: number, accepted: boolean): Promise<boolean> {
   const client = await (await getDb()).connect();
   try {

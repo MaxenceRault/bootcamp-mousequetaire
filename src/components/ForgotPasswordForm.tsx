@@ -10,7 +10,7 @@ export function ForgotPasswordForm() {
   const t = useTranslations("Auth");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    // Interface seule : l'envoi du lien de réinitialisation sera branché à une étape suivante.
+    // Interface seule : l'envoi du lien sera branché plus tard.
     event.preventDefault();
   }
 

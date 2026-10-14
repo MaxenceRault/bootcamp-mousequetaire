@@ -4,43 +4,37 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { TravelCard } from "@/components/TravelCard";
 import { Button } from "@/components/ui/Button";
-import type { FeedPost, PostArchetype } from "@/lib/posts";
+import type { FeedPost } from "@/lib/posts";
 import { setReactionFromServer, type ReactionState } from "@/lib/reactions-store";
 import { apiFetch, getSessionSnapshot } from "@/lib/session";
 
 type FeedListProps = {
-  // Première page, rendue par le serveur.
   initialPosts: FeedPost[];
   initialCursor: number | null;
-  archetype?: PostArchetype;
-  // Instant de référence des dates relatives (le même que celui du rendu serveur).
+  archetype?: string;
+  // Même instant que le rendu serveur (dates relatives identiques).
   now: Date;
 };
 
-// Distance avant le bas de la liste à laquelle la page suivante est demandée.
 const PRELOAD_MARGIN = "600px";
-// Même limite que viewerReactionsQuerySchema (MAX_REACTION_POST_IDS) côté serveur.
+// Même limite que MAX_REACTION_POST_IDS côté serveur.
 const MAX_REACTION_IDS = 50;
 
-// Liste du feed avec chargement infini : la page suivante (GET /api/v1/posts?cursor=…)
-// est chargée quand le bas de la liste approche de l'écran.
+// Chargement infini : la page suivante arrive quand le bas de la liste approche.
 export function FeedList({ initialPosts, initialCursor, archetype, now }: FeedListProps) {
   const t = useTranslations("Home");
   const [posts, setPosts] = useState(initialPosts);
   const [cursor, setCursor] = useState(initialCursor);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const sentinel = useRef<HTMLDivElement>(null);
-  // Posts dont l'état « aimé / enregistré » a déjà été demandé (rangé ensuite dans le store partagé).
   const requested = useRef(new Set<number>());
 
-  // Un seul appel par lot de posts affichés (première page, puis chaque page chargée au défilement).
   useEffect(() => {
     if (!getSessionSnapshot()) return;
     const ids = posts.map(({ id }) => id).filter((id) => !requested.current.has(id));
     if (ids.length === 0) return;
     ids.forEach((id) => requested.current.add(id));
 
-    // L'API accepte 50 ids par appel (une page du feed en contient bien moins).
     for (let start = 0; start < ids.length; start += MAX_REACTION_IDS) {
       const batch = ids.slice(start, start + MAX_REACTION_IDS);
       apiFetch<{ reactions: ({ postId: number } & ReactionState)[] }>(
@@ -63,7 +57,6 @@ export function FeedList({ initialPosts, initialCursor, archetype, now }: FeedLi
 
     if (!data) return setStatus("error");
 
-    // Les dates arrivent en texte (JSON) ; un post déjà affiché n'est pas ajouté deux fois.
     const next = (data.posts as (Omit<FeedPost, "createdAt"> & { createdAt: string })[]).map((post) => ({
       ...post,
       createdAt: new Date(post.createdAt),
@@ -77,7 +70,6 @@ export function FeedList({ initialPosts, initialCursor, archetype, now }: FeedLi
     loadMore();
   });
 
-  // Observe le bas de la liste tant qu'il reste des posts et qu'aucun chargement n'est en cours.
   useEffect(() => {
     const element = sentinel.current;
     if (!element || cursor === null || status !== "idle") return;

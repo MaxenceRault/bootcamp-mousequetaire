@@ -1,8 +1,7 @@
 import "server-only";
 import { Storage } from "@google-cloud/storage";
 
-// Client Cloud Storage : même identité que la base (application-default en local,
-// compte de service sur Cloud Run), donc aucune clé dans l'app.
+// Même identité IAM que la base : aucune clé dans l'app.
 
 const globalForStorage = globalThis as unknown as { storage?: Storage };
 

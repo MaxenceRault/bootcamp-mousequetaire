@@ -13,10 +13,8 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { FIELD_CLASS_NAME, Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { countryName, flagEmoji } from "@/lib/country";
-import type { PostArchetype } from "@/lib/posts";
+import type { Archetype } from "@/lib/posts";
 import { apiFetch, getSessionSnapshot } from "@/lib/session";
-
-// ─── Types de l'API (GET /api/v1/trips/[id]) ────────────────────────────────
 
 const ITEM_CATEGORIES = ["transport", "lodging", "activity", "food"] as const;
 type ItemCategory = (typeof ITEM_CATEGORIES)[number];
@@ -28,7 +26,7 @@ type Trip = {
   destination_city: string | null;
   start_date: string;
   end_date: string;
-  archetype: PostArchetype;
+  archetype: Archetype;
   budget_lodging: number;
   budget_transit: number;
   budget_dining: number;
@@ -36,6 +34,8 @@ type Trip = {
   budget_target: number | null;
   source_post_count: number;
   generated_at: string | null;
+  // null pour un voyage généré avant l'ajout des notes de saison.
+  season_note: string | null;
 };
 
 type TripItem = {
@@ -52,7 +52,6 @@ type TripTask = { id: number; label: string; detail: string | null; done: boolea
 
 type TripDetail = { trip: Trip; items: TripItem[]; tasks: TripTask[] };
 
-// GET / POST /api/v1/trips/[id]/messages
 type TripSuggestion = Omit<TripItem, "id"> & { id: number; status: "pending" | "accepted" | "rejected" };
 
 type TripMessage = {
@@ -63,17 +62,19 @@ type TripMessage = {
   suggestions: TripSuggestion[];
 };
 
-// Limites de la discussion (alignées sur trip.schema et trip.service).
+// Alignées sur trip.schema et trip.service.
 const CHAT_MESSAGE_MAX = 500;
 const CHAT_MAX_USER_MESSAGES = 50;
 
-// Codes d'erreur de l'API traduits dans fr.json (Planner.errors) ; les autres → INTERNAL_ERROR.
 const PLANNER_ERRORS = [
   "INVALID_INPUT",
   "TRIP_TOO_LONG",
   "TOO_MANY_REQUESTS",
   "AI_UNAVAILABLE",
   "CHAT_LIMIT_REACHED",
+  "DAILY_LIMIT_REACHED",
+  "AI_DISABLED",
+  "FORBIDDEN",
   "NOT_FOUND",
   "UNAUTHORIZED",
   "INTERNAL_ERROR",
@@ -98,12 +99,11 @@ const BUDGET_FIELDS = [
   { key: "budget_activities", body: "budgetActivities", label: "activities" },
 ] as const;
 
-// Jour « AAAA-MM-JJ » à midi local : la date affichée ne glisse pas selon le fuseau horaire.
+// Midi local : la date ne glisse pas selon le fuseau horaire.
 function parseDay(day: string) {
   return new Date(`${day}T12:00:00`);
 }
 
-// Tous les jours du voyage, du premier au dernier.
 function tripDays(start: string, end: string) {
   const days: string[] = [];
   for (let date = parseDay(start); date <= parseDay(end); date.setDate(date.getDate() + 1)) {
@@ -118,10 +118,7 @@ function budgetTotal(trip: Trip) {
   return trip.budget_lodging + trip.budget_transit + trip.budget_dining + trip.budget_activities;
 }
 
-// Appel d'une route du voyage : renvoie le voyage à jour, ou un code d'erreur.
 type Mutate = (path: string, method: string, body?: unknown) => Promise<boolean>;
-
-// ─── Page ───────────────────────────────────────────────────────────────────
 
 type LoadState = { status: "loading" } | { status: "error"; error: PlannerError } | { status: "ready"; data: TripDetail };
 
@@ -212,8 +209,6 @@ export function TripPlanner({ tripId }: { tripId: number }) {
   );
 }
 
-// ─── En-tête : titre, dates, budget, actions ────────────────────────────────
-
 function TripHeader({
   trip,
   mutate,
@@ -228,7 +223,6 @@ function TripHeader({
   onDelete: () => void;
 }) {
   const t = useTranslations("Planner");
-  const tArchetypes = useTranslations("Archetypes");
   const format = useFormatter();
   const now = useNow({ updateInterval: 60_000 });
   const [editing, setEditing] = useState(false);
@@ -301,7 +295,7 @@ function TripHeader({
             year: "numeric",
           })}
         </Chip>
-        <Chip icon="category">{tArchetypes(trip.archetype)}</Chip>
+        <Chip icon="category">{trip.archetype.label}</Chip>
         <Chip icon="book">
           {trip.budget_target === null
             ? t("trip.budgetChip", { total })
@@ -314,6 +308,16 @@ function TripHeader({
         )}
         <Chip icon="explore">{t("trip.sources", { count: trip.source_post_count })}</Chip>
       </ul>
+
+      {trip.season_note && (
+        <div className="flex gap-3 rounded-lg bg-surface-muted p-4">
+          <Icon name="calendar" className="mt-0.5 size-5 shrink-0 text-accent" />
+          <div className="flex flex-col gap-0.5">
+            <p className="font-display text-label-lg text-ink">{t("trip.seasonTitle")}</p>
+            <p className="text-body-sm text-ink-soft">{trip.season_note}</p>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
@@ -327,15 +331,13 @@ function Chip({ icon, children }: { icon: IconName; children: ReactNode }) {
   );
 }
 
-// ─── Planning jour par jour ─────────────────────────────────────────────────
-
 function DayPlanner({ trip, items, mutate }: { trip: Trip; items: TripItem[]; mutate: Mutate }) {
   const t = useTranslations("Planner");
   const format = useFormatter();
   const days = tripDays(trip.start_date, trip.end_date);
   const [selectedDay, setSelectedDay] = useState(days[0]);
   const [adding, setAdding] = useState(false);
-  // Jour sélectionné encore valide (le voyage peut avoir été régénéré).
+  // Le voyage a pu être régénéré entre-temps.
   const day = days.includes(selectedDay) ? selectedDay : days[0];
   const dayNumber = days.indexOf(day) + 1;
   const dayItems = items.filter((item) => item.day === day);
@@ -344,7 +346,6 @@ function DayPlanner({ trip, items, mutate }: { trip: Trip; items: TripItem[]; mu
     <Card className="flex flex-col gap-5 p-6">
       <h2 className="font-display text-headline-sm text-ink">{t("days.title")}</h2>
 
-      {/* Sélecteur de jour (onglets). */}
       <div role="tablist" aria-label={t("days.title")} className="flex gap-2 overflow-x-auto pb-1">
         {days.map((value, index) => {
           const active = value === day;
@@ -463,7 +464,6 @@ function ItemRow({ item, days, mutate }: { item: TripItem; days: string[]; mutat
 
 type ItemFormValues = Pick<TripItem, "day" | "start_time" | "title" | "description" | "category">;
 
-// Formulaire d'activité (ajout et modification).
 function ItemForm({
   days,
   initial,
@@ -553,8 +553,6 @@ function ItemForm({
   );
 }
 
-// ─── Checklist ──────────────────────────────────────────────────────────────
-
 function TaskChecklist({ tasks, mutate }: { tasks: TripTask[]; mutate: Mutate }) {
   const t = useTranslations("Planner");
   const done = tasks.filter((task) => task.done).length;
@@ -612,8 +610,6 @@ function TaskChecklist({ tasks, mutate }: { tasks: TripTask[]; mutate: Mutate })
   );
 }
 
-// ─── Budget ─────────────────────────────────────────────────────────────────
-
 function BudgetCard({ trip, mutate }: { trip: Trip; mutate: Mutate }) {
   const t = useTranslations("Planner");
   const [saved, setSaved] = useState(false);
@@ -650,7 +646,7 @@ function BudgetCard({ trip, mutate }: { trip: Trip; mutate: Mutate }) {
         />
       </div>
 
-      {/* key : les champs repartent des valeurs à jour après une régénération. */}
+      {/* key : repart des valeurs à jour après une régénération. */}
       <form
         key={`${trip.generated_at}-${total}-${target}`}
         onSubmit={handleSubmit}
@@ -691,10 +687,7 @@ function BudgetCard({ trip, mutate }: { trip: Trip; mutate: Mutate }) {
   );
 }
 
-// ─── Discussion avec l'IA ───────────────────────────────────────────────────
-
-// Discussion limitée au voyage et à sa destination. L'IA propose des activités :
-// chacune n'est ajoutée au planning que si l'utilisateur répond oui.
+// Une proposition n'est ajoutée au planning que si l'utilisateur répond oui.
 function TripChat({ basePath, trip, mutate }: { basePath: string; trip: Trip; mutate: Mutate }) {
   const t = useTranslations("Planner");
   const router = useRouter();
@@ -720,7 +713,6 @@ function TripChat({ basePath, trip, mutate }: { basePath: string; trip: Trip; mu
     void loadMessages();
   }, [loadMessages]);
 
-  // Dernier message toujours visible.
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
@@ -751,7 +743,6 @@ function TripChat({ basePath, trip, mutate }: { basePath: string; trip: Trip; mu
     void send();
   }
 
-  // Entrée envoie, Maj + Entrée passe à la ligne.
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
@@ -931,8 +922,6 @@ function SuggestionCard({
     </li>
   );
 }
-
-// ─── Communs ────────────────────────────────────────────────────────────────
 
 function IconButton({ icon, label, onClick }: { icon: IconName; label: string; onClick: () => void }) {
   return (
