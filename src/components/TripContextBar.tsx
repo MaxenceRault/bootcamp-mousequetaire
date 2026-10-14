@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Autocomplete, type Suggestion } from "@/components/ui/Autocomplete";
 import { Card } from "@/components/ui/Card";
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { FormError } from "@/components/ui/FormError";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import type { PostArchetype } from "@/lib/posts";
@@ -14,8 +15,10 @@ type TripContextBarProps = {
   idPrefix: string;
   // Slugs des types de récit (libellés dans le namespace « Archetypes » de fr.json).
   archetypes: readonly PostArchetype[];
-  // Durée maximale (en jours, début et fin inclus) : la date de fin ne peut pas la dépasser.
+  // Durée maximale (en jours, début et fin inclus) : les dates au-delà sont grisées dans le calendrier.
   maxDays?: number;
+  // Interdit les dates passées (planificateur). Un récit, lui, raconte un voyage passé.
+  disablePast?: boolean;
 };
 
 // Champs transparents de la barre de contexte.
@@ -25,10 +28,9 @@ const CONTEXT_INPUT_CLASS_NAME =
 // Barre « destination · dates · type de récit », partagée par l'éditeur de récit et le planificateur.
 // Les champs partent avec le formulaire parent : destinationCountry / destinationState / destinationCity,
 // startDate, endDate, archetype.
-export function TripContextBar({ idPrefix, archetypes, maxDays }: TripContextBarProps) {
+export function TripContextBar({ idPrefix, archetypes, maxDays, disablePast }: TripContextBarProps) {
   const t = useTranslations("TripContextBar");
   const tArchetypes = useTranslations("Archetypes");
-  const [startDate, setStartDate] = useState("");
 
   return (
     <Card className="grid grid-cols-1 gap-2 p-2 md:grid-cols-3">
@@ -36,31 +38,14 @@ export function TripContextBar({ idPrefix, archetypes, maxDays }: TripContextBar
         <DestinationField id={`${idPrefix}-destination`} />
       </ContextField>
 
-      <ContextField icon="calendar" label={t("timeline")}>
-        <div className="flex items-center gap-1">
-          <input
-            name="startDate"
-            type="date"
-            aria-label={t("startDate")}
-            value={startDate}
-            onChange={(event) => setStartDate(event.currentTarget.value)}
-            required
-            className={CONTEXT_INPUT_CLASS_NAME}
-          />
-          <span aria-hidden="true" className="text-ink-soft">
-            →
-          </span>
-          {/* La date de fin ne peut pas précéder la date de début (ni dépasser la durée maximale). */}
-          <input
-            name="endDate"
-            type="date"
-            aria-label={t("endDate")}
-            min={startDate || undefined}
-            max={startDate && maxDays ? addDays(startDate, maxDays - 1) : undefined}
-            required
-            className={CONTEXT_INPUT_CLASS_NAME}
-          />
-        </div>
+      <ContextField icon="calendar" label={t("timeline")} htmlFor={`${idPrefix}-dates`}>
+        <DateRangePicker
+          id={`${idPrefix}-dates`}
+          startName="startDate"
+          endName="endDate"
+          maxDays={maxDays}
+          disablePast={disablePast}
+        />
       </ContextField>
 
       <ContextField icon="category" label={t("archetype")} htmlFor={`${idPrefix}-archetype`}>
@@ -83,13 +68,6 @@ export function TripContextBar({ idPrefix, archetypes, maxDays }: TripContextBar
       </ContextField>
     </Card>
   );
-}
-
-// Date « AAAA-MM-JJ » décalée de n jours (calcul en UTC : pas de décalage dû au fuseau horaire).
-function addDays(day: string, days: number) {
-  const date = new Date(`${day}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
 }
 
 // Destination : un lieu à choisir dans les suggestions.

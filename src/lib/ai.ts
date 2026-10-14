@@ -5,7 +5,8 @@ import { GoogleGenAI, type Schema } from "@google/genai";
 // (application-default en local, compte de service sur Cloud Run), donc aucune clé API.
 // Flash-Lite : le modèle Gemini le moins cher, suffisant pour produire un planning en JSON.
 const MODEL = "gemini-2.5-flash-lite";
-const TIMEOUT_MS = 45_000;
+// Un planning d'un mois (jusqu'à ~180 activités) peut prendre une minute.
+const TIMEOUT_MS = 100_000;
 
 const globalForAi = globalThis as unknown as { genai?: GoogleGenAI };
 
@@ -36,7 +37,7 @@ export async function generateJson({ system, prompt, schema }: GenerateJsonOptio
       responseMimeType: "application/json",
       responseSchema: schema,
       temperature: 0.7,
-      maxOutputTokens: 8192,
+      maxOutputTokens: 32_768,
       abortSignal: AbortSignal.timeout(TIMEOUT_MS),
     },
   });

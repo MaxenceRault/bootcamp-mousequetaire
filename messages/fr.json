@@ -199,8 +199,6 @@
     "destinationPlaceholder": "Ville ou pays…",
     "destinationPick": "Choisissez une destination dans la liste.",
     "timeline": "Dates du voyage",
-    "startDate": "Date de début",
-    "endDate": "Date de fin",
     "archetype": "Type de récit",
     "archetypePlaceholder": "Choisir un type",
     "placesError": "Impossible de charger les lieux. Réessayez."
@@ -212,7 +210,7 @@
     "create": {
       "title": "Nouveau voyage",
       "submit": "Générer avec l'IA",
-      "pending": "L'IA prépare votre voyage… (environ 10 secondes)"
+      "pending": "L'IA prépare votre voyage… (de 10 secondes à 1 minute selon la durée)"
     },
     "list": {
       "title": "Voyages générés",
@@ -300,12 +298,27 @@
     },
     "errors": {
       "INVALID_INPUT": "Vérifiez les champs du formulaire.",
-      "TRIP_TOO_LONG": "Un voyage dure 14 jours maximum : raccourcissez les dates.",
+      "TRIP_TOO_LONG": "Un voyage dure 1 mois maximum : raccourcissez les dates.",
       "TOO_MANY_REQUESTS": "Trop de demandes à l'IA. Réessayez dans une heure.",
       "AI_UNAVAILABLE": "L'IA n'a pas pu générer le planning. Réessayez dans un instant.",
       "NOT_FOUND": "Élément introuvable.",
       "UNAUTHORIZED": "Votre session a expiré. Reconnectez-vous.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
     }
+  },
+  "DateRangePicker": {
+    "start": "Départ",
+    "end": "Retour",
+    "dialog": "Choisir les dates du voyage",
+    "previous": "Mois précédent",
+    "next": "Mois suivant",
+    "pickStart": "Choisissez la date de départ.",
+    "pickEnd": "Choisissez la date de retour.",
+    "pickEndMax": "Choisissez la date de retour ({max} jours maximum).",
+    "tooLong": "Un voyage dure 1 mois maximum ({max} jours) : choisissez une date plus proche.",
+    "selected": "{count, plural, one {# jour} other {# jours}}",
+    "required": "Choisissez une date de départ et une date de retour.",
+    "clear": "Effacer",
+    "done": "Valider"
   }
 }

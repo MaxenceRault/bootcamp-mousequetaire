@@ -2,7 +2,8 @@ import { z } from "zod";
 import { POST_ARCHETYPES } from "@/lib/posts";
 
 // Limites alignées sur les tables trip, trip_item et trip_task (db/migrations/).
-export const TRIP_MAX_DAYS = 14;
+// Durée maximale d'un voyage : 1 mois (début et fin inclus).
+export const TRIP_MAX_DAYS = 31;
 export const TRIP_ITEM_CATEGORIES = ["transport", "lodging", "activity", "food"] as const;
 export const ADJUST_INSTRUCTION_MAX = 300;
 

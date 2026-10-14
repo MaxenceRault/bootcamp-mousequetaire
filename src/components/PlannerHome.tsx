@@ -79,7 +79,7 @@ export function PlannerHome({ archetypes }: { archetypes: readonly PostArchetype
           {t("create.title")}
         </h2>
         <form method="post" onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <TripContextBar idPrefix="trip" archetypes={archetypes} maxDays={TRIP_MAX_DAYS} />
+          <TripContextBar idPrefix="trip" archetypes={archetypes} maxDays={TRIP_MAX_DAYS} disablePast />
           <div className="flex flex-col items-end gap-2">
             <FormError>{error && t(`errors.${error}`)}</FormError>
             {pending && (
