@@ -24,7 +24,11 @@
     "allArchetypes": "Tendances",
     "empty": "Aucun post pour le moment.",
     "error": "Impossible de charger les posts. Réessayez plus tard.",
-    "newPost": "Nouveau post"
+    "newPost": "Nouveau post",
+    "loadingMore": "Chargement des récits…",
+    "loadMoreError": "Impossible de charger la suite.",
+    "retry": "Réessayer",
+    "end": "Vous avez tout vu !"
   },
   "Archetypes": {
     "slow_travel_photography": "Slow travel & photo",
@@ -55,6 +59,13 @@
       "saved": "Rien d'enregistré pour l'instant."
     },
     "createItinerary": "Créer un itinéraire",
+    "stories": {
+      "hide": "Masquer",
+      "show": "Afficher",
+      "delete": "Supprimer",
+      "confirmDelete": "Supprimer définitivement ce récit ? Cette action est irréversible.",
+      "confirmDeleteYes": "Oui, supprimer"
+    },
     "form": {
       "title": "Modifier mes informations",
       "avatar": "Avatar",
@@ -74,6 +85,8 @@
       "USERNAME_TAKEN": "Ce pseudo est déjà pris.",
       "INVALID_INPUT": "Vérifiez les champs du formulaire.",
       "UNAUTHORIZED": "Votre session a expiré. Reconnectez-vous.",
+      "TOO_MANY_REQUESTS": "Trop de modifications. Réessayez dans quelques minutes.",
+      "NOT_FOUND": "Ce récit n'existe plus.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
     }
   },
@@ -84,6 +97,10 @@
     "back": "Retour aux récits",
     "breadcrumb": "Fil d'Ariane",
     "share": "Partager",
+    "like": "J'aime ({count, plural, =0 {aucun j'aime} one {# j'aime} other {# j'aime}})",
+    "unlike": "Je n'aime plus ({count, plural, =0 {aucun j'aime} one {# j'aime} other {# j'aime}})",
+    "save": "Enregistrer",
+    "saved": "Enregistré",
     "linkCopied": "Lien copié",
     "readingTime": "{minutes} min de lecture",
     "writtenBy": "Écrit par {name}",
@@ -331,5 +348,8 @@
     "required": "Choisissez une date de départ et une date de retour.",
     "clear": "Effacer",
     "done": "Valider"
+  },
+  "StoryCard": {
+    "hidden": "Masqué"
   }
 }

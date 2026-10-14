@@ -1,17 +1,42 @@
 import "server-only";
+import { getConfig } from "@/lib/config";
 import { getUserIdFromRequest } from "@/lib/jwt";
-import { isRateLimited } from "@/lib/rateLimit";
-import { createPostSchema, PHOTO_MAX_BYTES } from "@/schemas/post.schema";
-import { createPost, PostError } from "@/lib/services/post.service";
+import { clientIp, isRateLimited } from "@/lib/rateLimit";
+import {
+  createPostSchema,
+  feedQuerySchema,
+  PHOTO_MAX_BYTES,
+  postIdSchema,
+  updatePostSchema,
+} from "@/schemas/post.schema";
+import { createPost, deleteOwnPost, getFeedPage, PostError, setPostHidden } from "@/lib/services/post.service";
 
 const MAX_BODY_BYTES = PHOTO_MAX_BYTES + 1024 * 1024;
-const ONE_HOUR = 60 * 60 * 1000;
 
+// GET /api/v1/posts?archetype=&cursor=&limit= (public) → { posts, nextCursor }
+export async function getFeedController(request: Request) {
+  const { max, windowMs } = getConfig().rateLimits.feed;
+  if (isRateLimited(`posts:feed:${clientIp(request)}`, max, windowMs)) {
+    return errorResponse(429, "TOO_MANY_REQUESTS");
+  }
+
+  const query = feedQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+  if (!query.success) return errorResponse(400, "INVALID_INPUT");
+
+  try {
+    return Response.json(await getFeedPage(query.data));
+  } catch (error) {
+    return internalError(error);
+  }
+}
+
+// POST /api/v1/posts (multipart/form-data, Authorization: Bearer <token>) → 201 { id }
 export async function createPostController(request: Request) {
   const userId = await getUserIdFromRequest(request);
   if (!userId) return errorResponse(401, "UNAUTHORIZED");
 
-  if (isRateLimited(`posts:create:${userId}`, 10, ONE_HOUR)) {
+  const { max, windowMs } = getConfig().rateLimits.postCreate;
+  if (isRateLimited(`posts:create:${userId}`, max, windowMs)) {
     return errorResponse(429, "TOO_MANY_REQUESTS");
   }
 
@@ -29,18 +54,61 @@ export async function createPostController(request: Request) {
     return Response.json(await createPost(userId, body.data), { status: 201 });
   } catch (error) {
     if (error instanceof PostError) return errorResponse(400, error.code);
-
-    console.error(
-      JSON.stringify({
-        level: "error",
-        scope: "posts",
-        message: String((error as { message?: unknown })?.message ?? "unknown error"),
-      }),
-    );
-    return errorResponse(500, "INTERNAL_ERROR");
+    return internalError(error);
   }
 }
 
+// PATCH /api/v1/posts/{id} (JSON { hidden }, Bearer) → 200 { id, hidden } : masquer / réafficher son post.
+export async function updatePostController(request: Request, { params }: RouteContext<"/api/v1/posts/[id]">) {
+  const guard = await authorizePostEdit(request, (await params).id);
+  if ("response" in guard) return guard.response;
+
+  const body = updatePostSchema.safeParse(await request.json().catch(() => null));
+  if (!body.success) return errorResponse(400, "INVALID_INPUT");
+
+  try {
+    return Response.json(await setPostHidden(guard.userId, guard.postId, body.data.hidden));
+  } catch (error) {
+    return postEditError(error);
+  }
+}
+
+// DELETE /api/v1/posts/{id} (Bearer) → 204 : suppression définitive de son post.
+export async function deletePostController(request: Request, { params }: RouteContext<"/api/v1/posts/[id]">) {
+  const guard = await authorizePostEdit(request, (await params).id);
+  if ("response" in guard) return guard.response;
+
+  try {
+    await deleteOwnPost(guard.userId, guard.postId);
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    return postEditError(error);
+  }
+}
+
+// Étapes communes à PATCH et DELETE : token, rate limit par utilisateur, id de l'URL.
+// (La vérification que l'utilisateur est l'auteur du post est faite par le service.)
+async function authorizePostEdit(
+  request: Request,
+  rawId: string,
+): Promise<{ userId: string; postId: number } | { response: Response }> {
+  const userId = await getUserIdFromRequest(request);
+  if (!userId) return { response: errorResponse(401, "UNAUTHORIZED") };
+
+  const { max, windowMs } = getConfig().rateLimits.postEdit;
+  if (isRateLimited(`posts:edit:${userId}`, max, windowMs)) {
+    return { response: errorResponse(429, "TOO_MANY_REQUESTS") };
+  }
+
+  const postId = postIdSchema.safeParse(rawId);
+  if (!postId.success) return { response: errorResponse(400, "INVALID_INPUT") };
+  return { userId, postId: postId.data };
+}
+
+function postEditError(error: unknown) {
+  if (error instanceof PostError) return errorResponse(error.code === "NOT_FOUND" ? 404 : 400, error.code);
+  return internalError(error);
+}
 
 function formToObject(form: FormData) {
   const data: Record<string, unknown> = {};
@@ -53,4 +121,16 @@ function formToObject(form: FormData) {
 
 function errorResponse(status: number, code: string) {
   return Response.json({ error: code }, { status });
+}
+
+// Détail dans les logs serveur uniquement ; le client reçoit un code générique.
+function internalError(error: unknown) {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      scope: "posts",
+      message: String((error as { message?: unknown })?.message ?? "unknown error"),
+    }),
+  );
+  return errorResponse(500, "INTERNAL_ERROR");
 }

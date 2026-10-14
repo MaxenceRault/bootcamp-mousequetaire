@@ -1,6 +1,7 @@
 import "server-only";
 import { AuthTypes, Connector, IpAddressTypes } from "@google-cloud/cloud-sql-connector";
 import { Pool, types } from "pg";
+import { getConfig } from "@/lib/config";
 
 // Connexion à Cloud SQL (Postgres) via le connecteur officiel Google :
 // TLS chiffré + authentification IAM, donc aucun mot de passe de base dans l'app.
@@ -9,12 +10,8 @@ import { Pool, types } from "pg";
 const globalForDb = globalThis as unknown as { dbPool?: Promise<Pool> };
 
 async function createPool() {
-  const instanceConnectionName = process.env.CLOUD_SQL_INSTANCE;
-  const user = process.env.DB_USER;
-  const database = process.env.DB_NAME;
-  if (!instanceConnectionName || !user || !database) {
-    throw new Error("CLOUD_SQL_INSTANCE, DB_USER et DB_NAME doivent être définies");
-  }
+  // Présence et format vérifiés par getConfig (CLOUD_SQL_INSTANCE, DB_USER, DB_NAME).
+  const { instanceConnectionName, user, database } = getConfig().db;
 
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
