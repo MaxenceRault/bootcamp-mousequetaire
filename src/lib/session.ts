@@ -93,18 +93,21 @@ export function updateSessionUser(user: SessionUser) {
 export type ApiResult<T> = { data: T } | { error: string };
 
 // Appel d'une route API privée avec « Authorization: Bearer <token> ».
+// body : objet envoyé en JSON, ou FormData envoyé tel quel en multipart (ex. upload de photo).
 // Session invalide ou expirée (401) : la session locale est effacée.
 export async function apiFetch<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<ApiResult<T>> {
   const token = getToken();
   if (!token) return { error: "UNAUTHORIZED" };
 
+  const isMultipart = init.body instanceof FormData;
   const response = await fetch(path, {
     method: init.method ?? "GET",
     headers: {
       Authorization: `Bearer ${token}`,
-      ...(init.body === undefined ? {} : { "Content-Type": "application/json" }),
+      // Multipart : pas de Content-Type, le navigateur l'ajoute avec la frontière (boundary).
+      ...(init.body === undefined || isMultipart ? {} : { "Content-Type": "application/json" }),
     },
-    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+    body: init.body === undefined ? undefined : isMultipart ? (init.body as FormData) : JSON.stringify(init.body),
   }).catch(() => null);
 
   const data = await response?.json().catch(() => null);

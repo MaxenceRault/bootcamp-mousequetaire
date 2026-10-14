@@ -1,7 +1,15 @@
 import { DEMO_POSTS } from "@/lib/demo-posts";
 
-export const POST_CATEGORIES = ["culture", "coast", "food", "ai_curated"] as const;
-export type PostCategory = (typeof POST_CATEGORIES)[number];
+// Types de récit : servent d'onglets au feed et de choix dans l'éditeur.
+// Doivent rester identiques aux slugs de la table archetype (supabase/migrations/).
+// Libellés affichés : namespace « Archetypes » de messages/fr.json.
+export const POST_ARCHETYPES = [
+  "slow_travel_photography",
+  "solo_architecture",
+  "culinary_heritage",
+  "mountain_trek",
+] as const;
+export type PostArchetype = (typeof POST_ARCHETYPES)[number];
 
 export type FeedPost = {
   id: string;
@@ -24,13 +32,13 @@ export type FeedPost = {
 
 const FEED_LIMIT = 20;
 
-// Posts les plus récents, filtrés par catégorie si besoin.
+// Posts les plus récents, filtrés par type de récit si besoin.
 // Temporaire : lit les données de démo locales. À remplacer par l'appel à l'API back-end
 // (même signature, pour que la page et les composants n'aient pas à changer).
-export async function getFeedPosts(category?: PostCategory): Promise<FeedPost[]> {
+export async function getFeedPosts(archetype?: PostArchetype): Promise<FeedPost[]> {
   const now = Date.now();
 
-  return DEMO_POSTS.filter((post) => !category || post.category === category)
+  return DEMO_POSTS.filter((post) => !archetype || post.archetype === archetype)
     .map(({ hoursAgo, ...post }) => ({
       ...post,
       createdAt: new Date(now - hoursAgo * 3_600_000),

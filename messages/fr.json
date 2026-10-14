@@ -20,17 +20,17 @@
   },
   "Home": {
     "title": "Les derniers voyages de la communauté",
-    "categoriesLabel": "Filtrer par catégorie",
-    "categories": {
-      "all": "Tendances",
-      "culture": "Pépites culturelles",
-      "coast": "Littoral",
-      "food": "Gastronomie",
-      "ai_curated": "Sélection IA"
-    },
+    "archetypesLabel": "Filtrer par type de récit",
+    "allArchetypes": "Tendances",
     "empty": "Aucun post pour le moment.",
     "error": "Impossible de charger les posts. Réessayez plus tard.",
-    "askAi": "Demander à l'IA"
+    "newPost": "Nouveau post"
+  },
+  "Archetypes": {
+    "slow_travel_photography": "Slow travel & photo",
+    "solo_architecture": "Architecture en solo",
+    "culinary_heritage": "Patrimoine culinaire",
+    "mountain_trek": "Trek en montagne"
   },
   "Profile": {
     "metaTitle": "Mon profil",
@@ -132,6 +132,49 @@
       "TOO_MANY_REQUESTS": "Trop de tentatives. Réessayez dans quelques minutes.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
       "PASSWORD_MISMATCH": "Les mots de passe ne correspondent pas."
+    }
+  },
+  "PostEditor": {
+    "metaTitle": "Nouveau récit",
+    "heading": "Nouveau récit de voyage",
+    "fields": {
+      "title": "Titre",
+      "titlePlaceholder": "Où êtes-vous allé ? Ex. Aube silencieuse dans la bambouseraie d'Arashiyama",
+      "destination": "Destination",
+      "destinationPlaceholder": "Ville ou pays…",
+      "destinationPick": "Choisissez une destination dans la liste.",
+      "timeline": "Dates du voyage",
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "archetype": "Type de récit",
+      "archetypePlaceholder": "Choisir un type",
+      "shortDescription": "Description courte",
+      "shortDescriptionPlaceholder": "Une phrase d'accroche sur votre voyage…",
+      "longDescription": "Description longue",
+      "longDescriptionPlaceholder": "Racontez votre voyage…"
+    },
+    "placesError": "Impossible de charger les lieux. Réessayez.",
+    "photo": {
+      "title": "Photo de couverture",
+      "add": "Ajouter une photo",
+      "hint": "JPEG, PNG ou WebP · 5 Mo maximum",
+      "previewAlt": "Aperçu de la photo de couverture",
+      "remove": "Retirer la photo",
+      "alt": "Décrivez la photo",
+      "altPlaceholder": "Ex. Ruelle de Kyoto au lever du soleil, lanternes encore allumées"
+    },
+    "tags": {
+      "title": "Tags",
+      "inputLabel": "Ajouter un lieu en tag",
+      "placeholder": "Ville ou pays…",
+      "remove": "Retirer le tag {name}"
+    },
+    "submit": "Publier le récit",
+    "errors": {
+      "INVALID_INPUT": "Vérifiez les champs du formulaire.",
+      "TOO_MANY_REQUESTS": "Trop de publications. Réessayez plus tard.",
+      "PAYLOAD_TOO_LARGE": "La photo est trop lourde (5 Mo maximum).",
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
     }
   }
 }

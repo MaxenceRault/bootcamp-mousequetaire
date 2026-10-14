@@ -18,3 +18,8 @@ export function isRateLimited(key: string, limit: number, windowMs: number) {
   entry.count += 1;
   return entry.count > limit;
 }
+
+// IP du client (premier élément de x-forwarded-for), utilisée comme clé de rate limit.
+export function clientIp(request: Request) {
+  return request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+}

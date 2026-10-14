@@ -12,5 +12,5 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Routes API privées (les pages ne reçoivent pas le token : il est dans le navigateur, pas dans un cookie).
-  matcher: ["/api/v1/users/:path*"],
+  matcher: ["/api/v1/users/:path*", "/api/v1/posts/:path*"],
 };

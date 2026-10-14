@@ -1,5 +1,5 @@
 import "server-only";
-import { isRateLimited } from "@/lib/rateLimit";
+import { clientIp, isRateLimited } from "@/lib/rateLimit";
 import { AuthError, login, register } from "@/lib/services/auth.service";
 import { loginSchema, registerSchema } from "@/schemas/auth.schema";
 
@@ -40,10 +40,6 @@ export async function registerController(request: Request) {
 
 function readJson(request: Request) {
   return request.json().catch(() => null);
-}
-
-function clientIp(request: Request) {
-  return request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
 }
 
 function errorResponse(status: number, code: string) {

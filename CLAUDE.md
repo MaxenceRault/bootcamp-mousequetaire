@@ -22,6 +22,7 @@ src/
 │   ├── layout.tsx             # Layout global (Navbar + Footer + Fonts)
 │   ├── page.tsx               # Homepage (Feed + Hero Search)
 │   ├── post/[id]/page.tsx     # Détail d'un post de voyage
+│   ├── post/new/page.tsx      # Éditeur de récit (création d'un post)
 │   ├── profile/page.tsx       # Tableau de bord utilisateur
 │   ├── planner/page.tsx       # Planification (Calendrier + Checklist)
 │   ├── login/page.tsx         # Auth : connexion / inscription / mot de passe oublié (?view=)
@@ -29,23 +30,26 @@ src/
 │   └── api/v1/                # Couche CONTROLLER (route handlers), toutes les routes sous /api/v1/
 │       ├── auth/login/route.ts    # POST /api/v1/auth/login → auth.controller
 │       ├── auth/register/route.ts # POST /api/v1/auth/register → auth.controller
+│       ├── posts/route.ts         # POST /api/v1/posts (multipart + Bearer) création d'un post → post.controller
+│       ├── locations/route.ts     # GET /api/v1/locations?q= recherche de villes / pays (country-state-city) → location.controller
 │       ├── users/me/route.ts  # GET / PATCH /api/v1/users/me (profil connecté) → user.controller
 │       ├── openapi.json/route.ts # GET /api/v1/openapi.json : spécification OpenAPI (dev uniquement)
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
-├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (auth.schema.ts, user.schema.ts)
+├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (auth.schema.ts, user.schema.ts, post.schema.ts)
 ├── services/                  # Couche SERVICE : logique métier (ex. post.service.ts)
 ├── repositories/              # Couche REPOSITORY : accès base de données (ex. post.repository.ts)
-├── proxy.ts                   # Middleware Next 16 : refuse sans token valide les routes API privées (/api/v1/users/*)
+├── proxy.ts                   # Middleware Next 16 : refuse sans token valide les routes API privées (/api/v1/users/*, /api/v1/posts/*)
 ├── types/
 │   └── swagger-ui-dist.d.ts   # Types du bundle navigateur de Swagger UI
 ├── i18n/
 │   └── request.ts             # Config next-intl (locale + chargement des messages)
 ├── components/
-│   ├── ui/                    # Design system : Button, Input, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar
+│   ├── ui/                    # Design system : Button, Input, Textarea, Autocomplete, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar
 │   ├── Navbar.tsx             # Barre du haut (version visiteur / connecté)
 │   ├── NavbarAccount.tsx      # Zone compte de la Navbar (client : lit la session du navigateur)
 │   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
+│   ├── PostEditorForm.tsx     # Formulaire de l'éditeur de récit (client)
 │   ├── ProfileView.tsx        # Page profil (client : charge /api/v1/users/me avec le token)
 │   ├── ProfileEditForm.tsx    # Formulaire de modification du profil (PATCH /api/v1/users/me)
 │   ├── SwaggerDocs.tsx        # Swagger UI autonome (swagger-ui-dist), hors du Strict Mode de l'app
@@ -78,9 +82,10 @@ supabase/                      # Scripts SQL à exécuter dans le SQL Editor
 - Ne pas créer de dossier ou de fichier hors de cette structure sans le demander d'abord. Si un nouveau fichier est nécessaire, le placer au bon endroit (page → `app/`, composant → `components/`, endpoint → `app/api/v1/`, schéma Zod → `schemas/`, logique métier → `services/`, accès BDD → `repositories/`, helpers/clients externes → `lib/`) et le signaler.
 - Les fichiers existent mais sont vides : ne les remplir que lorsqu'on travaille sur la fonctionnalité concernée. Ne pas inventer d'UI, de textes, de données ou de logique qui n'ont pas été demandés.
 - Base de données : Supabase, **pas branchée dans l'app pour l'instant** (clients et `proxy.ts` retirés). En attendant, le feed lit les données de démo de `src/lib/demo-posts.ts` via `src/lib/posts.ts`. Une fois branchée, les clients Supabase iront dans `src/utils/supabase/` et ne seront importés que par `repositories/`.
-- Schéma de la base (tables `users` et `post`, RLS en lecture seule) dans `supabase/migrations/`. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app. `SUPABASE_SECRET_KEY` n'est lue que par ce script.
+- Schéma de la base (tables `users`, `post`, `archetype`, `tag`, `post_tag`, RLS en lecture seule ; bucket Storage `post-photos` public en lecture) dans `supabase/migrations/`. Une migration s'exécute **une seule fois** : tout changement de schéma passe par un nouveau fichier daté, jamais en modifiant ou relançant un ancien. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app. `SUPABASE_SECRET_KEY` n'est lue que par ce script.
 - Architecture back : route → controller → service → repository → base. Pas d'accès base hors des repositories.
 - Documentation API : toute nouvelle route sous `/api/v1/` est ajoutée dans `src/lib/openapi.ts` (visible sur `/api-docs` en dev). Les schémas Zod des requêtes vont dans `schemas/` pour être réutilisés par la doc.
+- **Nommage en anglais** : tables, colonnes, types, variables, fonctions, fichiers et routes (ex. `short_description`, `start_date`, `archetype_id`). Seuls les textes affichés (`messages/fr.json`) et les commentaires sont en français.
 - Imports via l'alias `@/` (→ `src/`).
 
 ## Architecture en couches (back) — à respecter
