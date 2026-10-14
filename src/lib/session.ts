@@ -5,6 +5,7 @@ export type SessionUser = {
   avatar_url: string | null;
   // Absent dans les sessions ouvertes avant l'ajout du choix d'avatar.
   avatar_seed?: string | null;
+  avatar_background_color?: string | null;
 };
 
 const TOKEN_KEY = "brb_token";

@@ -38,8 +38,8 @@ export async function login(email: string, password: string, remember: boolean):
 
   if (!user || !user.password_hash || !valid) throw new AuthError("INVALID_CREDENTIALS");
 
-  const { id, username, display_name, avatar_url, avatar_seed } = user;
-  return createSession({ id, username, display_name, avatar_url, avatar_seed }, remember);
+  const { id, username, display_name, avatar_url, avatar_seed, avatar_background_color } = user;
+  return createSession({ id, username, display_name, avatar_url, avatar_seed, avatar_background_color }, remember);
 }
 
 export async function register(name: string, email: string, password: string): Promise<AuthResult> {
@@ -69,9 +69,9 @@ export async function refreshSession(refreshToken: string): Promise<AuthResult> 
   const profile = await findProfileById(stored.user_id);
   if (!profile) throw new AuthError("INVALID_REFRESH_TOKEN");
 
-  const { id, username, display_name, avatar_url, avatar_seed } = profile;
+  const { id, username, display_name, avatar_url, avatar_seed, avatar_background_color } = profile;
   const next = await issueRefreshToken(id, stored.family_id, new Date(stored.expires_at));
-  return { token: await signToken(id), refreshToken: next, user: { id, username, display_name, avatar_url, avatar_seed } };
+  return { token: await signToken(id), refreshToken: next, user: { id, username, display_name, avatar_url, avatar_seed, avatar_background_color } };
 }
 
 // Déconnexion : révoque toute la session (famille) du refresh token. Silencieux si token inconnu.

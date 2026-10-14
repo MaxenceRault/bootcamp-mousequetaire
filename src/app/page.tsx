@@ -6,11 +6,11 @@ import { z } from "zod";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { FeedList } from "@/components/FeedList";
-import { buttonClassName } from "@/components/ui/Button";
+import { NewPostButton } from "@/components/NewPostButton";
 import { Card } from "@/components/ui/Card";
-import { Icon } from "@/components/ui/Icon";
 import { POST_ARCHETYPES, type FeedPage, type PostArchetype } from "@/lib/posts";
-import { getFeedPage } from "@/lib/services/post.service";
+import { getFeedPage, searchPosts } from "@/lib/services/post.service";
+import { searchQuerySchema } from "@/schemas/post.schema";
 
 // Allowlist : toute autre valeur de ?archetype= retombe sur le feed complet.
 const archetypeSchema = z.enum(POST_ARCHETYPES);
@@ -38,20 +38,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </div>
       </main>
 
-      {/* Bouton flottant : ouvre l'éditeur pour publier un nouveau post. */}
-      <Link
-        href="/post/new"
-        aria-label={t("newPost")}
-        className={buttonClassName(
-          "md",
-          "group fixed right-4 bottom-4 z-50 gap-0 px-3.5 shadow-lg md:right-6 md:bottom-6",
-        )}
-      >
-        <Icon name="add" className="size-5" />
-        <span className="max-w-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-xs group-focus-visible:ml-2 group-focus-visible:max-w-xs">
-          {t("newPost")}
-        </span>
-      </Link>
+      {/* Bouton flottant : ouvre l'éditeur pour publier un nouveau post (connecté uniquement). */}
+      <NewPostButton />
 
       <Footer />
     </>
@@ -61,7 +49,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 async function Feed({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   // Rendu à chaque requête : les dates relatives (« il y a 2 heures ») dépendent de l'heure actuelle.
   await connection();
-  const parsed = archetypeSchema.safeParse((await searchParams).archetype);
+  const params = await searchParams;
+  // ?q= valide (2 à 100 caractères) : résultats de recherche à la place du feed.
+  const query = searchQuerySchema.safeParse(params.q);
+  if (query.success) return <SearchResults query={query.data} />;
+
+  const parsed = archetypeSchema.safeParse(params.archetype);
   const archetype = parsed.success ? parsed.data : undefined;
   const t = await getTranslations("Home");
 
@@ -90,6 +83,38 @@ async function Feed({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
           archetype={archetype}
           now={now}
         />
+      )}
+    </>
+  );
+}
+
+// Résultats de la recherche (30 max, sans chargement infini) : mêmes cartes que le feed.
+async function SearchResults({ query }: { query: string }) {
+  const t = await getTranslations("Home");
+
+  let posts: FeedPage["posts"] | null;
+  try {
+    posts = await searchPosts(query);
+  } catch {
+    posts = null;
+  }
+
+  return (
+    <>
+      <header className="mb-8 flex flex-col gap-2 border-b border-line pb-4">
+        <h2 className="font-display text-headline-md text-ink">{t("searchTitle", { query })}</h2>
+        <p className="flex flex-wrap items-center gap-3 text-body-md text-ink-soft">
+          {posts && <span>{t("searchCount", { count: posts.length })}</span>}
+          <Link href="/" className="font-display text-label-md text-ink-soft underline transition hover:text-ink">
+            {t("searchClear")}
+          </Link>
+        </p>
+      </header>
+
+      {posts === null && <p className="py-10 text-center text-body-md text-ink-soft">{t("error")}</p>}
+      {posts?.length === 0 && <p className="py-10 text-center text-body-md text-ink-soft">{t("searchEmpty")}</p>}
+      {posts && posts.length > 0 && (
+        <FeedList key={`search:${query}`} initialPosts={posts} initialCursor={null} now={new Date()} />
       )}
     </>
   );

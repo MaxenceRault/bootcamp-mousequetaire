@@ -101,3 +101,9 @@ export const viewerReactionsQuerySchema = z
       .pipe(z.array(z.number().int().max(2_147_483_647)).min(1).max(MAX_REACTION_POST_IDS)),
   })
   .strict();
+
+// Recherche de la page d'accueil (/?q=…) : 2 à 100 caractères après nettoyage des espaces.
+export const searchQuerySchema = z
+  .string()
+  .transform((value) => value.replace(/\s+/g, " ").trim())
+  .pipe(z.string().min(2).max(100));

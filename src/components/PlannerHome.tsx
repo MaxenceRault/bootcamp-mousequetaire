@@ -1,31 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { FormError } from "@/components/ui/FormError";
 import { Icon } from "@/components/ui/Icon";
+import { TripCard, type TripSummary } from "@/components/TripCard";
 import { TripContextBar } from "@/components/TripContextBar";
-import { countryName, flagEmoji } from "@/lib/country";
 import type { PostArchetype } from "@/lib/posts";
 import { TRIP_MAX_DAYS } from "@/schemas/trip.schema";
 import { apiFetch, getSessionSnapshot } from "@/lib/session";
 import { plannerError, type PlannerError } from "@/components/TripPlanner";
-
-// Voyage dans la liste (GET /api/v1/trips).
-type TripSummary = {
-  id: number;
-  title: string;
-  destination_country_code: string;
-  destination_city: string | null;
-  start_date: string;
-  end_date: string;
-  archetype: PostArchetype;
-  item_count: number;
-};
 
 type ListState = { status: "loading" } | { status: "error" } | { status: "ready"; trips: TripSummary[] };
 
@@ -118,8 +105,6 @@ export function PlannerHome({ archetypes }: { archetypes: readonly PostArchetype
 
 function TripList({ state }: { state: ListState }) {
   const t = useTranslations("Planner");
-  const tArchetypes = useTranslations("Archetypes");
-  const format = useFormatter();
 
   if (state.status === "loading") {
     return (
@@ -137,33 +122,7 @@ function TripList({ state }: { state: ListState }) {
     <ul className="grid gap-3 md:grid-cols-2">
       {state.trips.map((trip) => (
         <li key={trip.id}>
-          <Link
-            href={`/planner/${trip.id}`}
-            className="block h-full rounded-lg focus-visible:ring-2 focus-visible:ring-accent/25 focus-visible:outline-none"
-          >
-            <Card className="flex h-full flex-col gap-2 p-5 transition hover:border-ink-soft/30">
-              <span className="font-display text-label-sm text-ink-soft uppercase">
-                {flagEmoji(trip.destination_country_code)}{" "}
-                {trip.destination_city ?? countryName(trip.destination_country_code, "fr")}
-              </span>
-              <span className="font-display text-headline-sm text-ink">{trip.title}</span>
-              <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-ink-soft">
-                <span className="inline-flex items-center gap-1">
-                  <Icon name="calendar" className="size-4" />
-                  {format.dateTimeRange(new Date(trip.start_date), new Date(trip.end_date), {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Icon name="category" className="size-4" />
-                  {tArchetypes(trip.archetype)}
-                </span>
-                <span>{t("list.activities", { count: trip.item_count })}</span>
-              </span>
-            </Card>
-          </Link>
+          <TripCard trip={trip} />
         </li>
       ))}
     </ul>

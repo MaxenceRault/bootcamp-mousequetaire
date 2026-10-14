@@ -1,4 +1,5 @@
 import "server-only";
+import { detectImage } from "@/lib/images";
 import { randomUUID } from "node:crypto";
 import { POST_ARCHETYPES, type FeedPage, type FeedPost, type PostArchetype } from "@/lib/posts";
 import {
@@ -20,9 +21,10 @@ import {
   type FeedPostRow,
   type PlaceFilter,
   type PostSummaryWithAuthor,
+  searchFeedPosts,
 } from "@/lib/repositories/post.repository";
 import type { CreatePostInput, PlaceInput } from "@/schemas/post.schema";
-import { describePlace, placeExists, type PlaceNames } from "@/lib/services/location.service";
+import { describePlace, placeExists, searchPlaces, type PlaceNames } from "@/lib/services/location.service";
 
 // Nombre de posts chargés à la fois dans le feed (première page puis chaque « suite »).
 export const FEED_PAGE_SIZE = 10;
@@ -32,24 +34,6 @@ export class PostError extends Error {
     super(code);
   }
 }
-
-// Type réel de l'image, lu dans ses premiers octets (le type annoncé par le navigateur ne prouve rien).
-const IMAGE_SIGNATURES = [
-  { extension: "jpg", contentType: "image/jpeg", matches: (b: Uint8Array) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
-  {
-    extension: "png",
-    contentType: "image/png",
-    matches: (b: Uint8Array) => [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((byte, i) => b[i] === byte),
-  },
-  {
-    extension: "webp",
-    contentType: "image/webp",
-    // « RIFF » (octets 0-3) … « WEBP » (octets 8-11)
-    matches: (b: Uint8Array) =>
-      [0x52, 0x49, 0x46, 0x46].every((byte, i) => b[i] === byte) &&
-      [0x57, 0x45, 0x42, 0x50].every((byte, i) => b[i + 8] === byte),
-  },
-];
 
 export async function createPost(authorId: string, input: CreatePostInput): Promise<{ id: number }> {
   const destination = { country: input.destinationCountry, state: input.destinationState, city: input.destinationCity };
@@ -104,10 +88,6 @@ export async function createPost(authorId: string, input: CreatePostInput): Prom
   }
 }
 
-async function detectImage(photo: File) {
-  const bytes = new Uint8Array(await photo.slice(0, 12).arrayBuffer());
-  return IMAGE_SIGNATURES.find((signature) => signature.matches(bytes)) ?? null;
-}
 
 // Un même lieu envoyé deux fois ne compte qu'une fois.
 function uniquePlaces(places: PlaceInput[]) {
@@ -166,6 +146,7 @@ function toFeedPost(row: FeedPostRow): FeedPost[] {
         displayName: row.author.display_name,
         avatarUrl: row.author.avatar_url,
         avatarSeed: row.author.avatar_seed,
+        avatarBackgroundColor: row.author.avatar_background_color,
       },
     },
   ];
@@ -211,7 +192,7 @@ export type PostDetail = {
   readingMinutes: number;
   createdAt: string;
   archetype: string;
-  author: { id: string; username: string; displayName: string; avatarUrl: string | null; avatarSeed: string | null };
+  author: { id: string; username: string; displayName: string; avatarUrl: string | null; avatarSeed: string | null; avatarBackgroundColor: string | null };
   // Codes du lieu (liens vers /tags) + libellé affiché.
   tags: { label: string; countryCode: string; stateCode: string | null; city: string | null }[];
 };
@@ -253,6 +234,7 @@ export async function getPostDetail(id: number): Promise<PostDetail | null> {
       displayName: row.author.display_name,
       avatarUrl: row.author.avatar_url,
       avatarSeed: row.author.avatar_seed,
+        avatarBackgroundColor: row.author.avatar_background_color,
     },
     tags: row.post_tag.map(({ tag }) => {
       const names = describePlace({ country: tag.country_code, state: tag.state_code, city: tag.city });
@@ -279,4 +261,19 @@ export async function getPostsByPlace(place: PlaceFilter): Promise<PlacePosts | 
     place: describePlace(place),
     posts: await findPostSummariesByIds(ids, PLACE_POSTS_LIMIT),
   };
+}
+
+const SEARCH_LIMIT = 30;
+
+// Recherche de la page d'accueil : lieux (tags, destination), puis titres, puis textes.
+// Les lieux viennent de l'index country-state-city : « Japon », « kyo » ou « Île-de-France » trouvent
+// les posts de ces lieux même si le mot n'apparaît pas dans leur texte.
+export async function searchPosts(query: string): Promise<FeedPost[]> {
+  const places = searchPlaces(query).map(({ country, state, city }) => ({
+    country,
+    state: state ?? null,
+    city: city ?? null,
+  }));
+  const rows = await searchFeedPosts({ text: query, places, limit: SEARCH_LIMIT });
+  return rows.flatMap(toFeedPost);
 }
