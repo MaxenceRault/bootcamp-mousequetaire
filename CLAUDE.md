@@ -5,10 +5,13 @@ Projet fil rouge : blog et planificateur de voyage basé sur les posts et avis d
 ## Commandes
 
 ```bash
-npm run dev     # serveur de dev
+podman compose up   # environnement de dev conteneurisé (ou docker compose up ; voir README.md) → http://localhost:3000
+npm run dev     # serveur de dev (sans Docker)
 npm run build   # build de prod (lance aussi le typecheck)
 npm run lint    # ESLint
 ```
+
+Dans le conteneur : `podman compose run --rm app npm run <script>`.
 
 Vérifier `npm run lint` et `npm run build` avant de considérer une tâche terminée.
 
@@ -99,6 +102,9 @@ scripts/
 │   └── ai.ts                  # Gemini sur Vertex AI
 └── utils/                     # Clients GCP, serveur uniquement : db.ts (Cloud SQL, auth IAM), storage.ts (Cloud Storage)
 db/                            # Scripts SQL à exécuter dans Cloud SQL Studio
+Dockerfile                     # Images multi-étapes, utilisateur non-root : « dev » (compose.yaml) et production (Cloud Run, sortie standalone)
+compose.yaml                   # Dev conteneurisé : code monté, node_modules dans un volume, identifiants gcloud de la machine en lecture seule
+.github/workflows/deploy.yml   # Déploiement continu : push sur main → lint → image Docker → Cloud Run
 ```
 
 - Ne pas créer de dossier ou de fichier hors de cette structure sans le demander d'abord. Si un nouveau fichier est nécessaire, le placer au bon endroit (page → `app/`, composant → `components/`, endpoint → `app/api/v1/`, schéma Zod → `schemas/`, logique métier → `services/`, accès BDD → `repositories/`, helpers/clients externes → `lib/`) et le signaler.
@@ -110,6 +116,16 @@ db/                            # Scripts SQL à exécuter dans Cloud SQL Studio
 - Documentation API : toute nouvelle route sous `/api/v1/` est ajoutée dans `src/lib/openapi.ts` (visible sur `/api-docs` en dev). Les schémas Zod des requêtes vont dans `schemas/` pour être réutilisés par la doc.
 - **Nommage en anglais** : tables, colonnes, types, variables, fonctions, fichiers et routes (ex. `short_description`, `start_date`, `archetype_id`). Seuls les textes affichés (`messages/fr.json`) et les commentaires sont en français.
 - Imports via l'alias `@/` (→ `src/`).
+
+## Déploiement (Cloud Run)
+
+- **Automatique** : chaque push sur `main` est déployé par GitHub Actions (`.github/workflows/deploy.yml`) sur https://brb-105103278561.europe-west9.run.app. Un `main` qui ne passe pas le lint ou le build n'est pas déployé (onglet *Actions* du repo pour suivre).
+- Authentification GitHub → GCP sans clé ni secret GitHub : Workload Identity Federation (pool `github`, provider `github-repo`, limité à la branche `main` de ce repo) → compte de service `brb-deploy` (droits de déploiement uniquement).
+- L'app tourne avec le compte de service `brb-run` (Cloud SQL en `brb_app`, Vertex AI, bucket des photos, lecture des secrets). Images dans Artifact Registry `europe-west9-docker.pkg.dev/biirb-511608/brb/web`.
+- Variables : non sensibles dans `deploy.yml` (`--set-env-vars`) ; secrets (`JWT_SECRET`, `JWT_REFRESH_SECRET`) dans **Secret Manager** (`brb-jwt-secret`, `brb-jwt-refresh-secret`), jamais dans le repo ni dans GitHub. Nouvelle variable d'env = l'ajouter aussi dans `deploy.yml` (ou Secret Manager si elle est sensible).
+- `APP_URL` (seule origine autorisée par CORS sur `/api/*`) est figée au build : argument du build Docker.
+- `--max-instances=1` : les rate limits sont en mémoire, une seule instance les garde cohérents (et plafonne le coût).
+- Les migrations ne sont pas lancées par le déploiement : les appliquer sur la base (Cloud SQL Studio) **avant** de merger le code qui en dépend.
 
 ## Architecture en couches (back) — à respecter
 

@@ -1,4 +1,5 @@
 import "server-only";
+import { connection } from "next/server";
 import { getConfig } from "@/lib/config";
 import { getUserIdFromRequest } from "@/lib/jwt";
 import { isRateLimited } from "@/lib/rateLimit";
@@ -7,6 +8,8 @@ import { PROFILE_IMAGE_MAX_BYTES, profileImageSchema, updateProfileSchema } from
 
 // GET /api/v1/users/me : profil de l'utilisateur connecté + ses récits.
 export async function getMeController(request: Request) {
+  // Réponse propre à chaque requête : jamais pré-calculée au build (cacheComponents), où l'env n'existe pas.
+  await connection();
   const userId = await getUserIdFromRequest(request);
   if (!userId) return errorResponse(401, "UNAUTHORIZED");
 

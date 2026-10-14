@@ -1,0 +1,11 @@
+# Jamais dans l'image : secrets, dépendances et builds locaux, historique git, archives.
+.env*
+!.env.example
+node_modules
+.next
+.git
+.github
+*.zip
+*.tsbuildinfo
+.DS_Store
+npm-debug.log*

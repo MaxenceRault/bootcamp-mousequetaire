@@ -1,4 +1,5 @@
 import "server-only";
+import { connection } from "next/server";
 import { getConfig } from "@/lib/config";
 import { getUserIdFromRequest } from "@/lib/jwt";
 import { isRateLimited } from "@/lib/rateLimit";
@@ -31,6 +32,8 @@ export function reactionController(kind: ReactionKind, active: boolean) {
 
 // GET /api/v1/posts/{id}/reactions (Bearer) → 200 { likeCount, liked, saved } : état de l'utilisateur connecté.
 export async function getReactionsController(request: Request, { params }: PostRouteContext) {
+  // Réponse propre à chaque requête : jamais pré-calculée au build (cacheComponents), où l'env n'existe pas.
+  await connection();
   const userId = await getUserIdFromRequest(request);
   if (!userId) return errorResponse(401, "UNAUTHORIZED");
 
@@ -47,6 +50,8 @@ export async function getReactionsController(request: Request, { params }: PostR
 // GET /api/v1/users/me/reactions?postIds=1,2,3 (Bearer) → 200 { reactions: [{ postId, liked, saved }] }.
 // Un seul appel pour toute une page du feed.
 export async function getViewerReactionsController(request: Request) {
+  // Réponse propre à chaque requête : jamais pré-calculée au build (cacheComponents), où l'env n'existe pas.
+  await connection();
   const userId = await getUserIdFromRequest(request);
   if (!userId) return errorResponse(401, "UNAUTHORIZED");
 

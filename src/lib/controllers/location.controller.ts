@@ -1,4 +1,5 @@
 import "server-only";
+import { connection } from "next/server";
 import { z } from "zod";
 import { getConfig } from "@/lib/config";
 import { clientIp, isRateLimited } from "@/lib/rateLimit";
@@ -15,7 +16,9 @@ const querySchema = z
 // (court : un changement de la liste, ex. un pays retiré, est visible rapidement).
 const CACHE_HEADERS = { "Cache-Control": "public, max-age=3600" };
 
-export function locationsController(request: Request) {
+export async function locationsController(request: Request) {
+  // Réponse propre à chaque requête : jamais pré-calculée au build (cacheComponents), où l'env n'existe pas.
+  await connection();
   // Chaque recherche parcourt ~150 000 villes : limite anti-abus par IP.
   const { max, windowMs } = getConfig().rateLimits.locations;
   if (isRateLimited(`locations:${clientIp(request)}`, max, windowMs)) {
