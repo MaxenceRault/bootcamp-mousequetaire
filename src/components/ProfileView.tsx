@@ -23,6 +23,8 @@ type Story = {
   destination_city: string | null;
   start_date: string;
   created_at: string;
+  // Masqué par l'auteur : absent du feed public, visible ici seulement.
+  is_hidden: boolean;
 };
 
 type ProfileData = { user: EditableProfile; stories: Story[]; storyCount: number };
@@ -60,15 +62,43 @@ export function ProfileView() {
     return <p className="py-16 text-center text-body-md text-ink-soft">{t("loadError")}</p>;
   }
 
+  // Met à jour le profil affiché après une action (sans recharger la page).
+  function updateProfile(change: (profile: ProfileData) => ProfileData) {
+    setState((current) => (current.status === "ready" ? { status: "ready", profile: change(current.profile) } : current));
+  }
+
   return (
     <Profile
       profile={state.profile}
-      onUserChange={(user) => setState({ status: "ready", profile: { ...state.profile, user } })}
+      onUserChange={(user) => updateProfile((profile) => ({ ...profile, user }))}
+      onStoryHiddenChange={(id, hidden) =>
+        updateProfile((profile) => ({
+          ...profile,
+          stories: profile.stories.map((story) => (story.id === id ? { ...story, is_hidden: hidden } : story)),
+        }))
+      }
+      onStoryDeleted={(id) =>
+        updateProfile((profile) => ({
+          ...profile,
+          stories: profile.stories.filter((story) => story.id !== id),
+          storyCount: profile.storyCount - 1,
+        }))
+      }
     />
   );
 }
 
-function Profile({ profile, onUserChange }: { profile: ProfileData; onUserChange: (user: EditableProfile) => void }) {
+type StoryActions = {
+  onStoryHiddenChange: (id: number, hidden: boolean) => void;
+  onStoryDeleted: (id: number) => void;
+};
+
+function Profile({
+  profile,
+  onUserChange,
+  onStoryHiddenChange,
+  onStoryDeleted,
+}: { profile: ProfileData; onUserChange: (user: EditableProfile) => void } & StoryActions) {
   const t = useTranslations("Profile");
   const format = useFormatter();
   const [editing, setEditing] = useState(false);
@@ -180,7 +210,13 @@ function Profile({ profile, onUserChange }: { profile: ProfileData; onUserChange
         </div>
 
         <div role="tabpanel" id="profile-tabpanel" aria-labelledby={`profile-tab-${tab}`}>
-          {tab === "stories" && <StoriesGrid stories={profile.stories} />}
+          {tab === "stories" && (
+            <StoriesGrid
+              stories={profile.stories}
+              onStoryHiddenChange={onStoryHiddenChange}
+              onStoryDeleted={onStoryDeleted}
+            />
+          )}
           {tab === "itineraries" && (
             <EmptyState>
               {t("empty.itineraries")}
@@ -210,49 +246,143 @@ function Stat({ label, icon, children }: { label: string; icon: IconName; childr
   );
 }
 
-function StoriesGrid({ stories }: { stories: Story[] }) {
+function StoriesGrid({ stories, ...actions }: { stories: Story[] } & StoryActions) {
   const t = useTranslations("Profile");
-  const format = useFormatter();
-  const locale = useLocale();
 
   if (stories.length === 0) return <EmptyState>{t("empty.stories")}</EmptyState>;
 
   return (
     <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {stories.map((story) => (
-        <li key={story.id}>
-          <Link href={`/post/${story.id}`} className="group block h-full">
-            <Card className="h-full overflow-hidden shadow-xs transition group-hover:shadow-md">
-              <div className="relative aspect-4/3 overflow-hidden bg-surface-muted">
-                {/* unoptimized : l'hébergement des photos n'est pas encore choisi, on ne peut pas
-                    déclarer l'hôte dans next.config (remotePatterns). */}
-                <Image
-                  src={story.photo_url}
-                  alt={story.photo_alt}
-                  fill
-                  unoptimized
-                  className="object-cover transition duration-500 group-hover:scale-105"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 p-4">
-                <h3 className="font-display text-label-lg text-ink">{story.title}</h3>
-                <p className="flex flex-wrap items-center gap-1.5 text-body-sm text-ink-soft/70">
-                  <span>
-                    {story.destination_city ?? countryName(story.destination_country_code, locale)}{" "}
-                    <span aria-hidden="true">{flagEmoji(story.destination_country_code)}</span>
-                  </span>
-                  <span aria-hidden="true">•</span>
-                  {/* Date du voyage (début du séjour). */}
-                  <time dateTime={story.start_date}>
-                    {format.dateTime(new Date(story.start_date), { month: "short", year: "numeric" })}
-                  </time>
-                </p>
-              </div>
-            </Card>
-          </Link>
-        </li>
+        <StoryCard key={story.id} story={story} {...actions} />
       ))}
     </ul>
+  );
+}
+
+// Codes d'erreur de PATCH / DELETE /api/v1/posts/{id} traduits dans Profile.errors ; les autres → INTERNAL_ERROR.
+const STORY_ERRORS = ["NOT_FOUND", "TOO_MANY_REQUESTS", "INTERNAL_ERROR"] as const;
+type StoryError = (typeof STORY_ERRORS)[number];
+
+// Carte d'un récit du profil : lien vers le post + actions de l'auteur (masquer / afficher, supprimer).
+function StoryCard({ story, onStoryHiddenChange, onStoryDeleted }: { story: Story } & StoryActions) {
+  const t = useTranslations("Profile");
+  const format = useFormatter();
+  const locale = useLocale();
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [error, setError] = useState<StoryError | null>(null);
+  const titleId = `story-title-${story.id}`;
+
+  // Erreur commune : session expirée → connexion (apiFetch a déjà effacé la session).
+  function handleError(code: string) {
+    if (code === "UNAUTHORIZED") return router.replace("/login");
+    setError(STORY_ERRORS.find((known) => known === code) ?? "INTERNAL_ERROR");
+  }
+
+  async function toggleHidden() {
+    setPending(true);
+    setError(null);
+    const result = await apiFetch<{ id: number; hidden: boolean }>(`/api/v1/posts/${story.id}`, {
+      method: "PATCH",
+      body: { hidden: !story.is_hidden },
+    });
+    setPending(false);
+
+    if ("error" in result) return handleError(result.error);
+    onStoryHiddenChange(story.id, result.data.hidden);
+  }
+
+  async function remove() {
+    setPending(true);
+    setError(null);
+    const result = await apiFetch<null>(`/api/v1/posts/${story.id}`, { method: "DELETE" });
+    setPending(false);
+
+    // Déjà supprimé (ex. depuis un autre onglet) : on le retire aussi de la grille.
+    if ("error" in result && result.error !== "NOT_FOUND") return handleError(result.error);
+    onStoryDeleted(story.id);
+  }
+
+  return (
+    <li>
+      <Card className="flex h-full flex-col overflow-hidden shadow-xs transition hover:shadow-md">
+        <Link href={`/post/${story.id}`} className="group block flex-1">
+          <div className="relative aspect-4/3 overflow-hidden bg-surface-muted">
+            {/* unoptimized : l'hébergement des photos n'est pas encore choisi, on ne peut pas
+                déclarer l'hôte dans next.config (remotePatterns). */}
+            <Image
+              src={story.photo_url}
+              alt={story.photo_alt}
+              fill
+              unoptimized
+              className={`object-cover transition duration-500 group-hover:scale-105 ${story.is_hidden ? "opacity-50" : ""}`}
+            />
+            {story.is_hidden && (
+              <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-lg bg-ink/80 px-2 py-1 font-display text-label-sm text-surface">
+                <Icon name="visibilityOff" className="size-3.5" />
+                {t("stories.hiddenBadge")}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5 p-4">
+            <h3 id={titleId} className="font-display text-label-lg text-ink">
+              {story.title}
+            </h3>
+            <p className="flex flex-wrap items-center gap-1.5 text-body-sm text-ink-soft/70">
+              <span>
+                {story.destination_city ?? countryName(story.destination_country_code, locale)}{" "}
+                <span aria-hidden="true">{flagEmoji(story.destination_country_code)}</span>
+              </span>
+              <span aria-hidden="true">•</span>
+              {/* Date du voyage (début du séjour). */}
+              <time dateTime={story.start_date}>
+                {format.dateTime(new Date(story.start_date), { month: "short", year: "numeric" })}
+              </time>
+            </p>
+          </div>
+        </Link>
+
+        {/* Actions de l'auteur. aria-describedby : le lecteur d'écran annonce le titre du récit concerné. */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
+          {confirmingDelete ? (
+            <>
+              <p className="w-full text-body-sm text-ink">{t("stories.confirmDelete")}</p>
+              <Button size="sm" variant="danger" disabled={pending} onClick={remove} aria-describedby={titleId}>
+                {t("stories.confirmDeleteYes")}
+              </Button>
+              <Button size="sm" variant="secondary" disabled={pending} onClick={() => setConfirmingDelete(false)}>
+                {t("form.cancel")}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button size="sm" variant="secondary" disabled={pending} onClick={toggleHidden} aria-describedby={titleId}>
+                <Icon name={story.is_hidden ? "visibility" : "visibilityOff"} className="size-4" />
+                {story.is_hidden ? t("stories.show") : t("stories.hide")}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={pending}
+                onClick={() => {
+                  setError(null);
+                  setConfirmingDelete(true);
+                }}
+                aria-describedby={titleId}
+              >
+                <Icon name="delete" className="size-4 text-error" />
+                {t("stories.delete")}
+              </Button>
+            </>
+          )}
+          <p role="status" aria-live="polite" className="w-full text-body-sm text-error empty:hidden">
+            {error && t(`errors.${error}`)}
+          </p>
+        </div>
+      </Card>
+    </li>
   );
 }
 

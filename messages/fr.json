@@ -59,6 +59,14 @@
       "saved": "Rien d'enregistré pour l'instant."
     },
     "createItinerary": "Créer un itinéraire",
+    "stories": {
+      "hiddenBadge": "Masqué",
+      "hide": "Masquer",
+      "show": "Afficher",
+      "delete": "Supprimer",
+      "confirmDelete": "Supprimer définitivement ce récit ? Cette action est irréversible.",
+      "confirmDeleteYes": "Oui, supprimer"
+    },
     "form": {
       "title": "Modifier mes informations",
       "avatar": "Avatar",
@@ -79,6 +87,7 @@
       "INVALID_INPUT": "Vérifiez les champs du formulaire.",
       "UNAUTHORIZED": "Votre session a expiré. Reconnectez-vous.",
       "TOO_MANY_REQUESTS": "Trop de modifications. Réessayez dans quelques minutes.",
+      "NOT_FOUND": "Ce récit n'existe plus.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
     }
   },

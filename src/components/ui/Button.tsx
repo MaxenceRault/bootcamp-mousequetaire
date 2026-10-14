@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
 
 type ButtonSize = "md" | "sm";
-type ButtonVariant = "primary" | "secondary";
+type ButtonVariant = "primary" | "secondary" | "danger";
 
 const SIZES: Record<ButtonSize, string> = {
   // 48px de haut sur mobile / 44px desktop (formulaires).
@@ -15,6 +15,8 @@ const VARIANTS: Record<ButtonVariant, string> = {
   primary: "bg-accent text-on-accent hover:opacity-92",
   // Action secondaire : fond neutre (ex. « Modifier le profil », « Annuler »).
   secondary: "border border-line bg-surface-muted text-ink hover:bg-surface",
+  // Action destructrice confirmée (ex. « Oui, supprimer »).
+  danger: "bg-error text-on-accent hover:opacity-92",
 };
 
 // Classes des boutons du design system : 8px d'arrondi.
