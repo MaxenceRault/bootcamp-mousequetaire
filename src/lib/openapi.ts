@@ -76,7 +76,9 @@ function json(description: string, schema: object) {
 
 const invalidInput = error("Champ manquant, mal typé ou inconnu (Zod .strict())", ["INVALID_INPUT"]);
 const unauthorized = error("Token absent, invalide, falsifié ou expiré", ["UNAUTHORIZED"]);
-const tooManyRequests = error("Trop de tentatives : 5 maximum par IP toutes les 15 minutes", ["TOO_MANY_REQUESTS"]);
+const tooManyRequests = error("Trop de requêtes : limite atteinte (réglable par variables RATE_LIMIT_*, voir .env.example)", [
+  "TOO_MANY_REQUESTS",
+]);
 const internalError = error("Erreur serveur (détail uniquement dans les logs serveur)", ["INTERNAL_ERROR"]);
 
 export function buildOpenApiDocument() {
@@ -158,6 +160,7 @@ export function buildOpenApiDocument() {
             400: invalidInput,
             401: unauthorized,
             409: error("Pseudo déjà pris", ["USERNAME_TAKEN"]),
+            429: tooManyRequests,
             500: internalError,
           },
         },

@@ -1,6 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { getConfig } from "@/lib/config";
 import { signToken } from "@/lib/jwt";
 import {
   createUser,
@@ -8,10 +9,13 @@ import {
   type PublicUser,
 } from "@/lib/repositories/user.repository";
 
-const SALT_ROUNDS = 12;
-// Durée de vie du token : l'utilisateur doit se reconnecter au bout d'1 heure.
-const TOKEN_TTL = "1h";
-const DUMMY_HASH = "$2b$12$5URWFGCO7h71Yp5EeqSYCuXKHN5/t8AqSI/rOUG9kjnDcqbw5EInm";
+// Hash factice comparé quand l'email est inconnu : même coût bcrypt que les vrais hashes,
+// pour que la réponse prenne le même temps (on ne peut pas deviner quels emails existent).
+let dummyHash: Promise<string> | null = null;
+function getDummyHash() {
+  dummyHash ??= bcrypt.hash(randomBytes(16).toString("hex"), getConfig().bcryptSaltRounds);
+  return dummyHash;
+}
 
 export class AuthError extends Error {
   constructor(public readonly code: "INVALID_CREDENTIALS" | "EMAIL_TAKEN") {
@@ -23,7 +27,7 @@ export type AuthResult = { token: string; user: PublicUser };
 
 export async function login(email: string, password: string): Promise<AuthResult> {
   const user = await findUserByEmail(email);
-  const valid = await bcrypt.compare(password, user?.password_hash ?? DUMMY_HASH);
+  const valid = await bcrypt.compare(password, user?.password_hash ?? (await getDummyHash()));
 
   if (!user || !user.password_hash || !valid) throw new AuthError("INVALID_CREDENTIALS");
 
@@ -38,14 +42,14 @@ export async function register(name: string, email: string, password: string): P
     email,
     username: makeUsername(name),
     display_name: name,
-    password_hash: await bcrypt.hash(password, SALT_ROUNDS),
+    password_hash: await bcrypt.hash(password, getConfig().bcryptSaltRounds),
   });
 
   return createSession(user);
 }
 
 async function createSession(user: PublicUser): Promise<AuthResult> {
-  const token = await signToken(user.id, TOKEN_TTL);
+  const token = await signToken(user.id);
   return { token, user };
 }
 

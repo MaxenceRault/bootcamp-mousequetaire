@@ -69,6 +69,7 @@ scripts/
 │   ├── controllers/           # HTTP : validation Zod, rate limit, appel du service, réponse
 │   ├── services/              # Règles métier (hash, JWT, règles d'inscription)
 │   ├── repositories/          # Accès base de données (Supabase) uniquement
+│   ├── config.ts              # Configuration serveur : lit et valide (Zod) les variables d'environnement
 │   ├── jwt.ts                 # Signature / vérification JWT (jose)
 │   ├── rateLimit.ts           # Rate limit en mémoire
 │   ├── session.ts             # Côté client : stockage du token, appels API (apiFetch ajoute le Bearer)
@@ -146,6 +147,7 @@ Seuls les must-have sont exigés : ne pas implémenter les nice-to-have (OAuth/O
 
 ### Règles complémentaires
 - Secrets (JWT, clé Gemini…) uniquement dans `.env*` (ignoré par git) et lus côté serveur. Jamais dans une variable `NEXT_PUBLIC_*` ni dans un composant `"use client"`.
+- Toute variable d'environnement lue par l'app ou un script est listée dans `.env.example` (seul fichier `.env*` versionné) avec une valeur d'exemple, à quoi elle sert et quel fichier la lit. Jamais de vraie valeur dedans. Côté serveur, on les lit uniquement via `getConfig()` (`src/lib/config.ts`), jamais `process.env` directement (sauf `NODE_ENV` et les scripts de `scripts/`). Les réglages de sécurité (durée du token, coût bcrypt, rate limits) y passent aussi, avec une valeur par défaut sûre.
 - Ne jamais renvoyer au client plus de données que nécessaire (pas de hash, pas de champs internes).
 - Pas de `dangerouslySetInnerHTML` sur du contenu utilisateur.
 - Chat RAG : traiter la question utilisateur et le contenu des posts comme non fiables (injection de prompt), limiter la taille des entrées.

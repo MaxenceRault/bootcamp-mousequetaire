@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { getConfig } from "@/lib/config";
 import { clientIp, isRateLimited } from "@/lib/rateLimit";
 import { searchPlaces } from "@/lib/services/location.service";
 
@@ -10,14 +11,13 @@ const querySchema = z
   })
   .strict();
 
-const ONE_MINUTE = 60 * 1000;
-
 // Données statiques : le navigateur peut garder une recherche en cache un jour.
 const CACHE_HEADERS = { "Cache-Control": "public, max-age=86400" };
 
 export function locationsController(request: Request) {
   // Chaque recherche parcourt ~150 000 villes : limite anti-abus par IP.
-  if (isRateLimited(`locations:${clientIp(request)}`, 60, ONE_MINUTE)) {
+  const { max, windowMs } = getConfig().rateLimits.locations;
+  if (isRateLimited(`locations:${clientIp(request)}`, max, windowMs)) {
     return Response.json({ error: "TOO_MANY_REQUESTS" }, { status: 429 });
   }
 

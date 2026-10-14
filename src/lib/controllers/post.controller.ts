@@ -1,17 +1,18 @@
 import "server-only";
+import { getConfig } from "@/lib/config";
 import { getUserIdFromRequest } from "@/lib/jwt";
 import { isRateLimited } from "@/lib/rateLimit";
 import { createPostSchema, PHOTO_MAX_BYTES } from "@/schemas/post.schema";
 import { createPost, PostError } from "@/lib/services/post.service";
 
 const MAX_BODY_BYTES = PHOTO_MAX_BYTES + 1024 * 1024;
-const ONE_HOUR = 60 * 60 * 1000;
 
 export async function createPostController(request: Request) {
   const userId = await getUserIdFromRequest(request);
   if (!userId) return errorResponse(401, "UNAUTHORIZED");
 
-  if (isRateLimited(`posts:create:${userId}`, 10, ONE_HOUR)) {
+  const { max, windowMs } = getConfig().rateLimits.postCreate;
+  if (isRateLimited(`posts:create:${userId}`, max, windowMs)) {
     return errorResponse(429, "TOO_MANY_REQUESTS");
   }
 
