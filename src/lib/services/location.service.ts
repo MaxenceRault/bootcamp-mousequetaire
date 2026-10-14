@@ -86,3 +86,12 @@ function getIndex() {
 function normalize(value: string) {
   return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
 }
+
+export type PlaceNames = { city: string | null; state: string | null; country: string };
+
+// Noms lisibles d'un lieu enregistré (codes ISO → noms), pour l'affichage.
+export function describePlace({ country, state, city }: { country: string; state?: string | null; city?: string | null }): PlaceNames {
+  const countryName = new Intl.DisplayNames(["fr"], { type: "region" }).of(country) ?? country;
+  const stateName = state ? (State.getStateByCodeAndCountry(state, country)?.name ?? null) : null;
+  return { city: city ?? null, state: stateName, country: countryName };
+}

@@ -61,3 +61,10 @@ export const createPostSchema = z
 
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 export type PlaceInput = z.infer<typeof placeSchema>;
+
+// Id d'un post dans l'URL (/post/5) : entier positif, sans zéro initial ni autre caractère.
+export const postIdSchema = z
+  .string()
+  .regex(/^[1-9][0-9]{0,9}$/)
+  .transform(Number)
+  .pipe(z.number().int().max(2_147_483_647));
