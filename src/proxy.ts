@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getUserIdFromRequest } from "@/lib/jwt";
-import { getPostSlug } from "@/lib/services/post.service";
+import { getUserIdFromRequest } from "@/server/jwt";
+import { getPostSlug } from "@/server/services/post.service";
 import { postIdSchema } from "@/schemas/post.schema";
 
 // 1. Anciens liens /post/{id} : redirection 308 avant le rendu (depuis la page, rendue en streaming, ce serait 200).

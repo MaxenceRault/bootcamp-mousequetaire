@@ -1,3 +1,3 @@
-import { locationsController } from "@/lib/controllers/location.controller";
+import { locationsController } from "@/server/controllers/location.controller";
 
 export const GET = locationsController;

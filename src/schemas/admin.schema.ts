@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BANNED_KINDS, BANNED_REASONS } from "@/lib/moderationFilter";
+import { BANNED_KINDS, BANNED_REASONS } from "@/server/moderationFilter";
 import { USER_ROLES } from "@/lib/roles";
 
 // 50 lignes par page.

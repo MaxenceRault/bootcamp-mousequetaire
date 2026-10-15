@@ -1,3 +1,3 @@
-import { listReportsController } from "@/lib/controllers/admin.controller";
+import { listReportsController } from "@/server/controllers/admin.controller";
 
 export const GET = listReportsController;

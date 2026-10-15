@@ -1,4 +1,4 @@
-import { deleteUserController, updateUserController } from "@/lib/controllers/admin.controller";
+import { deleteUserController, updateUserController } from "@/server/controllers/admin.controller";
 
 export const PATCH = updateUserController;
 export const DELETE = deleteUserController;

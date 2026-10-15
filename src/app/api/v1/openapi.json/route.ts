@@ -1,4 +1,4 @@
-import { buildOpenApiDocument } from "@/lib/openapi";
+import { buildOpenApiDocument } from "@/server/openapi";
 
 // Développement uniquement : on n'expose pas la carte de l'API en production.
 export function GET() {

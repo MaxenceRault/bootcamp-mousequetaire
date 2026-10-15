@@ -11,7 +11,7 @@ import { FormError } from "@/components/ui/FormError";
 import { Icon } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/Input";
 import type { UserRole } from "@/lib/roles";
-import { apiFetch } from "@/lib/session";
+import { apiFetch } from "@/client/session";
 import {
   AVATAR_BACKGROUND_COLORS,
   PROFILE_IMAGE_MAX_BYTES,

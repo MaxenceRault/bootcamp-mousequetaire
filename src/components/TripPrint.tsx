@@ -9,7 +9,7 @@ import { FormError } from "@/components/ui/FormError";
 import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
 import { countryName, flagEmoji } from "@/lib/country";
-import { apiFetch, getSessionSnapshot } from "@/lib/session";
+import { apiFetch, getSessionSnapshot } from "@/client/session";
 
 // Document imprimable du planning : la fenêtre d'impression s'ouvre dès qu'il est chargé.
 export function TripPrint({ tripId }: { tripId: number }) {

@@ -1,4 +1,4 @@
-import { createTripController, listTripsController } from "@/lib/controllers/trip.controller";
+import { createTripController, listTripsController } from "@/server/controllers/trip.controller";
 
 export const GET = listTripsController;
 // Gemini : jusqu'à ~1 min pour un voyage d'un mois.

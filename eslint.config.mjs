@@ -5,7 +5,13 @@ import nextTs from "eslint-config-next/typescript";
 // Règles du projet (CLAUDE.md), vérifiées par le lint et donc par la CI.
 const processEnv = {
   selector: "MemberExpression[object.object.name='process'][object.property.name='env'][property.name!='NODE_ENV']",
-  message: "Variables d'environnement : passer par getConfig() (src/lib/config.ts)",
+  message: "Variables d'environnement : passer par getConfig() (src/server/config.ts)",
+};
+// Séparation par lieu d'exécution : src/server (serveur uniquement), src/client (navigateur), src/lib (partagé).
+const noClient = { group: ["@/client/*", "@/client/**"], message: "Le serveur n'importe pas le code navigateur (src/client)" };
+const noServer = {
+  group: ["@/server/*", "@/server/**"],
+  message: "Code navigateur ou partagé : jamais de code serveur (secrets, base) — passer par une route d'API ou une page serveur",
 };
 const zodObject = {
   selector: "CallExpression[callee.object.name='z'][callee.property.name='object']",
@@ -17,10 +23,10 @@ const eslintConfig = defineConfig([
   ...nextTs,
   {
     files: ["src/**"],
-    ignores: ["src/lib/config.ts"],
+    ignores: ["src/server/config.ts"],
     rules: {
       "no-restricted-syntax": ["error", processEnv],
-      // Logs via src/lib/logger.ts uniquement (format Cloud Logging / Error Reporting).
+      // Logs via src/server/logger.ts uniquement (format Cloud Logging / Error Reporting).
       "no-console": "error",
       // Textes affichés dans messages/fr.json ; seule la ponctuation reste en dur.
       "react/jsx-no-literals": ["error", { ignoreProps: true, allowedStrings: ["•", "·", "@", "/", "#", ":", "—", "→"] }],
@@ -28,7 +34,7 @@ const eslintConfig = defineConfig([
   },
   {
     // Le logger structuré : seul fichier qui écrit dans la console.
-    files: ["src/lib/logger.ts"],
+    files: ["src/server/logger.ts"],
     rules: { "no-console": "off" },
   },
   {
@@ -36,38 +42,67 @@ const eslintConfig = defineConfig([
     files: ["src/schemas/**"],
     rules: { "no-restricted-syntax": ["error", processEnv, zodObject] },
   },
+  // Serveur : jamais de code navigateur (répété dans chaque bloc ci-dessous : un bloc plus bas remplace la règle).
+  {
+    files: ["src/server/**"],
+    rules: { "no-restricted-imports": ["error", { patterns: [noClient] }] },
+  },
   // Couches : controller → service → repository → base, sans en sauter.
   {
-    files: ["src/lib/services/**"],
+    files: ["src/server/services/**"],
     rules: {
       "no-restricted-imports": [
         "error",
         {
           patterns: [
-            { group: ["@/utils/*", "pg", "next/server", "next/headers"], message: "Pas de base ni de HTTP dans un service" },
-            { group: ["@/lib/controllers/*"], message: "Un service n'appelle pas un controller" },
+            {
+              group: ["@/server/infra/db", "@/server/infra/storage", "pg", "next/server", "next/headers"],
+              message: "Pas de base ni de HTTP dans un service",
+            },
+            { group: ["@/server/controllers/*"], message: "Un service n'appelle pas un controller" },
+            noClient,
           ],
         },
       ],
     },
   },
   {
-    files: ["src/lib/controllers/**", "src/app/**", "src/components/**", "src/proxy.ts"],
+    files: ["src/server/controllers/**", "src/app/**", "src/proxy.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
-        { patterns: [{ group: ["@/lib/repositories/*", "@/utils/*"], message: "Passer par un service" }] },
+        {
+          patterns: [
+            { group: ["@/server/repositories/*", "@/server/infra/db", "@/server/infra/storage"], message: "Passer par un service" },
+            noClient,
+          ],
+        },
       ],
     },
   },
   {
-    files: ["src/lib/repositories/**"],
+    files: ["src/server/repositories/**"],
     rules: {
       "no-restricted-imports": [
         "error",
-        { patterns: [{ group: ["@/lib/services/*", "@/lib/controllers/*"], message: "Un repository n'appelle que la base" }] },
+        {
+          patterns: [
+            { group: ["@/server/services/*", "@/server/controllers/*"], message: "Un repository n'appelle que la base" },
+            noClient,
+          ],
+        },
       ],
     },
+  },
+  // Navigateur (composants, src/client) : jamais de code serveur, même par un composant serveur (données passées en props).
+  {
+    files: ["src/components/**", "src/client/**"],
+    rules: { "no-restricted-imports": ["error", { patterns: [noServer] }] },
+  },
+  // Partagé (src/lib) : ni serveur ni navigateur, utilisable des deux côtés.
+  {
+    files: ["src/lib/**"],
+    rules: { "no-restricted-imports": ["error", { patterns: [noServer, noClient] }] },
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([

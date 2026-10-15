@@ -15,7 +15,7 @@ import { FormError } from "@/components/ui/FormError";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { FIELD_CLASS_NAME, Input } from "@/components/ui/Input";
 import { USER_ROLES, type UserRole } from "@/lib/roles";
-import { apiFetch, getSessionSnapshot, parseSessionUser, subscribeSession, type ApiResult } from "@/lib/session";
+import { apiFetch, getSessionSnapshot, parseSessionUser, subscribeSession, type ApiResult } from "@/client/session";
 
 type Dashboard = {
   counts: {

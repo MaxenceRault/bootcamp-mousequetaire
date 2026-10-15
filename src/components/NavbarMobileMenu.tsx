@@ -5,7 +5,7 @@ import { useCallback, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { NavbarLinks } from "@/components/NavbarLinks";
 import { Icon } from "@/components/ui/Icon";
-import { useDismiss } from "@/lib/useDismiss";
+import { useDismiss } from "@/client/hooks/useDismiss";
 
 // Menu burger (< md) : recherche et liens principaux, masqués dans la barre sur petit écran.
 export function NavbarMobileMenu({ search }: { search: ReactNode }) {

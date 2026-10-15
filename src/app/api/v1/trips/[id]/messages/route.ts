@@ -1,4 +1,4 @@
-import { listTripMessagesController, sendTripMessageController } from "@/lib/controllers/trip.controller";
+import { listTripMessagesController, sendTripMessageController } from "@/server/controllers/trip.controller";
 
 export const maxDuration = 60;
 export const GET = listTripMessagesController;

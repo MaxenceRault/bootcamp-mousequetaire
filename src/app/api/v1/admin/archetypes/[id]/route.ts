@@ -1,3 +1,3 @@
-import { updateArchetypeController } from "@/lib/controllers/admin.controller";
+import { updateArchetypeController } from "@/server/controllers/admin.controller";
 
 export const PATCH = updateArchetypeController;
