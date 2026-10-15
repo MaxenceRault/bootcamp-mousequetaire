@@ -22,12 +22,6 @@ Même environnement pour tout le monde (version de Node, dépendances), quelle q
    ```
    puis ouvrir http://localhost:3000. Le code est modifiable normalement, l'app se recharge à chaud.
 
-   Le service `stripe` démarre aussi : il relaie les paiements de test de Stripe vers l'app (rôle mécène). Il faut `STRIPE_SECRET_KEY` (clé `sk_test_…` du compte Stripe de l'équipe) et `STRIPE_WEBHOOK_SECRET` dans `.env.local`, ce dernier obtenu une fois avec :
-   ```bash
-   docker compose run --rm --no-deps stripe 'stripe listen --api-key "$STRIPE_SECRET_KEY" --print-secret'
-   ```
-   Paiement de test sur `/patron` avec la carte `4242 4242 4242 4242`. Sans clé Stripe, seul ce service s'arrête : l'app fonctionne.
-
    Podman sur macOS / Windows : créer sa machine virtuelle une fois (`podman machine init`), puis `podman machine start` après chaque redémarrage de l'ordinateur.
 
 **Windows** : avant `podman compose up`, indiquer où gcloud range ses identifiants :
@@ -41,7 +35,6 @@ docker compose run --rm app npm run lint     # lint
 docker compose run --rm app npm run build    # build de prod + typecheck
 docker compose run --rm app npm run seed     # données de démo (rôle brb_admin requis)
 docker compose run --rm app npm install <paquet>   # ajouter une dépendance (met à jour package-lock.json)
-docker compose logs -f stripe                # webhooks Stripe relayés (et leur code de réponse)
 docker compose down                          # arrêter
 docker compose build --no-cache              # reconstruire l'image (ex. après un changement du Dockerfile)
 ```
