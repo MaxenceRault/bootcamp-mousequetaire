@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Field } from "@/components/ui/Field";
 import { FormError } from "@/components/ui/FormError";
 import { Icon } from "@/components/ui/Icon";
@@ -28,6 +29,9 @@ export type EditableProfile = {
   location: string | null;
   created_at: string;
   role: UserRole;
+  // Confidentialité du profil public (/profile/{pseudo}).
+  is_private: boolean;
+  show_saved: boolean;
 };
 
 type ProfileEditFormProps = {
@@ -64,6 +68,8 @@ export function ProfileEditForm({ user, onSaved, onCancel, onImageChange }: Prof
         // L'avatar par défaut (id) est stocké comme null.
         avatar_seed: avatarSeed === user.id ? null : avatarSeed,
         avatar_background_color: backgroundColor,
+        is_private: form.get("is_private") === "on",
+        show_saved: form.get("show_saved") === "on",
       },
     });
     setPending(false);
@@ -149,6 +155,27 @@ export function ProfileEditForm({ user, onSaved, onCancel, onImageChange }: Prof
             maxLength={80}
           />
         </Field>
+
+        {/* Appliqués côté serveur : ce qui est caché n'est jamais envoyé aux visiteurs. */}
+        <fieldset className="flex flex-col gap-3">
+          <legend className="mb-2 font-display text-label-md text-ink">{t("form.privacy")}</legend>
+          <div className="flex flex-col gap-1">
+            <Checkbox name="is_private" defaultChecked={user.is_private} aria-describedby="profile-private-hint">
+              {t("form.isPrivate")}
+            </Checkbox>
+            <p id="profile-private-hint" className="pl-6.5 text-body-sm text-ink-soft/70">
+              {t("form.isPrivateHint")}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Checkbox name="show_saved" defaultChecked={user.show_saved} aria-describedby="profile-saved-hint">
+              {t("form.showSaved")}
+            </Checkbox>
+            <p id="profile-saved-hint" className="pl-6.5 text-body-sm text-ink-soft/70">
+              {t("form.showSavedHint")}
+            </p>
+          </div>
+        </fieldset>
 
         <FormError>{error}</FormError>
 

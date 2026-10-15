@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { useFormatter, useNow, useTranslations } from "next-intl";
+import { ProfileAvatarLink, ProfileNameLink } from "@/components/ProfileLink";
 import { RoleBadge } from "@/components/RoleBadge";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button, buttonClassName } from "@/components/ui/Button";

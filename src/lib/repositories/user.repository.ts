@@ -25,9 +25,17 @@ type NewUser = {
 };
 
 // Jamais d'email ni de hash.
-export type ProfileUser = PublicUser & { location: string | null; created_at: string };
+export type ProfileUser = PublicUser & {
+  location: string | null;
+  created_at: string;
+  // Réglages de confidentialité du profil public.
+  is_private: boolean;
+  show_saved: boolean;
+};
 
-type ProfileChanges = Pick<ProfileUser, "username" | "display_name" | "location" | "avatar_seed" | "avatar_background_color">;
+// Réglages de confidentialité absents : inchangés.
+type ProfileChanges = Pick<ProfileUser, "username" | "display_name" | "location" | "avatar_seed" | "avatar_background_color"> &
+  Partial<Pick<ProfileUser, "is_private" | "show_saved">>;
 
 export class UsernameTakenError extends Error {
   constructor() {
@@ -36,7 +44,7 @@ export class UsernameTakenError extends Error {
 }
 
 const PUBLIC_COLUMNS = "id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role";
-const PROFILE_COLUMNS = `${PUBLIC_COLUMNS}, location, created_at`;
+const PROFILE_COLUMNS = `${PUBLIC_COLUMNS}, location, created_at, is_private, show_saved`;
 const UNIQUE_VIOLATION = "23505";
 
 export async function findUserByEmail(email: string): Promise<UserWithPassword | null> {
@@ -59,6 +67,16 @@ export async function createUser(user: NewUser): Promise<PublicUser> {
   return rows[0];
 }
 
+// Profil consulté par un visiteur (/profile/{pseudo}). Compte banni : introuvable.
+export async function findProfileByUsername(username: string): Promise<ProfileUser | null> {
+  const db = await getDb();
+  const { rows } = await db.query<ProfileUser>(
+    `select ${PROFILE_COLUMNS} from users where username = $1 and banned_at is null`,
+    [username],
+  );
+  return rows[0] ?? null;
+}
+
 export async function findProfileById(id: string): Promise<ProfileUser | null> {
   const db = await getDb();
   const { rows } = await db.query<ProfileUser>(`select ${PROFILE_COLUMNS} from users where id = $1`, [id]);
@@ -69,10 +87,20 @@ export async function updateProfile(id: string, changes: ProfileChanges): Promis
   const db = await getDb();
   try {
     const { rows } = await db.query<ProfileUser>(
-      `update users set username = $2, display_name = $3, location = $4, avatar_seed = $5, avatar_background_color = $6
+      `update users set username = $2, display_name = $3, location = $4, avatar_seed = $5, avatar_background_color = $6,
+         is_private = coalesce($7, is_private), show_saved = coalesce($8, show_saved)
        where id = $1
        returning ${PROFILE_COLUMNS}`,
-      [id, changes.username, changes.display_name, changes.location, changes.avatar_seed, changes.avatar_background_color],
+      [
+        id,
+        changes.username,
+        changes.display_name,
+        changes.location,
+        changes.avatar_seed,
+        changes.avatar_background_color,
+        changes.is_private ?? null,
+        changes.show_saved ?? null,
+      ],
     );
     return rows[0] ?? null;
   } catch (error) {

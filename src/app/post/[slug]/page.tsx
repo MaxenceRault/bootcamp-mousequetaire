@@ -10,6 +10,7 @@ import { Navbar } from "@/components/Navbar";
 import { PostBody } from "@/components/PostBody";
 import { PostComments } from "@/components/PostComments";
 import { PostReactions } from "@/components/PostReactions";
+import { ProfileAvatarLink, ProfileNameLink, profileHref } from "@/components/ProfileLink";
 import { ReportButton } from "@/components/ReportButton";
 import { RoleBadge } from "@/components/RoleBadge";
 import { ShareButton } from "@/components/ShareButton";
@@ -137,11 +138,15 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
 
                 <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg bg-surface-muted px-4 py-4">
                   <div className="flex min-w-0 items-center gap-3">
-                    <Avatar src={post.author.avatarUrl} name={post.author.avatarSeed ?? post.author.id}
-                    backgroundColor={post.author.avatarBackgroundColor} alt="" size={44} />
+                    <ProfileAvatarLink username={post.author.username} name={post.author.displayName}>
+                      <Avatar src={post.author.avatarUrl} name={post.author.avatarSeed ?? post.author.id}
+                        backgroundColor={post.author.avatarBackgroundColor} alt="" size={44} />
+                    </ProfileAvatarLink>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-display text-label-lg text-ink">{post.author.displayName}</span>
+                        <span className="font-display text-label-lg text-ink">
+                          <ProfileNameLink username={post.author.username}>{post.author.displayName}</ProfileNameLink>
+                        </span>
                         <RoleBadge role={post.author.role} />
                         <span className="rounded bg-surface px-1.5 py-0.5 font-display text-label-sm text-ink-soft/70">
                           @{post.author.username}
@@ -216,15 +221,24 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
                   </ul>
                 )}
 
-                <div className="flex items-center gap-4 rounded-lg bg-surface-muted p-6">
-                  <Avatar src={post.author.avatarUrl} name={post.author.avatarSeed ?? post.author.id}
-                    backgroundColor={post.author.avatarBackgroundColor} alt="" size={64} />
-                  <div>
+                <div className="flex flex-wrap items-center gap-4 rounded-lg bg-surface-muted p-6">
+                  <ProfileAvatarLink username={post.author.username} name={post.author.displayName}>
+                    <Avatar src={post.author.avatarUrl} name={post.author.avatarSeed ?? post.author.id}
+                      backgroundColor={post.author.avatarBackgroundColor} alt="" size={64} />
+                  </ProfileAvatarLink>
+                  <div className="min-w-0 flex-1">
                     <p className="font-display text-headline-sm text-ink">
                       {t("writtenBy", { name: post.author.displayName })}
                     </p>
                     <p className="mt-1 text-body-md text-ink-soft/70">@{post.author.username}</p>
                   </div>
+                  {/* Lien explicite vers le profil de l'auteur, en fin de lecture. */}
+                  <Link
+                    href={profileHref(post.author.username)}
+                    className={buttonClassName("sm", "", "secondary")}
+                  >
+                    {t("viewAuthorProfile")}
+                  </Link>
                 </div>
               </footer>
             </article>

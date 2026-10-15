@@ -56,8 +56,10 @@ const profileUser = {
     ...publicUser.properties,
     location: { type: "string", nullable: true },
     created_at: { type: "string", format: "date-time" },
+    is_private: { type: "boolean", description: "Profil privé : les visiteurs ne voient que l'identité" },
+    show_saved: { type: "boolean", description: "Onglet « Enregistrés » visible des visiteurs" },
   },
-  required: [...publicUser.required, "location", "created_at"],
+  required: [...publicUser.required, "location", "created_at", "is_private", "show_saved"],
 };
 
 const postSummary = {
@@ -659,6 +661,35 @@ export function buildOpenApiDocument() {
             }),
             400: invalidInput,
             401: unauthorized,
+            429: tooManyRequests,
+            500: internalError,
+          },
+        },
+      },
+      "/users/{username}": {
+        get: {
+          tags: ["Utilisateurs"],
+          summary: "Profil public d'un utilisateur (sans compte)",
+          description:
+            "Profil privé : `isPrivate: true` et l'identité seule (nom, pseudo, avatar). Sinon : récits visibles " +
+            "(jamais masqués ni en attente de modération), et enregistrés uniquement si l'utilisateur les montre " +
+            "(`saved: null` sinon). Jamais les itinéraires IA, l'email ni les réglages.",
+          parameters: [
+            { name: "username", in: "path", required: true, schema: { type: "string", pattern: "^[a-z0-9_]{3,30}$" } },
+          ],
+          responses: {
+            200: json("Profil public", {
+              type: "object",
+              properties: {
+                isPrivate: { type: "boolean" },
+                user: publicUser,
+                stories: { type: "array", items: postSummary, description: "Absent si profil privé" },
+                storyCount: { type: "integer", description: "Absent si profil privé" },
+                saved: { type: "array", nullable: true, items: postSummary, description: "null si non partagés" },
+              },
+            }),
+            400: invalidInput,
+            404: error("Pseudo inconnu ou compte banni (réponse identique)", ["NOT_FOUND"]),
             429: tooManyRequests,
             500: internalError,
           },

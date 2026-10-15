@@ -90,3 +90,8 @@ export function StoryCard({ story, hidden = false, pendingReview = false, action
     </Card>
   );
 }
+
+// Grille de cartes de récits (profil, profil public, page d'un lieu).
+export function StoryGrid({ children }: { children: ReactNode }) {
+  return <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{children}</ul>;
+}
