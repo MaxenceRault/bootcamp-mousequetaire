@@ -2,9 +2,14 @@ import "server-only";
 import { connection } from "next/server";
 import { getConfig } from "@/lib/config";
 import { getUserIdFromRequest } from "@/lib/jwt";
-import { isRateLimited } from "@/lib/rateLimit";
-import { getMyProfile, ProfileError, setMyAvatar, updateMyProfile } from "@/lib/services/user.service";
-import { PROFILE_IMAGE_MAX_BYTES, profileImageSchema, updateProfileSchema } from "@/schemas/user.schema";
+import { clientIp, isRateLimited } from "@/lib/rateLimit";
+import { getMyProfile, getPublicProfile, ProfileError, setMyAvatar, updateMyProfile } from "@/lib/services/user.service";
+import {
+  PROFILE_IMAGE_MAX_BYTES,
+  profileImageSchema,
+  updateProfileSchema,
+  usernameParamSchema,
+} from "@/schemas/user.schema";
 import { logError } from "@/lib/logger";
 
 // GET /api/v1/users/me

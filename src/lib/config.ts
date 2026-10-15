@@ -80,7 +80,7 @@ export type ServerConfig = {
   trustedProxyHops: number;
   aiDailyLimitPerUser: number;
   rateLimits: Record<
-    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileUpdate" | "report" | "admin" | "comment" | "tripAi" | "tripChat",
+    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "admin" | "comment" | "tripAi" | "tripChat",
     RateLimit
   >;
 };

@@ -147,7 +147,7 @@
     "aiText": "Bientôt, Gemini pourra transformer ce récit en itinéraire personnalisé, prêt à ajouter à votre planificateur.",
     "openPlanner": "Ouvrir le planificateur",
     "likeCount": "{count, plural, =0 {Aucun j'aime} one {# j'aime} other {# j'aime}}",
-    "bodyPhotoAlt": "Photo du récit « {title} »"
+    "bodyPhotoAlt": "Photo du récit « {title} »",
     "viewAuthorProfile": "Voir le profil"
   },
   "Tags": {

@@ -151,17 +151,22 @@ function CommentItem({
 
   return (
     <div className="flex gap-3">
-      <Avatar
-        src={comment.author.avatar_url}
-        name={comment.author.avatar_seed ?? comment.author.id}
-        backgroundColor={comment.author.avatar_background_color}
-        alt=""
-        size={small ? 32 : 40}
-      />
+      {/* Avatar et nom de l'auteur du commentaire mènent à son profil public. */}
+      <ProfileAvatarLink username={comment.author.username} name={comment.author.display_name}>
+        <Avatar
+          src={comment.author.avatar_url}
+          name={comment.author.avatar_seed ?? comment.author.id}
+          backgroundColor={comment.author.avatar_background_color}
+          alt=""
+          size={small ? 32 : 40}
+        />
+      </ProfileAvatarLink>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-col gap-1 rounded-lg bg-surface-muted px-4 py-3">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="font-display text-label-lg text-ink">{comment.author.display_name}</span>
+            <span className="font-display text-label-lg text-ink">
+              <ProfileNameLink username={comment.author.username}>{comment.author.display_name}</ProfileNameLink>
+            </span>
             <RoleBadge role={comment.author.role} />
             <span className="text-label-sm text-ink-soft">{format.relativeTime(date, now)}</span>
             {canDelete && (
