@@ -30,6 +30,17 @@ const envSchema = z.object({
   // dans X-Forwarded-For : seules les entrées ajoutées par ces proxys sont fiables.
   TRUSTED_PROXY_HOPS: z.coerce.number().int().min(1).max(5).default(1),
 
+  // Paiement du rôle mécène (Stripe Checkout). Optionnelles : sans clé secrète, la page « Devenir mécène »
+  // affiche « paiement indisponible » (le reste de l'app fonctionne). Clés test (sk_test_…) en dev.
+  STRIPE_SECRET_KEY: z.string().regex(/^(sk|rk)_(test|live)_[A-Za-z0-9]+$/).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().regex(/^whsec_[A-Za-z0-9]+$/).optional(),
+  // URL publique du site : adresses de retour après le paiement (sinon : origine de la requête, en dev).
+  APP_URL: z.url({ protocol: /^https?$/ }).optional(),
+  // Prix du rôle mécène en centimes (paiement unique). 1 € à 1 000 €, défaut 5 €.
+  PATRON_PRICE_CENTS: z.coerce.number().int().min(100).max(100_000).default(500),
+  RATE_LIMIT_PATRON_CHECKOUT_MAX: count.default(10),
+  RATE_LIMIT_PATRON_CHECKOUT_WINDOW_SECONDS: seconds.default(15 * 60),
+
   RATE_LIMIT_LOGIN_MAX: count.default(5),
   RATE_LIMIT_LOGIN_WINDOW_SECONDS: seconds.default(15 * 60),
   // Par compte visé (email), quelle que soit l'IP : contre le bruteforce réparti sur plusieurs IP.
@@ -66,8 +77,12 @@ export type ServerConfig = {
   refreshTokenTtlMs: { remember: number; session: number };
   bcryptSaltRounds: number;
   trustedProxyHops: number;
+  // null : paiement non configuré.
+  stripe: { secretKey: string; webhookSecret: string | null } | null;
+  appUrl: string | null;
+  patronPriceCents: number;
   rateLimits: Record<
-    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileUpdate",
+    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileUpdate" | "patronCheckout",
     RateLimit
   >;
 };
@@ -99,6 +114,11 @@ export function getConfig(): ServerConfig {
     },
     bcryptSaltRounds: env.BCRYPT_SALT_ROUNDS,
     trustedProxyHops: env.TRUSTED_PROXY_HOPS,
+    stripe: env.STRIPE_SECRET_KEY
+      ? { secretKey: env.STRIPE_SECRET_KEY, webhookSecret: env.STRIPE_WEBHOOK_SECRET ?? null }
+      : null,
+    appUrl: env.APP_URL ?? null,
+    patronPriceCents: env.PATRON_PRICE_CENTS,
     rateLimits: {
       login: rateLimit(env.RATE_LIMIT_LOGIN_MAX, env.RATE_LIMIT_LOGIN_WINDOW_SECONDS),
       loginEmail: rateLimit(env.RATE_LIMIT_LOGIN_EMAIL_MAX, env.RATE_LIMIT_LOGIN_EMAIL_WINDOW_SECONDS),
@@ -110,6 +130,7 @@ export function getConfig(): ServerConfig {
       postEdit: rateLimit(env.RATE_LIMIT_POST_EDIT_MAX, env.RATE_LIMIT_POST_EDIT_WINDOW_SECONDS),
       postReact: rateLimit(env.RATE_LIMIT_POST_REACT_MAX, env.RATE_LIMIT_POST_REACT_WINDOW_SECONDS),
       profileUpdate: rateLimit(env.RATE_LIMIT_PROFILE_UPDATE_MAX, env.RATE_LIMIT_PROFILE_UPDATE_WINDOW_SECONDS),
+      patronCheckout: rateLimit(env.RATE_LIMIT_PATRON_CHECKOUT_MAX, env.RATE_LIMIT_PATRON_CHECKOUT_WINDOW_SECONDS),
     },
   };
   return config;
