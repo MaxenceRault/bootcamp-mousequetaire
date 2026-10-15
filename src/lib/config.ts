@@ -134,3 +134,29 @@ export function getConfig(): ServerConfig {
   };
   return config;
 }
+
+// Buy Me a Coffee (rôle mécène) : validé à part, une valeur invalide coupe seulement le paiement, jamais toute l'API.
+const buyMeACoffeeSchema = z.object({
+  BMC_WEBHOOK_SECRET: z.string().regex(/^\S{16,200}$/),
+  BMC_PAGE_URL: z.url({ protocol: /^https$/, hostname: /^(www\.)?buymeacoffee\.com$/ }),
+});
+
+export type BuyMeACoffeeConfig = { webhookSecret: string; pageUrl: string };
+
+let buyMeACoffee: BuyMeACoffeeConfig | null | undefined;
+
+// null : paiement non configuré (variables absentes) ou invalide (signalé dans les logs).
+export function getBuyMeACoffeeConfig(): BuyMeACoffeeConfig | null {
+  if (buyMeACoffee !== undefined) return buyMeACoffee;
+
+  const { BMC_WEBHOOK_SECRET, BMC_PAGE_URL } = process.env;
+  if (!BMC_WEBHOOK_SECRET && !BMC_PAGE_URL) return (buyMeACoffee = null);
+
+  const parsed = buyMeACoffeeSchema.safeParse({ BMC_WEBHOOK_SECRET, BMC_PAGE_URL });
+  if (!parsed.success) {
+    const names = parsed.error.issues.map((issue) => issue.path.join(".")).join(", ");
+    logError("config", `invalid Buy Me a Coffee env (payment disabled): ${names}`);
+    return (buyMeACoffee = null);
+  }
+  return (buyMeACoffee = { webhookSecret: parsed.data.BMC_WEBHOOK_SECRET, pageUrl: parsed.data.BMC_PAGE_URL });
+}
