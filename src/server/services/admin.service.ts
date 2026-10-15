@@ -39,6 +39,8 @@ import {
   insertBannedWord,
 } from "@/server/repositories/banned-word.repository";
 import { clearBannedTermsCache } from "@/server/services/banned-word.service";
+import { findTicketsForAdmin, updateTicketStatus } from "@/server/repositories/ticket.repository";
+import type { TicketStatus } from "@/schemas/ticket.schema";
 import type { CreateArchetypeInput, UpdateArchetypeInput } from "@/schemas/archetype.schema";
 import { ARCHETYPE_SLUG_PATTERN } from "@/schemas/archetype.schema";
 import type { AdminCreateBannedWordInput, AdminUpdateSettingsInput, AdminUpdateUserInput } from "@/schemas/admin.schema";
@@ -271,4 +273,15 @@ export async function removeBannedWord(adminId: string, id: number) {
   if (term === null) throw new AdminError("NOT_FOUND");
   clearBannedTermsCache();
   await log(adminId, "banned_word.delete", "settings", id, { term });
+}
+
+export async function listTickets({ status, page }: { status: TicketStatus | "all"; page: number }) {
+  const { tickets, total } = await findTicketsForAdmin(status === "all" ? null : status, PAGE_SIZE, (page - 1) * PAGE_SIZE);
+  return { tickets, total, page, pageSize: PAGE_SIZE };
+}
+
+export async function setTicketStatus(adminId: string, ticketId: number, status: TicketStatus) {
+  const updated = await updateTicketStatus(ticketId, status);
+  if (!updated) throw new AdminError("NOT_FOUND");
+  if (updated.previous !== status) await log(adminId, "ticket.status", "ticket", ticketId, { from: updated.previous, to: status });
 }

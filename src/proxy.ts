@@ -37,5 +37,6 @@ export const config = {
     "/api/v1/posts/:path*",
     "/api/v1/trips/:path*",
     "/api/v1/admin/:path*",
+    "/api/v1/tickets/:path*",
   ],
 };

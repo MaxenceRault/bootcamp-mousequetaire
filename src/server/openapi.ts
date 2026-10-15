@@ -30,6 +30,7 @@ import {
 } from "@/schemas/admin.schema";
 import { createArchetypeSchema, updateArchetypeSchema } from "@/schemas/archetype.schema";
 import { createCommentSchema } from "@/schemas/comment.schema";
+import { adminUpdateTicketSchema, createTicketSchema, TICKET_STATUSES } from "@/schemas/ticket.schema";
 import { profileImageSchema, updateProfileSchema } from "@/schemas/user.schema";
 
 // Générés depuis les schémas Zod des controllers : la doc suit la validation.
@@ -355,6 +356,7 @@ export function buildOpenApiDocument() {
       { name: "Lieux", description: "Recherche de villes et pays (country-state-city)" },
       { name: "Réactions", description: "Likes et voyages enregistrés" },
       { name: "Mécène", description: "Rôle mécène obtenu par un don sur Buy Me a Coffee" },
+      { name: "Support", description: "Tickets de support : création et suivi par l'utilisateur" },
       { name: "Administration", description: "Réservé au rôle admin : modération, rôles, types de récit, réglages de l'IA, journal" },
     ],
     paths: {
@@ -887,6 +889,33 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/tickets": {
+        get: {
+          tags: ["Support"],
+          summary: "Mes tickets (50 plus récents)",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: json("Tickets", { type: "object", properties: { tickets: { type: "array", items: { type: "object" } } } }),
+            401: unauthorized,
+            500: internalError,
+          },
+        },
+        post: {
+          tags: ["Support"],
+          summary: "Ouvrir un ticket",
+          description: "État initial « open ». L'avancement (open → in_progress → resolved) est changé par un admin.",
+          security: [{ bearerAuth: [] }],
+          requestBody: requestBody(createTicketSchema),
+          responses: {
+            201: json("Ticket créé", { type: "object" }),
+            400: invalidInput,
+            401: unauthorized,
+            403: error("Compte banni", ["FORBIDDEN"]),
+            429: tooManyRequests,
+            500: internalError,
+          },
+        },
+      },
       "/posts/{id}/comments": {
         get: {
           tags: ["Posts"],
@@ -957,6 +986,18 @@ export function buildOpenApiDocument() {
       },
       "/admin/reports/{postId}": {
         patch: adminRoute("Classer sans suite", { params: [numericIdParam("postId")], body: adminCloseReportsSchema, ok: noContent }),
+      },
+      "/admin/tickets": {
+        get: adminRoute("Tickets de support", {
+          description: "Ouverts d'abord, les plus anciens en premier. 50 par page. Jamais l'email de l'auteur.",
+          query: [
+            { name: "status", in: "query", schema: { type: "string", enum: ["all", ...TICKET_STATUSES], default: "all" } },
+            { name: "page", in: "query", schema: { type: "integer", minimum: 1, default: 1 } },
+          ],
+        }),
+      },
+      "/admin/tickets/{id}": {
+        patch: adminRoute("Changer l'état d'un ticket", { params: [numericIdParam("id")], body: adminUpdateTicketSchema, ok: noContent, description: "Inscrit au journal (état avant / après)." }),
       },
       "/admin/archetypes": {
         get: adminRoute("Types de récit (actifs ou non)", {}),

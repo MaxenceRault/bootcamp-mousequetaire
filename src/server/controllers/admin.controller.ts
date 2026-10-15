@@ -22,7 +22,9 @@ import {
   listUsers,
   removeBannedWord,
   requireAdmin,
+  listTickets,
   setPostHidden,
+  setTicketStatus,
   updateSettings,
   updateUser,
 } from "@/server/services/admin.service";
@@ -38,6 +40,7 @@ import {
 } from "@/schemas/admin.schema";
 import { createArchetypeSchema, updateArchetypeSchema } from "@/schemas/archetype.schema";
 import { postIdSchema } from "@/schemas/post.schema";
+import { adminTicketsQuerySchema, adminUpdateTicketSchema, ticketIdSchema } from "@/schemas/ticket.schema";
 import { logError } from "@/server/logger";
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
@@ -116,6 +119,25 @@ export function closeReportsController(request: Request, { params }: Context) {
     const body = await parseBody(request, adminCloseReportsSchema);
     if (!postId.success || !body) return errorResponse(400, "INVALID_INPUT");
     await dismissReports(adminId, postId.data);
+    return new Response(null, { status: 204 });
+  });
+}
+
+// GET /api/v1/admin/tickets?status=&page=
+export function listTicketsController(request: Request) {
+  return withAdmin(request, async () => {
+    const query = parseQuery(request, adminTicketsQuerySchema);
+    return query ? json(await listTickets(query)) : errorResponse(400, "INVALID_INPUT");
+  });
+}
+
+// PATCH /api/v1/admin/tickets/[id] { status }
+export function updateTicketController(request: Request, { params }: Context) {
+  return withAdmin(request, async (adminId) => {
+    const id = ticketIdSchema.safeParse((await params).id);
+    const body = await parseBody(request, adminUpdateTicketSchema);
+    if (!id.success || !body) return errorResponse(400, "INVALID_INPUT");
+    await setTicketStatus(adminId, id.data, body.status);
     return new Response(null, { status: 204 });
   });
 }
