@@ -413,7 +413,7 @@
       "CHAT_LIMIT_REACHED": "Vous avez atteint la limite de messages pour ce voyage.",
       "DAILY_LIMIT_REACHED": "Vous avez utilisé vos 15 requêtes IA du jour. Revenez demain !",
       "AI_DISABLED": "L'IA est momentanément indisponible. Réessayez plus tard.",
-      "FORBIDDEN": "Votre compte ne peut pas utiliser l'IA."
+      "FORBIDDEN": "Vous n'avez pas les droits pour cette action."
     },
     "export": {
       "csv": "CSV",
@@ -427,7 +427,152 @@
         "description": "Description",
         "source": "Récit source"
       }
-    }
+    },
+    "share": {
+      "open": "Partager",
+      "title": "Partager le voyage",
+      "hintOwner": "Invitez vos compagnons de voyage : éditeur (modifie le planning et les dépenses) ou lecteur (consulte et ajoute ses propres dépenses).",
+      "hintMember": "Les personnes qui ont accès à ce voyage.",
+      "membersLabel": "Membres du voyage",
+      "you": "(vous)",
+      "roleLabel": "Rôle de {name}",
+      "roles": {
+        "owner": "Propriétaire",
+        "editor": "Éditeur",
+        "viewer": "Lecteur"
+      },
+      "yourRole": {
+        "editor": "Partagé avec vous · éditeur",
+        "viewer": "Partagé avec vous · lecteur"
+      },
+      "sharedBy": "Partagé par {name}",
+      "viewerChat": "En lecteur, vous pouvez lire la discussion mais pas écrire à l'IA.",
+      "leave": "Quitter le voyage",
+      "leaveConfirm": "Quitter ce voyage ? Vous n'y aurez plus accès, sauf nouvelle invitation.",
+      "remove": "Retirer {name}",
+      "removeConfirm": "Retirer {name} du voyage ?",
+      "inviteTitle": "Inviter par pseudo",
+      "usernamePlaceholder": "pseudo exact, ex. julie_voyage",
+      "inviteRole": "Rôle de la personne invitée",
+      "invite": "Inviter",
+      "linkTitle": "Lien d'invitation",
+      "linkRole": "Rôle donné par le lien",
+      "createLink": "Créer un lien",
+      "linkLabel": "Lien d'invitation à copier",
+      "copy": "Copier",
+      "copied": "Copié !",
+      "linkHint": "Toute personne connectée qui ouvre ce lien rejoint le voyage en tant que {role, select, editor {éditeur} other {lecteur}}. Valable 7 jours, affiché une seule fois : copiez-le maintenant.",
+      "pendingTitle": "Invitations en cours",
+      "linkInvitation": "Lien d'invitation",
+      "expires": "Expire le {date}",
+      "revoke": "Annuler l'invitation",
+      "receivedTitle": "{count, plural, one {Invitation reçue} other {Invitations reçues}}",
+      "receivedFrom": "{name} vous invite en tant que {role, select, editor {éditeur} other {lecteur}} · {dates}",
+      "accept": "Accepter",
+      "decline": "Refuser",
+      "joinMetaTitle": "Rejoindre un voyage",
+      "joinTitle": "Rejoindre un voyage",
+      "joining": "Ouverture du voyage…",
+      "joinLogin": "Connectez-vous ou créez un compte pour rejoindre ce voyage : vous y serez ajouté automatiquement.",
+      "login": "Se connecter",
+      "register": "Créer un compte",
+      "joinInvalid": "Ce lien d'invitation n'est plus valable (expiré ou annulé). Demandez-en un nouveau.",
+      "backToTrips": "Retour à mes voyages",
+      "errors": {
+        "INVALID_INPUT": "Vérifiez le pseudo : vous ne pouvez pas vous inviter vous-même.",
+        "USER_NOT_FOUND": "Aucun utilisateur avec ce pseudo.",
+        "ALREADY_MEMBER": "Cette personne fait déjà partie du voyage.",
+        "TOO_MANY_REQUESTS": "Trop d'invitations d'un coup. Réessayez dans quelques minutes.",
+        "FORBIDDEN": "Seul le propriétaire du voyage peut gérer les membres.",
+        "NOT_FOUND": "Élément introuvable.",
+        "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+      }
+    },
+    "views": {
+      "label": "Vue du voyage",
+      "plan": "Planning",
+      "expenses": "Dépenses"
+    },
+    "expenses": {
+      "add": "Nouvelle dépense",
+      "title": "Dépenses",
+      "total": "Total : {amount}",
+      "empty": "Aucune dépense pour l'instant. Ajoutez la première : on calcule qui doit quoi à qui.",
+      "paidBy": "Payé par {name} · {date}",
+      "splitBetween": "{count, plural, one {pour # personne} other {pour # personnes}}",
+      "reimbursement": "{from} a remboursé {to}",
+      "edit": "Modifier « {title} »",
+      "delete": "Supprimer « {title} »",
+      "deleteConfirm": "Supprimer cette dépense ?",
+      "addTitle": "Nouvelle dépense",
+      "editTitle": "Modifier la dépense",
+      "payTitle": "Régler une dépense prévue",
+      "fields": {
+        "title": "Titre",
+        "amount": "Montant",
+        "currency": "Devise",
+        "paidBy": "Payé par",
+        "date": "Date",
+        "category": "Catégorie",
+        "split": "Répartition"
+      },
+      "modes": {
+        "equal": "À parts égales",
+        "amounts": "Par montants",
+        "shares": "Par parts"
+      },
+      "shareAmount": "Montant pour {name}",
+      "shareParts": "Nombre de parts pour {name}",
+      "categories": {
+        "lodging": "Logement",
+        "transport": "Transport",
+        "food": "Repas",
+        "activity": "Activités",
+        "other": "Autre"
+      },
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "balances": "Soldes",
+      "settlements": "Équilibrage",
+      "settled": "Tout le monde est à jour 🎉",
+      "owes": "<strong>{from}</strong> doit <strong>{amount}</strong> à <strong>{to}</strong>",
+      "markPaid": "Marquer comme remboursé",
+      "tasks": {
+        "title": "À payer",
+        "hint": "Les grosses dépenses à prévoir, et qui s'en charge. Cochez une ligne pour enregistrer la dépense.",
+        "empty": "Rien de prévu pour l'instant.",
+        "unassigned": "Personne d'attribué",
+        "delete": "Retirer « {label} »",
+        "label": "Chose à payer",
+        "placeholder": "Ex. réserver l'hôtel",
+        "estimated": "Estimation",
+        "assignee": "Qui paie ?",
+        "add": "Ajouter"
+      },
+      "participants": {
+        "title": "Participants",
+        "guest": "sans compte",
+        "remove": "Retirer {name}",
+        "add": "Ajouter",
+        "placeholder": "Prénom d'un ami sans compte"
+      },
+      "currency": "Devise du voyage (modifiable tant qu'il n'y a aucune dépense)",
+      "budget": {
+        "title": "Réel / budget prévu",
+        "row": "{spent} / {planned}"
+      },
+      "errors": {
+        "INVALID_INPUT": "Vérifiez le montant et la répartition (les montants doivent faire le total).",
+        "FORBIDDEN": "En lecteur, vous ne pouvez saisir et modifier que vos propres dépenses.",
+        "NOT_FOUND": "Élément introuvable : la page a peut-être changé, rechargez-la.",
+        "PARTICIPANT_IN_USE": "Ce participant apparaît dans une dépense : retirez-le d'abord des dépenses.",
+        "CURRENCY_LOCKED": "La devise ne peut plus changer : des dépenses sont déjà saisies.",
+        "RATE_UNAVAILABLE": "Le taux de change est indisponible pour l'instant. Réessayez dans un moment.",
+        "TOO_MANY_REQUESTS": "Trop de modifications d'un coup. Réessayez dans quelques minutes.",
+        "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+      }
+    },
+    "offline": "Hors ligne : vous consultez la dernière version enregistrée sur cet appareil. Les modifications reviendront avec le réseau."
   },
   "DateRangePicker": {
     "start": "Départ",

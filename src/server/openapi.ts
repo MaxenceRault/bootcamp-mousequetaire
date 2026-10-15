@@ -1,6 +1,15 @@
 import "server-only";
 import { z } from "zod";
 import { loginSchema, registerSchema } from "@/schemas/auth.schema";
+import { createInviteLinkSchema, inviteMemberSchema, joinTripSchema, updateMemberSchema } from "@/schemas/trip-share.schema";
+import {
+  expenseSchema,
+  participantSchema,
+  paymentTaskSchema,
+  settlementSchema,
+  tripCurrencySchema,
+  updatePaymentTaskSchema,
+} from "@/schemas/trip-expense.schema";
 import {
   answerTripSuggestionSchema,
   createTripItemSchema,
@@ -224,6 +233,14 @@ const tripMessages = {
 const aiUnavailable = error("L'IA n'a pas répondu ou a renvoyé un format invalide", ["AI_UNAVAILABLE"]);
 const aiRateLimited = error("Trop d'appels à l'IA : 20 maximum par utilisateur et par heure", ["TOO_MANY_REQUESTS"]);
 const idParam = (name: string) => ({ name, in: "path", required: true, schema: { type: "integer", minimum: 1 } });
+const uuidParam = (name: string) => ({ name, in: "path", required: true, schema: { type: "string", format: "uuid" } });
+const tripSharing = json("Membres et invitations", { type: "object", properties: { role: { type: "string", enum: ["owner", "editor", "viewer"] }, members: { type: "array", items: { type: "object" } }, invitations: { type: "array", items: { type: "object" } } } });
+const tripLedger = json("Registre des dépenses à jour", {
+  type: "object",
+  description:
+    "role, currency, me, participants, expenses (montant d'origine, taux figé, montant converti, parts), total, " +
+    "spentByCategory, budget, balances, settlements, paymentTasks",
+});
 
 function tripRoute(summary: string, options: { params?: string[]; body?: z.ZodType; ok?: object; ai?: boolean; description?: string }) {
   return {
@@ -541,6 +558,84 @@ export function buildOpenApiDocument() {
       "/trips/{id}/tasks/{taskId}": {
         patch: tripRoute("Modifier / cocher une tâche", { params: ["id", "taskId"], body: updateTripTaskSchema }),
         delete: tripRoute("Supprimer une tâche", { params: ["id", "taskId"] }),
+      },
+      "/trips/{id}/members": {
+        get: tripRoute("Membres du voyage (et invitations en cours pour le propriétaire)", { ok: { 200: tripSharing } }),
+        post: tripRoute("Inviter par pseudo (propriétaire)", {
+          body: inviteMemberSchema,
+          description: "L'invitation attend l'acceptation de l'invité (7 jours). 404 USER_NOT_FOUND, 409 ALREADY_MEMBER, 403 si pas propriétaire.",
+          ok: { 201: tripSharing },
+        }),
+      },
+      "/trips/{id}/members/{userId}": {
+        patch: { ...tripRoute("Changer le rôle d'un membre (propriétaire)", { body: updateMemberSchema, ok: { 200: tripSharing } }), parameters: [idParam("id"), uuidParam("userId")] },
+        delete: {
+          ...tripRoute("Retirer un membre (propriétaire) ou quitter le voyage (son propre id)", { ok: { 204: { description: "Retiré" } } }),
+          parameters: [idParam("id"), uuidParam("userId")],
+        },
+      },
+      "/trips/{id}/invitations": {
+        post: tripRoute("Créer un lien d'invitation (propriétaire)", {
+          body: createInviteLinkSchema,
+          description: "Code renvoyé une seule fois (seule son empreinte SHA-256 est stockée). Lien : /planner/join#<code>, réutilisable 7 jours.",
+          ok: { 201: json("Lien créé", { type: "object", properties: { id: { type: "integer" }, code: { type: "string" }, role: { type: "string" }, expiresAt: { type: "string" } } }) },
+        }),
+      },
+      "/trips/{id}/invitations/{invitationId}": {
+        delete: tripRoute("Annuler une invitation (propriétaire)", { params: ["id", "invitationId"], ok: { 200: tripSharing } }),
+      },
+      "/trips/invitations": {
+        get: tripRoute("Invitations reçues par pseudo", { params: [], ok: { 200: json("Invitations en attente", { type: "object" }) } }),
+      },
+      "/trips/invitations/{invitationId}": {
+        patch: tripRoute("Accepter ou refuser une invitation reçue", {
+          params: ["invitationId"],
+          body: answerTripSuggestionSchema,
+          ok: { 200: json("tripId du voyage rejoint (null si refusée)", { type: "object" }) },
+        }),
+      },
+      "/trips/join": {
+        post: tripRoute("Rejoindre un voyage avec un lien d'invitation", {
+          params: [],
+          body: joinTripSchema,
+          description: "404 INVITE_INVALID : lien expiré, annulé ou inventé. Limité par utilisateur (RATE_LIMIT_TRIP_SHARE_*).",
+          ok: { 200: json("Voyage rejoint", { type: "object", properties: { tripId: { type: "integer" } } }) },
+        }),
+      },
+      "/trips/{id}/expenses": {
+        get: tripRoute("Dépenses partagées (registre complet)", { ok: { 200: tripLedger } }),
+        post: tripRoute("Ajouter une dépense", {
+          body: expenseSchema,
+          description:
+            "Montants en unités mineures de leur devise (centimes ; 0 décimale pour JPY, KRW, ISK). Taux BCE du jour de la dépense, " +
+            "figé. Lecteur : seulement une dépense qu'il a payée. paymentTaskId : coche la ligne « à payer » correspondante. " +
+            "503 RATE_UNAVAILABLE si le taux de change est indisponible.",
+          ok: { 201: tripLedger },
+        }),
+      },
+      "/trips/{id}/expenses/{expenseId}": {
+        put: tripRoute("Modifier une dépense", { params: ["id", "expenseId"], body: expenseSchema, ok: { 200: tripLedger } }),
+        delete: tripRoute("Supprimer une dépense", { params: ["id", "expenseId"], ok: { 200: tripLedger } }),
+      },
+      "/trips/{id}/participants": {
+        post: tripRoute("Ajouter un participant sans compte (éditeur)", { body: participantSchema, ok: { 201: tripLedger } }),
+      },
+      "/trips/{id}/participants/{participantId}": {
+        patch: tripRoute("Renommer un participant sans compte", { params: ["id", "participantId"], body: participantSchema, ok: { 200: tripLedger } }),
+        delete: tripRoute("Retirer un participant sans compte (409 s'il apparaît dans une dépense)", { params: ["id", "participantId"], ok: { 200: tripLedger } }),
+      },
+      "/trips/{id}/settlements": {
+        post: tripRoute("Marquer un remboursement entre participants", { body: settlementSchema, ok: { 201: tripLedger } }),
+      },
+      "/trips/{id}/currency": {
+        put: tripRoute("Changer la devise du voyage (409 CURRENCY_LOCKED dès qu'une dépense existe)", { body: tripCurrencySchema, ok: { 200: tripLedger } }),
+      },
+      "/trips/{id}/payment-tasks": {
+        post: tripRoute("Ajouter une chose à payer (éditeur)", { body: paymentTaskSchema, ok: { 201: tripLedger } }),
+      },
+      "/trips/{id}/payment-tasks/{taskId}": {
+        patch: tripRoute("Modifier une chose à payer", { params: ["id", "taskId"], body: updatePaymentTaskSchema, ok: { 200: tripLedger } }),
+        delete: tripRoute("Retirer une chose à payer", { params: ["id", "taskId"], ok: { 200: tripLedger } }),
       },
       "/posts/{id}": {
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer", minimum: 1 } }],

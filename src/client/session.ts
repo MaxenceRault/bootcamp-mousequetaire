@@ -26,7 +26,9 @@ if (typeof window !== "undefined") {
 
 // Profil en sessionStorage sans « Se souvenir de moi » : oublié à la fermeture de l'onglet.
 export function saveSession(token: string, user: SessionUser, remember: boolean) {
-  clearSession();
+  // Un refresh garde le cache hors ligne ; un autre compte part d'un cache vide.
+  if (parseSessionUser(getStoredUser())?.id !== user.id) clearOfflineCache();
+  for (const storage of [localStorage, sessionStorage]) storage.removeItem(USER_KEY);
   accessToken = token;
   (remember ? localStorage : sessionStorage).setItem(USER_KEY, JSON.stringify(user));
   window.dispatchEvent(new Event(SESSION_EVENT));
@@ -39,7 +41,15 @@ function getStoredUser() {
 export function clearSession() {
   accessToken = null;
   for (const storage of [localStorage, sessionStorage]) storage.removeItem(USER_KEY);
+  clearOfflineCache();
   window.dispatchEvent(new Event(SESSION_EVENT));
+}
+
+// Voyages et dépenses gardés pour le hors ligne (public/sw.js) : rien ne doit rester pour le compte suivant.
+function clearOfflineCache() {
+  if (!("caches" in window)) return;
+  void caches.delete("brb-data");
+  void caches.delete("brb-pages");
 }
 
 // Révocation côté serveur en best effort ; le serveur efface aussi le cookie.
@@ -158,11 +168,23 @@ export function updateSessionUser(user: SessionUser) {
   window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
+// ?next= après connexion ou inscription : chemin interne uniquement (jamais « //autre-site.com »).
+export function nextPathAfterLogin(fallback = "/") {
+  const next = new URLSearchParams(window.location.search).get("next");
+  return next && /^\/(?![/\\])/.test(next) ? next : fallback;
+}
+
 export type ApiResult<T> = { data: T } | { error: string };
 
 // Access token refusé (401) : renouvelé une fois, puis l'appel est rejoué.
 export async function apiFetch<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<ApiResult<T>> {
   const token = await getFreshToken();
+  // Refresh impossible (hors ligne, serveur injoignable) : lecture sans token. Le serveur la refuse (401) ;
+  // sans réseau, le service worker répond avec la dernière version en cache.
+  if (!token && (init.method ?? "GET") === "GET" && getStoredUser()) {
+    const cached = await readResponse<T>(await fetch(path).catch(() => null));
+    if ("data" in cached) return cached;
+  }
   if (!token) return { error: "UNAUTHORIZED" };
 
   let response = await sendWithToken(path, init, token);
@@ -173,6 +195,10 @@ export async function apiFetch<T>(path: string, init: { method?: string; body?: 
     if (response?.status === 401) clearSession();
   }
 
+  return readResponse<T>(response);
+}
+
+async function readResponse<T>(response: Response | null): Promise<ApiResult<T>> {
   const data = await response?.json().catch(() => null);
   if (!response?.ok) return { error: String(data?.error ?? "INTERNAL_ERROR") };
   return { data: data as T };

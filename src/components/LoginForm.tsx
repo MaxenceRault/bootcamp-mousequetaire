@@ -10,7 +10,7 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { FormError } from "@/components/ui/FormError";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { authErrorCode, postAuth, saveSession } from "@/client/session";
+import { authErrorCode, nextPathAfterLogin, postAuth, saveSession } from "@/client/session";
 
 export function LoginForm() {
   const t = useTranslations("Auth");
@@ -34,7 +34,7 @@ export function LoginForm() {
 
     if ("error" in result) return setError(t(`errors.${authErrorCode(result.error)}`));
     saveSession(result.token, result.user, remember);
-    router.push("/");
+    router.push(nextPathAfterLogin());
   }
 
   return (

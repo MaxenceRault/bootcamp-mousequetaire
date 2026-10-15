@@ -1,3 +1,4 @@
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
@@ -39,6 +40,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           className="pointer-events-none fixed inset-0 -z-10 bg-ink/5 [mask-image:url(/topo.svg)] [mask-size:60rem] print:hidden"
         />
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

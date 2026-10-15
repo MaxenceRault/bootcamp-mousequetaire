@@ -10,11 +10,15 @@ import { Checkbox } from "@/components/ui/Checkbox";
 import { Field } from "@/components/ui/Field";
 import { FormError } from "@/components/ui/FormError";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { IconButton } from "@/components/ui/IconButton";
 import { FIELD_CLASS_NAME, Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { countryName, flagEmoji } from "@/lib/country";
 import type { Archetype } from "@/lib/posts";
-import { apiFetch, getSessionSnapshot } from "@/client/session";
+import { apiFetch, getSessionSnapshot, parseSessionUser } from "@/client/session";
+import { TripExpenses } from "@/components/TripExpenses";
+import { useOnline } from "@/client/hooks/useOnline";
+import { TripSharePanel, type TripRole } from "@/components/TripSharePanel";
 import { buildTripCsv, downloadFile } from "@/client/tripExport";
 
 const ITEM_CATEGORIES = ["transport", "lodging", "activity", "food"] as const;
@@ -51,7 +55,7 @@ export type TripItem = {
 
 export type TripTask = { id: number; label: string; detail: string | null; done: boolean };
 
-export type TripDetail = { trip: Trip; items: TripItem[]; tasks: TripTask[] };
+export type TripDetail = { trip: Trip; items: TripItem[]; tasks: TripTask[]; role: TripRole };
 
 type TripSuggestion = Omit<TripItem, "id"> & { id: number; status: "pending" | "accepted" | "rejected" };
 
@@ -60,6 +64,7 @@ type TripMessage = {
   role: "user" | "assistant";
   content: string;
   off_topic: boolean;
+  author: { id: string; display_name: string } | null;
   suggestions: TripSuggestion[];
 };
 
@@ -129,6 +134,9 @@ export function TripPlanner({ tripId }: { tripId: number }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [error, setError] = useState<PlannerError | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [view, setView] = useState<"plan" | "expenses">("plan");
+  const online = useOnline();
   const basePath = `/api/v1/trips/${tripId}`;
 
   useEffect(() => {
@@ -180,18 +188,32 @@ export function TripPlanner({ tripId }: { tripId: number }) {
     );
   }
 
-  const { trip, items, tasks } = state.data;
+  const { trip, items, tasks, role } = state.data;
+  // Lecteur : consultation seule (l'API refuse de toute façon les modifications).
+  const canEdit = role !== "viewer";
 
   return (
     <div className="flex flex-col gap-6">
       <TripHeader
         trip={trip}
         items={items}
+        role={role}
         mutate={mutate}
         regenerating={regenerating}
+        sharing={sharing}
+        onToggleSharing={() => setSharing((open) => !open)}
         onRegenerate={regenerate}
         onDelete={handleDelete}
       />
+
+      {!online && (
+        <p role="status" className="flex items-center gap-2 rounded-lg bg-ink px-4 py-3 text-body-sm text-surface">
+          <Icon name="visibilityOff" className="size-4.5 shrink-0" />
+          {t("offline")}
+        </p>
+      )}
+
+      {sharing && <TripSharePanel tripId={tripId} />}
 
       {error && (
         <div role="alert">
@@ -199,14 +221,36 @@ export function TripPlanner({ tripId }: { tripId: number }) {
         </div>
       )}
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <DayPlanner trip={trip} items={items} mutate={mutate} />
-        <aside className="flex flex-col gap-6">
-          <TaskChecklist tasks={tasks} mutate={mutate} />
-          <BudgetCard trip={trip} mutate={mutate} />
-          <TripChat basePath={basePath} trip={trip} mutate={mutate} />
-        </aside>
+      <div role="tablist" aria-label={t("views.label")} className="flex gap-1 self-start rounded-lg bg-surface-muted p-1">
+        {(["plan", "expenses"] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={view === value}
+            onClick={() => setView(value)}
+            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 font-display text-label-lg transition focus-visible:ring-2 focus-visible:ring-accent/25 focus-visible:outline-none ${
+              view === value ? "bg-surface text-ink shadow-sm" : "text-ink-soft hover:text-ink"
+            }`}
+          >
+            <Icon name={value === "plan" ? "calendar" : "book"} className="size-4.5" />
+            {t(`views.${value}`)}
+          </button>
+        ))}
       </div>
+
+      {view === "expenses" ? (
+        <TripExpenses tripId={tripId} />
+      ) : (
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <DayPlanner trip={trip} items={items} mutate={mutate} canEdit={canEdit} />
+          <aside className="flex flex-col gap-6">
+            <TaskChecklist tasks={tasks} mutate={mutate} canEdit={canEdit} />
+            <BudgetCard trip={trip} mutate={mutate} canEdit={canEdit} />
+            <TripChat basePath={basePath} trip={trip} mutate={mutate} canEdit={canEdit} />
+          </aside>
+        </div>
+      )}
     </div>
   );
 }
@@ -214,15 +258,21 @@ export function TripPlanner({ tripId }: { tripId: number }) {
 function TripHeader({
   trip,
   items,
+  role,
   mutate,
   regenerating,
+  sharing,
+  onToggleSharing,
   onRegenerate,
   onDelete,
 }: {
   trip: Trip;
   items: TripItem[];
+  role: TripRole;
   mutate: Mutate;
   regenerating: boolean;
+  sharing: boolean;
+  onToggleSharing: () => void;
   onRegenerate: () => void;
   onDelete: () => void;
 }) {
@@ -233,7 +283,7 @@ function TripHeader({
 
   function exportCsv() {
     const days = tripDays(trip.start_date, trip.end_date);
-    const csv = buildTripCsv({ trip, items, tasks: [] }, days, {
+    const csv = buildTripCsv({ trip, items, tasks: [], role }, days, {
       headers: ["day", "date", "time", "category", "title", "description", "source"].map((key) => t(`export.columns.${key}`)),
       category: (category) => t(`categories.${category as ItemCategory}`),
       dayLabel: (number) => t("days.label", { number }),
@@ -277,19 +327,25 @@ function TripHeader({
           ) : (
             <h1 className="flex items-center gap-2 font-display text-headline-lg text-ink">
               <span className="min-w-0">{trip.title}</span>
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                aria-label={t("trip.editTitle")}
-                className="rounded-lg p-1 text-ink-soft transition hover:bg-surface-muted hover:text-ink focus-visible:ring-2 focus-visible:ring-accent/25 focus-visible:outline-none"
-              >
-                <Icon name="edit" className="size-4.5" />
-              </button>
+              {role !== "viewer" && (
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  aria-label={t("trip.editTitle")}
+                  className="rounded-lg p-1 text-ink-soft transition hover:bg-surface-muted hover:text-ink focus-visible:ring-2 focus-visible:ring-accent/25 focus-visible:outline-none"
+                >
+                  <Icon name="edit" className="size-4.5" />
+                </button>
+              )}
             </h1>
           )}
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={onToggleSharing} aria-expanded={sharing} className="gap-1.5">
+            <Icon name="share" className="size-4" />
+            {t("share.open")}
+          </Button>
           <Button variant="secondary" size="sm" onClick={exportCsv} className="gap-1.5">
             <Icon name="download" className="size-4" />
             {t("export.csv")}
@@ -298,14 +354,18 @@ function TripHeader({
             <Icon name="print" className="size-4" />
             {t("export.pdf")}
           </Link>
-          <Button variant="secondary" size="sm" onClick={onDelete} disabled={regenerating} className="gap-1.5">
-            <Icon name="delete" className="size-4" />
-            {t("trip.delete")}
-          </Button>
-          <Button size="sm" onClick={onRegenerate} disabled={regenerating} className="gap-1.5">
-            <Icon name="sparkles" className="size-4" />
-            {regenerating ? t("trip.regenerating") : t("trip.regenerate")}
-          </Button>
+          {role === "owner" && (
+            <Button variant="secondary" size="sm" onClick={onDelete} disabled={regenerating} className="gap-1.5">
+              <Icon name="delete" className="size-4" />
+              {t("trip.delete")}
+            </Button>
+          )}
+          {role !== "viewer" && (
+            <Button size="sm" onClick={onRegenerate} disabled={regenerating} className="gap-1.5">
+              <Icon name="sparkles" className="size-4" />
+              {regenerating ? t("trip.regenerating") : t("trip.regenerate")}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -329,6 +389,7 @@ function TripHeader({
           </Chip>
         )}
         <Chip icon="explore">{t("trip.sources", { count: trip.source_post_count })}</Chip>
+        {role !== "owner" && <Chip icon="share">{t(`share.yourRole.${role}`)}</Chip>}
       </ul>
 
       {trip.season_note && (
@@ -353,7 +414,7 @@ function Chip({ icon, children }: { icon: IconName; children: ReactNode }) {
   );
 }
 
-function DayPlanner({ trip, items, mutate }: { trip: Trip; items: TripItem[]; mutate: Mutate }) {
+function DayPlanner({ trip, items, mutate, canEdit }: { trip: Trip; items: TripItem[]; mutate: Mutate; canEdit: boolean }) {
   const t = useTranslations("Planner");
   const format = useFormatter();
   const days = tripDays(trip.start_date, trip.end_date);
@@ -411,11 +472,11 @@ function DayPlanner({ trip, items, mutate }: { trip: Trip; items: TripItem[]; mu
 
         <ol className="flex flex-col gap-3">
           {dayItems.map((item) => (
-            <ItemRow key={item.id} item={item} days={days} mutate={mutate} />
+            <ItemRow key={item.id} item={item} days={days} mutate={mutate} canEdit={canEdit} />
           ))}
         </ol>
 
-        {adding ? (
+        {!canEdit ? null : adding ? (
           <ItemForm
             days={days}
             initial={{ day, start_time: "09:00", title: "", description: null, category: "activity" }}
@@ -435,7 +496,7 @@ function DayPlanner({ trip, items, mutate }: { trip: Trip; items: TripItem[]; mu
   );
 }
 
-function ItemRow({ item, days, mutate }: { item: TripItem; days: string[]; mutate: Mutate }) {
+function ItemRow({ item, days, mutate, canEdit }: { item: TripItem; days: string[]; mutate: Mutate; canEdit: boolean }) {
   const t = useTranslations("Planner");
   const [editing, setEditing] = useState(false);
 
@@ -473,14 +534,16 @@ function ItemRow({ item, days, mutate }: { item: TripItem; days: string[]; mutat
         )}
       </div>
       {/* Empilés sur mobile : plus de place pour le titre. */}
-      <div className="-mt-1.5 -mr-1.5 flex shrink-0 flex-col items-start sm:mt-0 sm:mr-0 sm:flex-row sm:gap-1">
-        <IconButton icon="edit" label={t("item.edit", { title: item.title })} onClick={() => setEditing(true)} />
-        <IconButton
-          icon="delete"
-          label={t("item.delete", { title: item.title })}
-          onClick={() => void mutate(`/items/${item.id}`, "DELETE")}
-        />
-      </div>
+      {canEdit && (
+        <div className="-mt-1.5 -mr-1.5 flex shrink-0 flex-col items-start sm:mt-0 sm:mr-0 sm:flex-row sm:gap-1">
+          <IconButton icon="edit" label={t("item.edit", { title: item.title })} onClick={() => setEditing(true)} />
+          <IconButton
+            icon="delete"
+            label={t("item.delete", { title: item.title })}
+            onClick={() => void mutate(`/items/${item.id}`, "DELETE")}
+          />
+        </div>
+      )}
     </li>
   );
 }
@@ -576,7 +639,7 @@ function ItemForm({
   );
 }
 
-function TaskChecklist({ tasks, mutate }: { tasks: TripTask[]; mutate: Mutate }) {
+function TaskChecklist({ tasks, mutate, canEdit }: { tasks: TripTask[]; mutate: Mutate; canEdit: boolean }) {
   const t = useTranslations("Planner");
   const done = tasks.filter((task) => task.done).length;
 
@@ -604,6 +667,7 @@ function TaskChecklist({ tasks, mutate }: { tasks: TripTask[]; mutate: Mutate })
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <Checkbox
                 checked={task.done}
+                disabled={!canEdit}
                 onChange={(event) => void mutate(`/tasks/${task.id}`, "PATCH", { done: event.currentTarget.checked })}
                 className="items-start"
               >
@@ -611,29 +675,33 @@ function TaskChecklist({ tasks, mutate }: { tasks: TripTask[]; mutate: Mutate })
               </Checkbox>
               {task.detail && <span className="pl-6.5 text-label-sm text-ink-soft">{task.detail}</span>}
             </div>
-            <IconButton
-              icon="close"
-              label={t("tasks.delete", { label: task.label })}
-              onClick={() => void mutate(`/tasks/${task.id}`, "DELETE")}
-            />
+            {canEdit && (
+              <IconButton
+                icon="close"
+                label={t("tasks.delete", { label: task.label })}
+                onClick={() => void mutate(`/tasks/${task.id}`, "DELETE")}
+              />
+            )}
           </li>
         ))}
       </ul>
 
-      <form onSubmit={handleAdd} className="flex gap-2">
-        <label htmlFor="task-label" className="sr-only">
-          {t("tasks.addLabel")}
-        </label>
-        <Input id="task-label" name="label" maxLength={120} placeholder={t("tasks.addPlaceholder")} required />
-        <Button type="submit" variant="secondary" className="shrink-0">
-          {t("tasks.add")}
-        </Button>
-      </form>
+      {canEdit && (
+        <form onSubmit={handleAdd} className="flex gap-2">
+          <label htmlFor="task-label" className="sr-only">
+            {t("tasks.addLabel")}
+          </label>
+          <Input id="task-label" name="label" maxLength={120} placeholder={t("tasks.addPlaceholder")} required />
+          <Button type="submit" variant="secondary" className="shrink-0">
+            {t("tasks.add")}
+          </Button>
+        </form>
+      )}
     </Card>
   );
 }
 
-function BudgetCard({ trip, mutate }: { trip: Trip; mutate: Mutate }) {
+function BudgetCard({ trip, mutate, canEdit }: { trip: Trip; mutate: Mutate; canEdit: boolean }) {
   const t = useTranslations("Planner");
   const [saved, setSaved] = useState(false);
   const total = budgetTotal(trip);
@@ -676,43 +744,48 @@ function BudgetCard({ trip, mutate }: { trip: Trip; mutate: Mutate }) {
         onChange={() => setSaved(false)}
         className="flex flex-col gap-3"
       >
-        <div className="grid grid-cols-2 gap-3">
-          {BUDGET_FIELDS.map(({ key, body, label }) => (
-            <Field key={key} id={`budget-${label}`} label={t(`budget.${label}`)}>
-              <Input id={`budget-${label}`} name={body} type="number" min={0} max={1_000_000} step={1} defaultValue={trip[key]} />
-            </Field>
-          ))}
-        </div>
-        <Field id="budget-target" label={t("budget.target")}>
-          <Input
-            id="budget-target"
-            name="budgetTarget"
-            type="number"
-            min={0}
-            max={1_000_000}
-            step={1}
-            defaultValue={target ?? ""}
-            placeholder={t("budget.targetPlaceholder")}
-          />
-        </Field>
-        <div className="flex items-center justify-end gap-3">
-          {saved && (
-            <span role="status" className="text-body-sm text-ink-soft">
-              {t("budget.saved")}
-            </span>
+        <fieldset disabled={!canEdit} className="contents">
+          <div className="grid grid-cols-2 gap-3">
+            {BUDGET_FIELDS.map(({ key, body, label }) => (
+              <Field key={key} id={`budget-${label}`} label={t(`budget.${label}`)}>
+                <Input id={`budget-${label}`} name={body} type="number" min={0} max={1_000_000} step={1} defaultValue={trip[key]} />
+              </Field>
+            ))}
+          </div>
+          <Field id="budget-target" label={t("budget.target")}>
+            <Input
+              id="budget-target"
+              name="budgetTarget"
+              type="number"
+              min={0}
+              max={1_000_000}
+              step={1}
+              defaultValue={target ?? ""}
+              placeholder={t("budget.targetPlaceholder")}
+            />
+          </Field>
+        </fieldset>
+        {canEdit && (
+          <div className="flex items-center justify-end gap-3">
+            {saved && (
+              <span role="status" className="text-body-sm text-ink-soft">
+                {t("budget.saved")}
+              </span>
           )}
           <Button type="submit" variant="secondary" size="sm">
             {t("budget.save")}
           </Button>
         </div>
+        )}
       </form>
     </Card>
   );
 }
 
 // Une proposition n'est ajoutée au planning que si l'utilisateur répond oui.
-function TripChat({ basePath, trip, mutate }: { basePath: string; trip: Trip; mutate: Mutate }) {
+function TripChat({ basePath, trip, mutate, canEdit }: { basePath: string; trip: Trip; mutate: Mutate; canEdit: boolean }) {
   const t = useTranslations("Planner");
+  const me = parseSessionUser(getSessionSnapshot());
   const router = useRouter();
   const [messages, setMessages] = useState<TripMessage[] | null>(null);
   const [draft, setDraft] = useState("");
@@ -801,12 +874,13 @@ function TripChat({ basePath, trip, mutate }: { basePath: string; trip: Trip; mu
 
         {messages?.map((message) =>
           message.role === "user" ? (
-            <p
-              key={message.id}
-              className="max-w-[85%] self-end rounded-lg bg-ink px-3 py-2 text-body-sm whitespace-pre-line text-surface"
-            >
-              {message.content}
-            </p>
+            <div key={message.id} className="flex max-w-[85%] flex-col items-end gap-0.5 self-end">
+              {/* Discussion partagée : on nomme les autres membres. */}
+              {message.author && message.author.id !== me?.id && (
+                <span className="text-label-sm text-ink-soft">{message.author.display_name}</span>
+              )}
+              <p className="rounded-lg bg-ink px-3 py-2 text-body-sm whitespace-pre-line text-surface">{message.content}</p>
+            </div>
           ) : (
             <div key={message.id} className="flex max-w-[95%] flex-col gap-2 self-start">
               <p
@@ -823,7 +897,7 @@ function TripChat({ basePath, trip, mutate }: { basePath: string; trip: Trip; mu
                       key={suggestion.id}
                       suggestion={suggestion}
                       dayNumber={days.indexOf(suggestion.day) + 1}
-                      onAnswer={(accepted) => answer(suggestion, accepted)}
+                      onAnswer={canEdit ? (accepted) => answer(suggestion, accepted) : undefined}
                     />
                   ))}
                 </ul>
@@ -846,7 +920,9 @@ function TripChat({ basePath, trip, mutate }: { basePath: string; trip: Trip; mu
 
       {error && <FormError>{t(`errors.${error}`)}</FormError>}
 
-      {remaining > 0 ? (
+      {!canEdit ? (
+        <p className="text-body-sm text-ink-soft">{t("share.viewerChat")}</p>
+      ) : remaining > 0 ? (
         <form onSubmit={handleSubmit} className="flex flex-col gap-2">
           <label htmlFor="chat-message" className="sr-only">
             {t("chat.label")}
@@ -884,13 +960,15 @@ function SuggestionCard({
 }: {
   suggestion: TripSuggestion;
   dayNumber: number;
-  onAnswer: (accepted: boolean) => Promise<unknown>;
+  // Absent : lecteur, la proposition est affichée sans boutons.
+  onAnswer?: (accepted: boolean) => Promise<unknown>;
 }) {
   const t = useTranslations("Planner");
   const format = useFormatter();
   const [pending, setPending] = useState(false);
 
   async function handleAnswer(accepted: boolean) {
+    if (!onAnswer) return;
     setPending(true);
     await onAnswer(accepted);
     setPending(false);
@@ -921,7 +999,7 @@ function SuggestionCard({
         </p>
       )}
 
-      {suggestion.status === "pending" ? (
+      {suggestion.status === "pending" && !onAnswer ? null : suggestion.status === "pending" ? (
         <div className="mt-1 flex items-center gap-2">
           <span className="mr-auto text-label-sm text-ink-soft">{t("chat.question")}</span>
           <Button size="sm" variant="secondary" disabled={pending} onClick={() => void handleAnswer(false)}>
@@ -943,19 +1021,6 @@ function SuggestionCard({
         </span>
       )}
     </li>
-  );
-}
-
-function IconButton({ icon, label, onClick }: { icon: IconName; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="rounded-lg p-1.5 text-ink-soft transition hover:bg-surface hover:text-ink focus-visible:ring-2 focus-visible:ring-accent/25 focus-visible:outline-none"
-    >
-      <Icon name={icon} className="size-4" />
-    </button>
   );
 }
 

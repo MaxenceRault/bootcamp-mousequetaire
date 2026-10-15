@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
+import { TripInvitations } from "@/components/TripInvitations";
 import { Card } from "@/components/ui/Card";
 import { FormError } from "@/components/ui/FormError";
 import { Icon } from "@/components/ui/Icon";
@@ -99,6 +100,8 @@ export function PlannerHome({ archetypes }: { archetypes: readonly Archetype[] }
           </div>
         </form>
       </section>
+
+      <TripInvitations />
 
       <section aria-labelledby="planner-list-title" className="flex flex-col gap-3">
         <h2 id="planner-list-title" className="font-display text-headline-sm text-ink">

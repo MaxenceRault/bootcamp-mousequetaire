@@ -67,6 +67,12 @@ const envSchema = z.object({
   RATE_LIMIT_TRIP_AI_WINDOW_SECONDS: seconds.default(60 * 60),
   RATE_LIMIT_TRIP_CHAT_MAX: count.default(30),
   RATE_LIMIT_TRIP_CHAT_WINDOW_SECONDS: seconds.default(60 * 60),
+  // Partage d'un voyage, par utilisateur : invitations (un pseudo inconnu est signalé : limite l'énumération) et liens rejoints.
+  RATE_LIMIT_TRIP_SHARE_MAX: count.default(30),
+  RATE_LIMIT_TRIP_SHARE_WINDOW_SECONDS: seconds.default(15 * 60),
+  // Écritures sur les dépenses d'un voyage, par utilisateur (une devise étrangère appelle l'API de taux de change).
+  RATE_LIMIT_TRIP_EXPENSE_MAX: count.default(120),
+  RATE_LIMIT_TRIP_EXPENSE_WINDOW_SECONDS: seconds.default(15 * 60),
 }).refine((env) => env.JWT_REFRESH_SECRET !== env.JWT_SECRET, {
   path: ["JWT_REFRESH_SECRET"],
   message: "doit être différente de JWT_SECRET",
@@ -86,7 +92,7 @@ export type ServerConfig = {
   vertex: { project: string; location: string } | null;
   aiDailyLimitPerUser: number;
   rateLimits: Record<
-    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "admin" | "comment" | "tripAi" | "tripChat",
+    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "admin" | "comment" | "tripAi" | "tripChat" | "tripShare" | "tripExpense",
     RateLimit
   >;
 };
@@ -138,6 +144,8 @@ export function getConfig(): ServerConfig {
       admin: rateLimit(env.RATE_LIMIT_ADMIN_MAX, env.RATE_LIMIT_ADMIN_WINDOW_SECONDS),
       tripAi: rateLimit(env.RATE_LIMIT_TRIP_AI_MAX, env.RATE_LIMIT_TRIP_AI_WINDOW_SECONDS),
       tripChat: rateLimit(env.RATE_LIMIT_TRIP_CHAT_MAX, env.RATE_LIMIT_TRIP_CHAT_WINDOW_SECONDS),
+      tripShare: rateLimit(env.RATE_LIMIT_TRIP_SHARE_MAX, env.RATE_LIMIT_TRIP_SHARE_WINDOW_SECONDS),
+      tripExpense: rateLimit(env.RATE_LIMIT_TRIP_EXPENSE_MAX, env.RATE_LIMIT_TRIP_EXPENSE_WINDOW_SECONDS),
     },
   };
   return config;
