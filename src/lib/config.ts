@@ -27,6 +27,18 @@ const envSchema = z.object({
   // Proxys de confiance (Cloud Run : 1) : seules leurs entrées de X-Forwarded-For sont fiables.
   TRUSTED_PROXY_HOPS: z.coerce.number().int().min(1).max(5).default(1),
 
+  // Paiement du rôle mécène (Stripe Checkout). Optionnelles : sans clé secrète, la page « Devenir mécène »
+  // affiche « paiement indisponible » (le reste de l'app fonctionne). Clés test (sk_test_…) en dev.
+  STRIPE_SECRET_KEY: z.string().regex(/^(sk|rk)_(test|live)_[A-Za-z0-9]+$/).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().regex(/^whsec_[A-Za-z0-9]+$/).optional(),
+  // URL publique du site : adresses de retour après le paiement (sinon : origine de la requête, en dev).
+  APP_URL: z.url({ protocol: /^https?$/ }).optional(),
+  // Prix du rôle mécène en centimes (paiement unique). 0,50 € (minimum accepté par Stripe en euros)
+  // à 1 000 €, défaut 5 €.
+  PATRON_PRICE_CENTS: z.coerce.number().int().min(50).max(100_000).default(500),
+  RATE_LIMIT_PATRON_CHECKOUT_MAX: count.default(10),
+  RATE_LIMIT_PATRON_CHECKOUT_WINDOW_SECONDS: seconds.default(15 * 60),
+
   RATE_LIMIT_LOGIN_MAX: count.default(5),
   RATE_LIMIT_LOGIN_WINDOW_SECONDS: seconds.default(15 * 60),
   // Par email, quelle que soit l'IP : contre le bruteforce réparti.
@@ -79,8 +91,12 @@ export type ServerConfig = {
   bcryptSaltRounds: number;
   trustedProxyHops: number;
   aiDailyLimitPerUser: number;
+  // null : paiement non configuré.
+  stripe: { secretKey: string; webhookSecret: string | null } | null;
+  appUrl: string | null;
+  patronPriceCents: number;
   rateLimits: Record<
-    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "admin" | "comment" | "tripAi" | "tripChat",
+    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "admin" | "comment" | "tripAi" | "tripChat" | "patronCheckout",
     RateLimit
   >;
 };
@@ -113,6 +129,11 @@ export function getConfig(): ServerConfig {
     bcryptSaltRounds: env.BCRYPT_SALT_ROUNDS,
     trustedProxyHops: env.TRUSTED_PROXY_HOPS,
     aiDailyLimitPerUser: env.AI_DAILY_LIMIT_PER_USER,
+    stripe: env.STRIPE_SECRET_KEY
+      ? { secretKey: env.STRIPE_SECRET_KEY, webhookSecret: env.STRIPE_WEBHOOK_SECRET ?? null }
+      : null,
+    appUrl: env.APP_URL ?? null,
+    patronPriceCents: env.PATRON_PRICE_CENTS,
     rateLimits: {
       login: rateLimit(env.RATE_LIMIT_LOGIN_MAX, env.RATE_LIMIT_LOGIN_WINDOW_SECONDS),
       loginEmail: rateLimit(env.RATE_LIMIT_LOGIN_EMAIL_MAX, env.RATE_LIMIT_LOGIN_EMAIL_WINDOW_SECONDS),
@@ -130,6 +151,7 @@ export function getConfig(): ServerConfig {
       admin: rateLimit(env.RATE_LIMIT_ADMIN_MAX, env.RATE_LIMIT_ADMIN_WINDOW_SECONDS),
       tripAi: rateLimit(env.RATE_LIMIT_TRIP_AI_MAX, env.RATE_LIMIT_TRIP_AI_WINDOW_SECONDS),
       tripChat: rateLimit(env.RATE_LIMIT_TRIP_CHAT_MAX, env.RATE_LIMIT_TRIP_CHAT_WINDOW_SECONDS),
+      patronCheckout: rateLimit(env.RATE_LIMIT_PATRON_CHECKOUT_MAX, env.RATE_LIMIT_PATRON_CHECKOUT_WINDOW_SECONDS),
     },
   };
   return config;

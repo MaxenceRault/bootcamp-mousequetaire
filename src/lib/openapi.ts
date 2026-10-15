@@ -338,6 +338,7 @@ export function buildOpenApiDocument() {
       { name: "Lieux", description: "Recherche de villes et pays (country-state-city)" },
       { name: "Réactions", description: "Likes et voyages enregistrés" },
       { name: "Administration", description: "Réservé au rôle admin : modération, rôles, types de récit, réglages de l'IA, journal" },
+      { name: "Mécène", description: "Rôle mécène payant (Stripe Checkout)" },
     ],
     paths: {
       "/auth/register": {
@@ -691,6 +692,55 @@ export function buildOpenApiDocument() {
             400: invalidInput,
             404: error("Pseudo inconnu ou compte banni (réponse identique)", ["NOT_FOUND"]),
             429: tooManyRequests,
+            500: internalError,
+          },
+        },
+      },
+      "/users/me/patron": {
+        get: {
+          tags: ["Mécène"],
+          summary: "État du rôle mécène (ou d'un paiement avec ?session_id=)",
+          description:
+            "Sans paramètre : { enabled, isPatron, priceCents, currency }. Avec ?session_id=cs_… (retour de Stripe) : " +
+            "{ payment: { status, amountCents, currency } | null }, lu chez Stripe, uniquement pour l'acheteur.",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "session_id", in: "query", schema: { type: "string", pattern: "^cs_(test|live)_[A-Za-z0-9]{1,200}$" } }],
+          responses: {
+            200: json("État", { type: "object" }),
+            400: invalidInput,
+            401: unauthorized,
+            500: internalError,
+          },
+        },
+      },
+      "/users/me/patron/checkout": {
+        post: {
+          tags: ["Mécène"],
+          summary: "Créer la page de paiement Stripe du rôle mécène",
+          description:
+            "Paiement unique, prix fixé par le serveur (PATRON_PRICE_CENTS). Rediriger ensuite vers `url` (page hébergée " +
+            "par Stripe). Le rôle est attribué par le webhook, jamais au retour du navigateur.",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: json("Page de paiement créée", { type: "object", properties: { url: { type: "string" } } }),
+            401: unauthorized,
+            409: error("Déjà mécène", ["ALREADY_PATRON"]),
+            429: tooManyRequests,
+            503: error("Paiement non configuré ou Stripe indisponible", ["PAYMENT_UNAVAILABLE"]),
+            500: internalError,
+          },
+        },
+      },
+      "/payments/webhook": {
+        post: {
+          tags: ["Mécène"],
+          summary: "Webhook Stripe (appelé par Stripe uniquement)",
+          description:
+            "Signature vérifiée sur le corps brut (en-tête Stripe-Signature, STRIPE_WEBHOOK_SECRET). Rôle mécène attribué " +
+            "uniquement sur checkout.session.completed / async_payment_succeeded payés. Idempotent.",
+          responses: {
+            200: json("Événement reçu", { type: "object", properties: { received: { type: "boolean" } } }),
+            400: error("Signature absente ou invalide", ["INVALID_SIGNATURE"]),
             500: internalError,
           },
         },
