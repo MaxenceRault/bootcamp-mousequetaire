@@ -6,13 +6,17 @@ import { clientIp, isRateLimited } from "@/lib/rateLimit";
 import {
   createPostSchema,
   feedQuerySchema,
+  BODY_PHOTO_MAX,
+  BODY_PHOTO_MAX_BYTES,
   PHOTO_MAX_BYTES,
   postIdSchema,
   updatePostSchema,
 } from "@/schemas/post.schema";
 import { createPost, deleteOwnPost, getFeedPage, PostError, setPostHidden } from "@/lib/services/post.service";
+import { logError, logInfo } from "@/lib/logger";
 
-const MAX_BODY_BYTES = PHOTO_MAX_BYTES + 1024 * 1024;
+// Doit rester sous proxyClientMaxBodySize (next.config.ts) : le proxy tronque au-delà.
+const MAX_BODY_BYTES = PHOTO_MAX_BYTES + BODY_PHOTO_MAX * BODY_PHOTO_MAX_BYTES + 1024 * 1024;
 
 // GET /api/v1/posts?archetype=&cursor=&limit= (public)
 export async function getFeedController(request: Request) {
@@ -57,7 +61,9 @@ export async function createPostController(request: Request) {
     return Response.json(await createPost(userId, body.data), { status: 201 });
   } catch (error) {
     if (error instanceof PostError && error.code === "CONTENT_REJECTED") {
-      return Response.json({ error: error.code, reasons: error.reasons }, { status: 422 });
+      // Motif dans les logs seulement : l'auteur ne doit pas pouvoir deviner la liste des mots bannis.
+      logInfo("moderation", { rejected: error.reasons });
+      return errorResponse(422, error.code);
     }
     if (error instanceof PostError) return errorResponse(400, error.code);
     return internalError(error);
@@ -122,7 +128,7 @@ function formToObject(form: FormData) {
   const data: Record<string, unknown> = {};
   for (const key of new Set(form.keys())) {
     const values = form.getAll(key);
-    data[key] = key === "tags" || values.length > 1 ? values : values[0];
+    data[key] = key === "tags" || key === "bodyPhotos" || values.length > 1 ? values : values[0];
   }
   return data;
 }
@@ -132,12 +138,6 @@ function errorResponse(status: number, code: string) {
 }
 
 function internalError(error: unknown) {
-  console.error(
-    JSON.stringify({
-      level: "error",
-      scope: "posts",
-      message: String((error as { message?: unknown })?.message ?? "unknown error"),
-    }),
-  );
+  logError("posts", error);
   return errorResponse(500, "INTERNAL_ERROR");
 }

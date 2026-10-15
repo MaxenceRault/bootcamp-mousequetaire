@@ -24,7 +24,7 @@ type GenerateJsonOptions = {
   schema: Schema;
   maxOutputTokens?: number;
   temperature?: number;
-  image?: { mimeType: string; data: Buffer };
+  images?: { mimeType: string; data: Buffer }[];
   timeoutMs?: number;
 };
 
@@ -34,14 +34,23 @@ export async function generateJson({
   schema,
   maxOutputTokens = 32_768,
   temperature = 0.7,
-  image,
+  images = [],
   timeoutMs = TIMEOUT_MS,
 }: GenerateJsonOptions): Promise<unknown> {
   const request = getClient().models.generateContent({
     model: MODEL,
-    contents: image
-      ? [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: image.mimeType, data: image.data.toString("base64") } }] }]
-      : prompt,
+    contents:
+      images.length > 0
+        ? [
+            {
+              role: "user",
+              parts: [
+                { text: prompt },
+                ...images.map(({ mimeType, data }) => ({ inlineData: { mimeType, data: data.toString("base64") } })),
+              ],
+            },
+          ]
+        : prompt,
     config: {
       systemInstruction: system,
       responseMimeType: "application/json",

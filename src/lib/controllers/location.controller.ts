@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getConfig } from "@/lib/config";
 import { clientIp, isRateLimited } from "@/lib/rateLimit";
 import { searchPlaces } from "@/lib/services/location.service";
+import { logError } from "@/lib/logger";
 
 // GET /api/v1/locations?q=kyo (8 suggestions max)
 const querySchema = z
@@ -30,13 +31,7 @@ export async function locationsController(request: Request) {
   try {
     return Response.json({ places: searchPlaces(query.data.q) }, { headers: CACHE_HEADERS });
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: "error",
-        scope: "locations",
-        message: String((error as { message?: unknown })?.message ?? "unknown error"),
-      }),
-    );
+    logError("locations", error);
     return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 });
   }
 }

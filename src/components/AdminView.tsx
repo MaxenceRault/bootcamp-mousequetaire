@@ -97,6 +97,7 @@ const ADMIN_ERRORS = [
   "CANNOT_TARGET_SELF",
   "TARGET_IS_ADMIN",
   "ARCHETYPE_TAKEN",
+  "BANNED_WORD_TAKEN",
   "TOO_MANY_REQUESTS",
   "INTERNAL_ERROR",
 ] as const;
@@ -106,7 +107,7 @@ function adminError(code: string): AdminErrorCode {
   return (ADMIN_ERRORS as readonly string[]).find((known) => known === code) as AdminErrorCode ?? "INTERNAL_ERROR";
 }
 
-const TABS = ["dashboard", "reports", "posts", "users", "archetypes", "ai", "journal"] as const;
+const TABS = ["dashboard", "reports", "posts", "users", "archetypes", "bannedWords", "ai", "journal"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_ICONS: Record<Tab, IconName> = {
@@ -115,6 +116,7 @@ const TAB_ICONS: Record<Tab, IconName> = {
   posts: "book",
   users: "settings",
   archetypes: "explore",
+  bannedWords: "block",
   ai: "sparkles",
   journal: "clock",
 };
@@ -218,6 +220,7 @@ export function AdminView() {
         {tab === "posts" && <PostsTab call={call} />}
         {tab === "users" && <UsersTab call={call} currentUserId={currentUserId} />}
         {tab === "archetypes" && <ArchetypesTab call={call} />}
+        {tab === "bannedWords" && <BannedWordsTab call={call} />}
         {tab === "ai" && <AiTab call={call} />}
         {tab === "journal" && <JournalTab call={call} />}
       </div>
@@ -726,6 +729,124 @@ function ArchetypeRow({ archetype, call, onSaved }: { archetype: AdminArchetype;
         )}
       </Card>
     </li>
+  );
+}
+
+// Alignés sur moderationFilter (serveur uniquement).
+const BANNED_REASONS = ["insult", "hate", "sexual", "politics"] as const;
+const BANNED_KINDS = ["word", "prefix", "phrase"] as const;
+
+type BannedWord = { id: number; term: string; reason: (typeof BANNED_REASONS)[number]; kind: (typeof BANNED_KINDS)[number] };
+
+function BannedWordsTab({ call }: { call: Call }) {
+  const t = useTranslations("Admin");
+  const { data, reload } = useResource<{ words: BannedWord[] }>(call, "/banned-words");
+  const [filter, setFilter] = useState("");
+  // Masquée par défaut : la liste ne s'affiche qu'à la demande.
+  const [revealed, setRevealed] = useState(false);
+
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    const created = await call("/banned-words", {
+      method: "POST",
+      body: { term: String(values.get("term") ?? ""), reason: values.get("reason"), kind: values.get("kind") },
+    });
+    if (created !== null) {
+      form.reset();
+      reload();
+    }
+  }
+
+  async function remove(word: BannedWord) {
+    if (!window.confirm(t("bannedWords.deleteConfirm", { term: word.term }))) return;
+    if ((await call(`/banned-words/${word.id}`, { method: "DELETE" })) !== null) reload();
+  }
+
+  const words = (data?.words ?? []).filter((word) => word.term.includes(filter.trim().toLowerCase()));
+
+  return (
+    <div className="grid items-start gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+      <Card className="flex flex-col gap-4 p-6">
+        <div className="flex flex-col gap-1">
+          <h2 className="font-display text-headline-sm text-ink">{t("bannedWords.createTitle")}</h2>
+          <p className="text-body-sm text-ink-soft">{t("bannedWords.createHint")}</p>
+        </div>
+        <form onSubmit={handleCreate} className="flex flex-col gap-3">
+          <Field id="banned-term" label={t("bannedWords.term")}>
+            <Input id="banned-term" name="term" minLength={2} maxLength={60} required />
+          </Field>
+          <Field id="banned-reason" label={t("bannedWords.reason")}>
+            <select id="banned-reason" name="reason" className={`h-11 ${FIELD_CLASS_NAME}`}>
+              {BANNED_REASONS.map((reason) => (
+                <option key={reason} value={reason}>
+                  {t(`bannedWords.reasons.${reason}`)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field id="banned-kind" label={t("bannedWords.kind")}>
+            <select id="banned-kind" name="kind" className={`h-11 ${FIELD_CLASS_NAME}`}>
+              {BANNED_KINDS.map((kind) => (
+                <option key={kind} value={kind}>
+                  {t(`bannedWords.kinds.${kind}`)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Button type="submit" className="gap-2">
+            <Icon name="add" className="size-4" />
+            {t("bannedWords.create")}
+          </Button>
+        </form>
+      </Card>
+
+      <Card className="flex flex-col gap-4 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-body-sm text-ink-soft">{t("bannedWords.count", { count: data?.words.length ?? 0 })}</p>
+          <Button variant="secondary" size="sm" onClick={() => setRevealed((value) => !value)} aria-pressed={revealed}>
+            <Icon name={revealed ? "visibilityOff" : "visibility"} className="size-4" />
+            {revealed ? t("bannedWords.hide") : t("bannedWords.show")}
+          </Button>
+        </div>
+        {revealed &&
+          (!data ? (
+            <Skeleton />
+          ) : (
+            <>
+              <Input
+                type="search"
+                value={filter}
+                onChange={(event) => setFilter(event.currentTarget.value)}
+                placeholder={t("bannedWords.search")}
+                aria-label={t("bannedWords.search")}
+              />
+              <ul className="flex flex-wrap gap-2">
+                {words.map((word) => (
+                  <li key={word.id}>
+                    <span className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface-muted py-1 pr-1 pl-3 text-body-sm text-ink">
+                      {word.term}
+                      <Badge tone={word.reason === "hate" || word.reason === "insult" ? "danger" : "neutral"}>
+                        {t(`bannedWords.reasons.${word.reason}`)}
+                        {word.kind !== "word" && ` · ${t(`bannedWords.kinds.${word.kind}`)}`}
+                      </Badge>
+                      <button
+                        type="button"
+                        onClick={() => void remove(word)}
+                        aria-label={t("bannedWords.delete", { term: word.term })}
+                        className="rounded-lg p-1 text-ink-soft transition hover:bg-surface hover:text-error"
+                      >
+                        <Icon name="close" className="size-3.5" />
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ))}
+      </Card>
+    </div>
   );
 }
 

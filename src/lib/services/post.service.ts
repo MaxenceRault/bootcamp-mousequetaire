@@ -28,7 +28,13 @@ import {
   type PostSummaryWithAuthor,
   searchFeedPosts,
 } from "@/lib/repositories/post.repository";
-import type { CreatePostInput, PlaceInput } from "@/schemas/post.schema";
+import {
+  BODY_UPLOAD_PREFIX,
+  LONG_DESCRIPTION_MAX,
+  type CreatePostInput,
+  type PlaceInput,
+  type PostBody,
+} from "@/schemas/post.schema";
 import { describePlace, placeExists, searchPlaces, type PlaceNames } from "@/lib/services/location.service";
 
 export const FEED_PAGE_SIZE = 10;
@@ -57,35 +63,48 @@ export async function createPost(
 
   const image = await detectImage(input.photo);
   if (!image) throw new PostError("INVALID_INPUT");
+  const bodyImages = await Promise.all(input.bodyPhotos.map(detectImage));
+  if (bodyImages.some((detected) => !detected)) throw new PostError("INVALID_INPUT");
+
+  // Texte brut tiré du récit mis en page : recherche, IA du planificateur, temps de lecture.
+  const longDescription = bodyToText(input.body);
+  if (longDescription.length < 1 || longDescription.length > LONG_DESCRIPTION_MAX) throw new PostError("INVALID_INPUT");
 
   const archetype = await findSelectableArchetype(input.archetype);
   if (!archetype) throw new PostError("INVALID_INPUT");
 
   // Vérifié avant tout enregistrement : un contenu refusé n'atteint ni le bucket ni la base.
   const moderation = await moderatePost({
-    title: input.title,
-    shortDescription: input.shortDescription,
-    longDescription: input.longDescription,
-    photoAlt: input.photoAlt,
-    photo: input.photo,
-    photoType: image.contentType,
+    texts: [input.title, input.shortDescription, longDescription, input.photoAlt, ...bodyImageAlts(input.body)],
+    photos: [input.photo, ...input.bodyPhotos],
   });
   if (moderation.status === "rejected") throw new PostError("CONTENT_REJECTED", moderation.reasons);
   const pendingReview = moderation.status === "unavailable";
 
   // Jamais le nom de fichier envoyé par le client.
   const photoPath = `${authorId}/${randomUUID()}.${image.extension}`;
-  const photoUrl = await uploadPostPhoto(photoPath, input.photo, image.contentType);
+  const bodyPhotoPaths = bodyImages.map((detected) => `${authorId}/${randomUUID()}.${detected!.extension}`);
+  const uploadedPaths: string[] = [];
 
   // Bucket et base ne partagent pas de transaction : on défait ce qui a été créé.
   try {
+    const photoUrl = await uploadPostPhoto(photoPath, input.photo, image.contentType);
+    uploadedPaths.push(photoPath);
+    const bodyPhotoUrls: string[] = [];
+    for (const [index, path] of bodyPhotoPaths.entries()) {
+      bodyPhotoUrls.push(await uploadPostPhoto(path, input.bodyPhotos[index], bodyImages[index]!.contentType));
+      uploadedPaths.push(path);
+    }
+
     const fields = {
       author_id: authorId,
       title: input.title,
       photo_url: photoUrl,
       photo_alt: input.photoAlt,
       short_description: input.shortDescription,
-      long_description: input.longDescription,
+      long_description: longDescription,
+      body: withPhotoUrls(input.body, bodyPhotoUrls),
+      body_photo_urls: bodyPhotoUrls,
       destination_country_code: destination.country,
       destination_state_code: destination.state ?? null,
       destination_city: destination.city ?? null,
@@ -118,9 +137,42 @@ export async function createPost(
 
     return { ...created, pendingReview };
   } catch (error) {
-    await deletePostPhoto(photoPath).catch(() => {});
+    await Promise.all(uploadedPaths.map((path) => deletePostPhoto(path).catch(() => {})));
     throw error;
   }
+}
+
+// Paragraphes séparés par une ligne vide, puces en « • ».
+function bodyToText(body: PostBody): string {
+  const inlineText = (content: { type: string; text?: string }[] = []) =>
+    content.map((node) => (node.type === "text" ? node.text : "\n")).join("");
+  return body.content
+    .flatMap((block) => {
+      if (block.type === "paragraph") return [inlineText(block.content)];
+      if (block.type === "bulletList") {
+        return [block.content.map((item) => `• ${item.content.map((p) => inlineText(p.content)).join(" ")}`).join("\n")];
+      }
+      return [];
+    })
+    .map((text) => text.trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function bodyImageAlts(body: PostBody): string[] {
+  return body.content.flatMap((block) => (block.type === "image" && block.attrs.alt ? [block.attrs.alt] : []));
+}
+
+// « upload:N » → URL de la N-ième photo envoyée dans le bucket.
+function withPhotoUrls(body: PostBody, urls: string[]): PostBody {
+  return {
+    ...body,
+    content: body.content.map((block) =>
+      block.type === "image"
+        ? { ...block, attrs: { src: urls[Number(block.attrs.src.slice(BODY_UPLOAD_PREFIX.length))], alt: block.attrs.alt } }
+        : block,
+    ),
+  };
 }
 
 function uniquePlaces(places: PlaceInput[]) {
@@ -197,9 +249,13 @@ export async function deleteOwnPost(userId: string, postId: number) {
   const post = await requireOwnPost(postId, userId);
   if (!(await deleteAuthorPost(postId, userId))) throw new PostError("NOT_FOUND");
 
-  // Le post est supprimé : un échec sur la photo ne doit pas faire échouer la requête.
-  const photoPath = photoPathFromUrl(post.photo_url);
-  if (photoPath) await deletePostPhoto(photoPath).catch(() => {});
+  // Le post est supprimé : un échec sur une photo ne doit pas faire échouer la requête.
+  await Promise.all(
+    [post.photo_url, ...post.body_photo_urls].map((url) => {
+      const path = photoPathFromUrl(url);
+      return path ? deletePostPhoto(path).catch(() => {}) : null;
+    }),
+  );
 }
 
 export type PostDetail = {
@@ -209,6 +265,8 @@ export type PostDetail = {
   photoUrl: string;
   photoAlt: string;
   shortDescription: string;
+  // Récit mis en page, rendu en éléments React (jamais en HTML) ; null : ancien récit, affiché par paragraphes.
+  body: PostBody | null;
   // Affiché en texte brut, jamais en HTML.
   paragraphs: string[];
   destination: PlaceNames & { countryCode: string; stateCode: string | null };
@@ -243,6 +301,7 @@ export async function getPostDetail(slug: string): Promise<PostDetail | null> {
     photoUrl: row.photo_url,
     photoAlt: row.photo_alt,
     shortDescription: row.short_description,
+    body: row.body,
     paragraphs: row.long_description.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean),
     destination: { ...destination, countryCode: row.destination_country_code, stateCode: row.destination_state_code },
     startDate: row.start_date,

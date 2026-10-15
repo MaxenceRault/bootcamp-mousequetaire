@@ -30,7 +30,8 @@ export class AuthError extends Error {
   }
 }
 
-export type AuthResult = { token: string; refreshToken: string; user: PublicUser };
+// refreshExpiresAt : fin de vie de la session, reprise par la durée du cookie.
+export type AuthResult = { token: string; refreshToken: string; refreshExpiresAt: Date; user: PublicUser };
 
 export async function login(email: string, password: string, remember: boolean): Promise<AuthResult> {
   const user = await findUserByEmail(email);
@@ -80,10 +81,12 @@ export async function refreshSession(refreshToken: string): Promise<AuthResult> 
   }
 
   const { id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role } = profile;
-  const next = await issueRefreshToken(id, stored.family_id, new Date(stored.expires_at));
+  const expiresAt = new Date(stored.expires_at);
+  const next = await issueRefreshToken(id, stored.family_id, expiresAt);
   return {
     token: await signToken(id),
     refreshToken: next,
+    refreshExpiresAt: expiresAt,
     user: { id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role },
   };
 }
@@ -100,7 +103,7 @@ async function createSession(user: PublicUser, remember: boolean): Promise<AuthR
     signToken(user.id),
     issueRefreshToken(user.id, randomUUID(), expiresAt),
   ]);
-  return { token, refreshToken, user };
+  return { token, refreshToken, refreshExpiresAt: expiresAt, user };
 }
 
 // Seule l'empreinte SHA-256 est stockée en base.

@@ -34,7 +34,7 @@ export function RegisterForm() {
     setPending(false);
 
     if ("error" in result) return setError(t(`errors.${authErrorCode(result.error)}`));
-    saveSession(result.token, result.refreshToken, result.user, false);
+    saveSession(result.token, result.user, false);
     router.push("/");
   }
 

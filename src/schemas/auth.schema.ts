@@ -22,11 +22,8 @@ export const registerSchema = z
   })
   .strict();
 
+// Valeur du cookie httpOnly du refresh token (JWT).
 export const refreshTokenSchema = z
-  .object({
-    refreshToken: z
-      .string()
-      .max(1000)
-      .regex(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/),
-  })
-  .strict();
+  .string()
+  .max(1000)
+  .regex(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);

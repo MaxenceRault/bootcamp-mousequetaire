@@ -10,68 +10,60 @@ export type SessionUser = {
   role?: UserRole;
 };
 
-const TOKEN_KEY = "brb_token";
-const REFRESH_KEY = "brb_refresh";
+// Aucun token dans le stockage du navigateur (lisible par un script injecté) : l'access token vit en mémoire,
+// le refresh token dans un cookie httpOnly posé par l'API. Seul le profil affiché (non secret) est stocké.
 const USER_KEY = "brb_user";
+// Anciennes versions : tokens stockés en clair, effacés au chargement.
+const LEGACY_KEYS = ["brb_token", "brb_refresh"];
 // Émis à chaque connexion / déconnexion (ex. mise à jour de la Navbar).
 const SESSION_EVENT = "brb:session";
 
-// Access et refresh token toujours stockés au même endroit.
-export function saveSession(token: string, refreshToken: string, user: SessionUser, remember: boolean) {
-  const storage = remember ? localStorage : sessionStorage;
+let accessToken: string | null = null;
+
+if (typeof window !== "undefined") {
+  for (const storage of [localStorage, sessionStorage]) LEGACY_KEYS.forEach((key) => storage.removeItem(key));
+}
+
+// Profil en sessionStorage sans « Se souvenir de moi » : oublié à la fermeture de l'onglet.
+export function saveSession(token: string, user: SessionUser, remember: boolean) {
   clearSession();
-  storage.setItem(TOKEN_KEY, token);
-  storage.setItem(REFRESH_KEY, refreshToken);
-  storage.setItem(USER_KEY, JSON.stringify(user));
+  accessToken = token;
+  (remember ? localStorage : sessionStorage).setItem(USER_KEY, JSON.stringify(user));
   window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
-export function getToken() {
-  return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY);
-}
-
-function getRefreshToken() {
-  return localStorage.getItem(REFRESH_KEY) ?? sessionStorage.getItem(REFRESH_KEY);
+function getStoredUser() {
+  return localStorage.getItem(USER_KEY) ?? sessionStorage.getItem(USER_KEY);
 }
 
 export function clearSession() {
-  for (const storage of [localStorage, sessionStorage]) {
-    storage.removeItem(TOKEN_KEY);
-    storage.removeItem(REFRESH_KEY);
-    storage.removeItem(USER_KEY);
-  }
+  accessToken = null;
+  for (const storage of [localStorage, sessionStorage]) storage.removeItem(USER_KEY);
   window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
-// Révocation côté serveur en best effort.
+// Révocation côté serveur en best effort ; le serveur efface aussi le cookie.
 export async function logout() {
-  const refreshToken = getRefreshToken();
   clearSession();
-  if (!refreshToken) return;
-  await fetch("/api/v1/auth/logout", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken }),
-  }).catch(() => null);
+  await fetch("/api/v1/auth/logout", { method: "POST" }).catch(() => null);
 }
 
 let pendingRefresh: Promise<string | null> | null = null;
 
 async function getFreshToken(): Promise<string | null> {
-  const token = getToken();
-  if (token && !isExpired(token)) return token;
+  if (accessToken && !isExpired(accessToken)) return accessToken;
   return refreshAccessToken();
 }
 
 // Un seul refresh à la fois, même entre onglets : un refresh token envoyé deux fois coupe la session (vol supposé).
+// Le verrou fait attendre l'autre onglet, qui enverra ensuite le nouveau cookie.
 function refreshAccessToken(): Promise<string | null> {
   if (pendingRefresh) return pendingRefresh;
 
-  const staleToken = getToken();
   const run = navigator.locks
     ? // Le verrou est tenu jusqu'à la fin du refresh ; then() aplatit la promesse renvoyée.
-      navigator.locks.request("brb-refresh", () => runRefresh(staleToken)).then((token) => token)
-    : runRefresh(staleToken);
+      navigator.locks.request("brb-refresh", () => runRefresh()).then((token) => token)
+    : runRefresh();
   const pending = run.finally(() => {
     pendingRefresh = null;
   });
@@ -79,43 +71,41 @@ function refreshAccessToken(): Promise<string | null> {
   return pending;
 }
 
-async function runRefresh(staleToken: string | null): Promise<string | null> {
-  // Un autre onglet a déjà renouvelé la session.
-  const current = getToken();
-  if (current && current !== staleToken && !isExpired(current)) return current;
+async function runRefresh(): Promise<string | null> {
+  // Visiteur jamais connecté : inutile d'appeler l'API.
+  if (!getStoredUser()) return null;
 
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return null;
-
-  const remember = localStorage.getItem(REFRESH_KEY) !== null;
-  const result = await postAuth("/api/v1/auth/refresh", { refreshToken });
+  const remember = localStorage.getItem(USER_KEY) !== null;
+  const result = await postAuth("/api/v1/auth/refresh");
   if ("error" in result) {
-    // Hors ligne : on garde la session pour réessayer.
-    if (result.error !== "INTERNAL_ERROR") clearSession();
+    // Hors ligne ou limite atteinte : on garde la session pour réessayer.
+    if (result.error !== "INTERNAL_ERROR" && result.error !== "TOO_MANY_REQUESTS") clearSession();
     return null;
   }
 
-  saveSession(result.token, result.refreshToken, result.user, remember);
+  saveSession(result.token, result.user, remember);
   return result.token;
 }
 
-// Au premier abonnement, renouvelle l'access token s'il a expiré.
+// Au premier abonnement, récupère un access token (perdu à chaque chargement de page) via le cookie.
 export function subscribeSession(onChange: () => void) {
   void getFreshToken();
+  // Déconnexion dans un autre onglet : le token en mémoire de celui-ci est oublié aussi.
+  const onStorage = () => {
+    if (!getStoredUser()) accessToken = null;
+    onChange();
+  };
   window.addEventListener(SESSION_EVENT, onChange);
-  window.addEventListener("storage", onChange);
+  window.addEventListener("storage", onStorage);
   return () => {
     window.removeEventListener(SESSION_EVENT, onChange);
-    window.removeEventListener("storage", onChange);
+    window.removeEventListener("storage", onStorage);
   };
 }
 
-// Expiration lue pour l'affichage seulement : la signature est vérifiée par le serveur.
+// Affichage seulement (connecté ou non) : la session est vérifiée par l'API au premier appel.
 export function getSessionSnapshot() {
-  const token = getToken();
-  const user = localStorage.getItem(USER_KEY) ?? sessionStorage.getItem(USER_KEY);
-  if (!user || (!getRefreshToken() && (!token || isExpired(token)))) return null;
-  return user;
+  return getStoredUser();
 }
 
 export function parseSessionUser(snapshot: string | null): SessionUser | null {
@@ -150,26 +140,25 @@ export function authErrorCode(code: string | undefined): (typeof AUTH_ERRORS)[nu
   return AUTH_ERRORS.find((known) => known === code) ?? "INTERNAL_ERROR";
 }
 
-export async function postAuth(path: string, body: unknown) {
+// Le cookie du refresh token est posé, envoyé et effacé par le navigateur (même origine).
+export async function postAuth(path: string, body?: unknown) {
   const response = await fetch(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    ...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   }).catch(() => null);
 
   const data = await response?.json().catch(() => null);
   if (!response?.ok || !data?.token) return { error: String(data?.error ?? "INTERNAL_ERROR") };
-  return { token: data.token as string, refreshToken: data.refreshToken as string, user: data.user as SessionUser };
+  return { token: data.token as string, user: data.user as SessionUser };
 }
 
 export function updateSessionUser(user: SessionUser) {
-  const storage = localStorage.getItem(TOKEN_KEY) ? localStorage : sessionStorage;
+  const storage = localStorage.getItem(USER_KEY) ? localStorage : sessionStorage;
   storage.setItem(USER_KEY, JSON.stringify(user));
   window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
-// reasons : détail facultatif d'un refus (ex. motifs de modération).
-export type ApiResult<T> = { data: T } | { error: string; reasons?: string[] };
+export type ApiResult<T> = { data: T } | { error: string };
 
 // Access token refusé (401) : renouvelé une fois, puis l'appel est rejoué.
 export async function apiFetch<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<ApiResult<T>> {
@@ -185,10 +174,7 @@ export async function apiFetch<T>(path: string, init: { method?: string; body?: 
   }
 
   const data = await response?.json().catch(() => null);
-  if (!response?.ok) {
-    const reasons = Array.isArray(data?.reasons) ? data.reasons.map(String) : undefined;
-    return { error: String(data?.error ?? "INTERNAL_ERROR"), ...(reasons ? { reasons } : {}) };
-  }
+  if (!response?.ok) return { error: String(data?.error ?? "INTERNAL_ERROR") };
   return { data: data as T };
 }
 

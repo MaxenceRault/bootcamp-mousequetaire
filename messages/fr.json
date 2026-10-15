@@ -132,7 +132,8 @@
     "aiTitle": "Itinéraire IA",
     "aiText": "Bientôt, Gemini pourra transformer ce récit en itinéraire personnalisé, prêt à ajouter à votre planificateur.",
     "openPlanner": "Ouvrir le planificateur",
-    "likeCount": "{count, plural, =0 {Aucun j'aime} one {# j'aime} other {# j'aime}}"
+    "likeCount": "{count, plural, =0 {Aucun j'aime} one {# j'aime} other {# j'aime}}",
+    "bodyPhotoAlt": "Photo du récit « {title} »"
   },
   "Tags": {
     "metaTitle": "Récits : {place}",
@@ -229,20 +230,29 @@
       "TOO_MANY_REQUESTS": "Trop de publications. Réessayez plus tard.",
       "PAYLOAD_TOO_LARGE": "La photo est trop lourde (5 Mo maximum).",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
-      "CONTENT_REJECTED": "Votre récit n'a pas été publié : il ne respecte pas les règles de la communauté."
+      "CONTENT_REJECTED": "Votre récit ne respecte pas les règles de la communauté. Modifiez-le, puis réessayez.",
+      "EMPTY_BODY": "Écrivez votre récit avant de publier."
     },
     "moderation": {
       "checking": "Vérification du récit…",
-      "reasons": "Motif : {list}. Modifiez le récit ou la photo, puis réessayez.",
-      "sexual": "contenu sexuel ou nudité",
-      "violence": "violence choquante",
-      "hate": "propos haineux",
-      "insult": "insultes",
-      "politics": "message politique",
-      "blasphemy": "propos blasphématoires",
-      "other": "contenu inapproprié",
       "pendingReview": "Merci ! Votre récit est enregistré : il sera visible dès qu'un modérateur l'aura vérifié.",
       "profileLink": "Voir mon profil"
+    },
+    "editor": {
+      "toolbar": "Mise en forme du récit",
+      "bold": "Gras",
+      "italic": "Italique",
+      "underline": "Souligné",
+      "size": "Taille du texte",
+      "sizes": {
+        "small": "Petit",
+        "normal": "Normal",
+        "large": "Grand",
+        "xlarge": "Très grand"
+      },
+      "bulletList": "Liste à puces",
+      "photo": "Insérer une photo ({max} maximum)",
+      "photoError": "Cette photo n'a pas pu être ajoutée. Essayez une image JPEG, PNG ou WebP."
     }
   },
   "TripContextBar": {
@@ -438,6 +448,7 @@
       "posts": "Récits",
       "users": "Utilisateurs",
       "archetypes": "Types de récit",
+      "bannedWords": "Mots bannis",
       "ai": "IA",
       "journal": "Journal"
     },
@@ -546,7 +557,9 @@
         "archetype_create": "Type de récit créé",
         "archetype_update": "Type de récit modifié",
         "settings_update": "Réglages de l'IA modifiés",
-        "comment_delete": "Commentaire supprimé"
+        "comment_delete": "Commentaire supprimé",
+        "banned_word_create": "Terme banni",
+        "banned_word_delete": "Terme retiré"
       },
       "targets": {
         "user": "Utilisateur",
@@ -563,7 +576,33 @@
       "TARGET_IS_ADMIN": "Retirez d'abord le rôle admin de ce compte.",
       "ARCHETYPE_TAKEN": "Un type de récit porte déjà ce nom.",
       "TOO_MANY_REQUESTS": "Trop d'actions d'affilée. Patientez une minute.",
-      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
+      "BANNED_WORD_TAKEN": "Ce terme est déjà dans la liste."
+    },
+    "bannedWords": {
+      "createTitle": "Bannir un terme",
+      "createHint": "Tout récit ou commentaire qui le contient est refusé, sans appel à l'IA. Majuscules et accents sont ignorés.",
+      "term": "Terme",
+      "reason": "Motif",
+      "kind": "Type",
+      "create": "Ajouter",
+      "search": "Filtrer les termes…",
+      "delete": "Retirer « {term} »",
+      "deleteConfirm": "Retirer « {term} » de la liste ?",
+      "reasons": {
+        "insult": "Insulte",
+        "hate": "Haine",
+        "sexual": "Sexuel",
+        "politics": "Politique"
+      },
+      "kinds": {
+        "word": "Mot exact",
+        "prefix": "Début de mot",
+        "phrase": "Expression"
+      },
+      "count": "{count, plural, =0 {Aucun terme} one {# terme banni} other {# termes bannis}}",
+      "show": "Afficher la liste",
+      "hide": "Masquer la liste"
     }
   },
   "TripExport": {
@@ -586,19 +625,23 @@
     "label": "Votre commentaire",
     "placeholder": "Posez une question ou partagez votre avis…",
     "submit": "Publier",
-    "sending": "Vérification…",
+    "sending": "Envoi…",
     "delete": "Supprimer le commentaire",
     "deleteConfirm": "Supprimer ce commentaire ?",
     "loginPrompt": "Connectez-vous pour poser une question ou commenter.",
     "login": "Se connecter",
-    "reasons": "Motif : {list}.",
     "errors": {
       "INVALID_INPUT": "Le commentaire est vide ou trop long.",
       "TOO_MANY_REQUESTS": "Trop de commentaires d'affilée. Patientez quelques minutes.",
       "FORBIDDEN": "Votre compte ne peut pas commenter.",
       "NOT_FOUND": "Ce récit ou ce commentaire n'existe plus.",
-      "CONTENT_REJECTED": "Commentaire refusé : il ne respecte pas les règles de la communauté.",
-      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
-    }
+      "CONTENT_REJECTED": "Votre commentaire ne respecte pas les règles de la communauté.",
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
+      "INVALID_PARENT": "On ne peut répondre qu'à un commentaire principal."
+    },
+    "reply": "Répondre",
+    "replySubmit": "Répondre",
+    "replyPlaceholder": "Répondre à {name}…",
+    "cancel": "Annuler"
   }
 }

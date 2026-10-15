@@ -175,7 +175,9 @@ export async function findUserMediaUrls(id: string): Promise<string[]> {
   const { rows } = await db.query<{ url: string }>(
     `select avatar_url as url from users where id = $1 and avatar_url is not null
      union all
-     select photo_url from post where author_id = $1`,
+     select photo_url from post where author_id = $1
+     union all
+     select unnest(body_photo_urls) from post where author_id = $1`,
     [id],
   );
   return rows.map(({ url }) => url);

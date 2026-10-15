@@ -4,6 +4,7 @@ import { getUserIdFromRequest } from "@/lib/jwt";
 import { isRateLimited } from "@/lib/rateLimit";
 import { ReportError, reportPost } from "@/lib/services/report.service";
 import { postIdSchema, reportPostSchema } from "@/schemas/post.schema";
+import { logError } from "@/lib/logger";
 
 // POST /api/v1/posts/{id}/report
 export async function reportPostController(request: Request, { params }: RouteContext<"/api/v1/posts/[id]/report">) {
@@ -25,13 +26,7 @@ export async function reportPostController(request: Request, { params }: RouteCo
       const status = error.code === "NOT_FOUND" ? 404 : error.code === "FORBIDDEN" ? 403 : 400;
       return errorResponse(status, error.code);
     }
-    console.error(
-      JSON.stringify({
-        level: "error",
-        scope: "reports",
-        message: String((error as { message?: unknown })?.message ?? "unknown error"),
-      }),
-    );
+    logError("reports", error);
     return errorResponse(500, "INTERNAL_ERROR");
   }
 }

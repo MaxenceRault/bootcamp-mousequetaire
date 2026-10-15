@@ -1,5 +1,6 @@
 import "server-only";
 import type { UserRole } from "@/lib/roles";
+import type { PostBody } from "@/schemas/post.schema";
 import { getDb } from "@/utils/db";
 import { getBucket, publicUrl } from "@/utils/storage";
 
@@ -13,6 +14,8 @@ export type NewPost = {
   photo_alt: string;
   short_description: string;
   long_description: string;
+  body: PostBody;
+  body_photo_urls: string[];
   destination_country_code: string;
   destination_state_code: string | null;
   destination_city: string | null;
@@ -36,8 +39,9 @@ export async function insertPost(post: NewPost): Promise<{ id: number; slug: str
   const result = await db
     .query<{ id: number; slug: string }>(
       `insert into post (author_id, title, photo_url, photo_alt, short_description, long_description,
-         destination_country_code, destination_state_code, destination_city, start_date, end_date, archetype_id, is_hidden, pending_review)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         destination_country_code, destination_state_code, destination_city, start_date, end_date, archetype_id, is_hidden, pending_review,
+         body, body_photo_urls)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        returning id, slug`,
       [
         post.author_id,
@@ -54,6 +58,8 @@ export async function insertPost(post: NewPost): Promise<{ id: number; slug: str
         post.archetype_id,
         post.is_hidden,
         post.pending_review,
+        JSON.stringify(post.body),
+        post.body_photo_urls,
       ],
     )
     .catch((error: { code?: string; constraint?: string }) => {
@@ -171,6 +177,8 @@ export type PostDetailRow = {
   photo_alt: string;
   short_description: string;
   long_description: string;
+  // null : ancien récit en texte brut.
+  body: PostBody | null;
   destination_country_code: string;
   destination_state_code: string | null;
   destination_city: string | null;
@@ -187,7 +195,7 @@ export async function findPostDetail(key: { slug: string } | { id: number }): Pr
   const [column, value] = "slug" in key ? ["slug", key.slug] : ["id", key.id];
   const db = await getDb();
   const { rows } = await db.query<PostDetailRow>(
-    `select p.id, p.title, p.slug, p.photo_url, p.photo_alt, p.short_description, p.long_description,
+    `select p.id, p.title, p.slug, p.photo_url, p.photo_alt, p.short_description, p.long_description, p.body,
        p.destination_country_code, p.destination_state_code, p.destination_city, p.start_date, p.end_date, p.created_at,
        json_build_object('slug', a.slug, 'label', a.label) as archetype,
        ${AUTHOR_JSON} as author,
@@ -356,10 +364,10 @@ export async function findFeedPosts({
 
 export async function findPostOwnership(
   id: number,
-): Promise<{ author_id: string; photo_url: string; pending_review: boolean } | null> {
+): Promise<{ author_id: string; photo_url: string; body_photo_urls: string[]; pending_review: boolean } | null> {
   const db = await getDb();
-  const { rows } = await db.query<{ author_id: string; photo_url: string; pending_review: boolean }>(
-    "select author_id, photo_url, pending_review from post where id = $1",
+  const { rows } = await db.query<{ author_id: string; photo_url: string; body_photo_urls: string[]; pending_review: boolean }>(
+    "select author_id, photo_url, body_photo_urls, pending_review from post where id = $1",
     [id],
   );
   return rows[0] ?? null;
@@ -513,11 +521,14 @@ export async function updatePostVisibilityById(id: number, hidden: boolean): Pro
   return rowCount === 1;
 }
 
-// Renvoie l'URL de la photo à retirer du bucket.
-export async function deletePostById(id: number): Promise<string | null> {
+// Renvoie les URL des photos (couverture et récit) à retirer du bucket, null si le post n'existe pas.
+export async function deletePostById(id: number): Promise<string[] | null> {
   const db = await getDb();
-  const { rows } = await db.query<{ photo_url: string }>("delete from post where id = $1 returning photo_url", [id]);
-  return rows[0]?.photo_url ?? null;
+  const { rows } = await db.query<{ urls: string[] }>(
+    "delete from post where id = $1 returning array_prepend(photo_url, body_photo_urls) as urls",
+    [id],
+  );
+  return rows[0]?.urls ?? null;
 }
 
 export type CoverPhoto = { slug: string; photo_url: string };

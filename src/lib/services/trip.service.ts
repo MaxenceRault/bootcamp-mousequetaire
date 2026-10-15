@@ -38,6 +38,7 @@ import {
   type UpdateTripItemInput,
   type UpdateTripTaskInput,
 } from "@/schemas/trip.schema";
+import { logError } from "@/lib/logger";
 
 export class TripError extends Error {
   constructor(
@@ -675,11 +676,5 @@ function buildChatPrompt({ posts, items, history, message, ...trip }: ChatReques
 }
 
 function logAiError(error: unknown) {
-  console.error(
-    JSON.stringify({
-      level: "error",
-      scope: "trips.ai",
-      message: String((error as { message?: unknown })?.message ?? "unknown error"),
-    }),
-  );
+  logError("trips.ai", error);
 }
