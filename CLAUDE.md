@@ -68,6 +68,7 @@ src/
 │   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
 │   ├── ProfileHeader.tsx      # En-tête de profil partagé (bannière, avatar, nom, stats, style des onglets) : /profile et /profile/{pseudo}
+│   ├── ProfileLink.tsx        # Liens vers le profil public d'un auteur (avatar et nom) : fil d'actualité, page d'un récit, commentaires
 │   ├── TripContextBar.tsx     # Barre destination · dates · type de récit (éditeur de récit + planificateur)
 │   ├── HomeHero.tsx           # Bannière de l'accueil : couvertures de récits en fondu + slogan
 │   ├── NavbarLinks.tsx        # Liens principaux (page active), en ligne ou dans le menu mobile

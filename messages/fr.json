@@ -146,7 +146,8 @@
     "aiTitle": "Itinéraire IA",
     "aiText": "Bientôt, Gemini pourra transformer ce récit en itinéraire personnalisé, prêt à ajouter à votre planificateur.",
     "openPlanner": "Ouvrir le planificateur",
-    "likeCount": "{count, plural, =0 {Aucun j'aime} one {# j'aime} other {# j'aime}}"
+    "likeCount": "{count, plural, =0 {Aucun j'aime} one {# j'aime} other {# j'aime}}",
+    "viewAuthorProfile": "Voir le profil"
   },
   "Tags": {
     "metaTitle": "Récits : {place}",
@@ -156,8 +157,10 @@
     "empty": "Aucun récit pour ce lieu pour l'instant."
   },
   "TravelCard": {
-    "cta": "Découvrir ce voyage",
-    "authorProfile": "Voir le profil de {name}"
+    "cta": "Découvrir ce voyage"
+  },
+  "ProfileLink": {
+    "avatarLabel": "Voir le profil de {name}"
   },
   "Footer": {
     "brand": "Brb",

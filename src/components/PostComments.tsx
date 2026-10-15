@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { useFormatter, useNow, useTranslations } from "next-intl";
+import { ProfileAvatarLink, ProfileNameLink } from "@/components/ProfileLink";
 import { RoleBadge } from "@/components/RoleBadge";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button, buttonClassName } from "@/components/ui/Button";
@@ -91,16 +92,21 @@ export function PostComments({ postId, initialComments }: { postId: number; init
           const canDelete = user && (user.id === comment.author.id || user.role === "admin");
           return (
             <li key={comment.id} className="flex gap-3">
-              <Avatar
-                src={comment.author.avatar_url}
-                name={comment.author.avatar_seed ?? comment.author.id}
-                backgroundColor={comment.author.avatar_background_color}
-                alt=""
-                size={40}
-              />
+              {/* Avatar et nom de l'auteur du commentaire mènent à son profil public. */}
+              <ProfileAvatarLink username={comment.author.username} name={comment.author.display_name}>
+                <Avatar
+                  src={comment.author.avatar_url}
+                  name={comment.author.avatar_seed ?? comment.author.id}
+                  backgroundColor={comment.author.avatar_background_color}
+                  alt=""
+                  size={40}
+                />
+              </ProfileAvatarLink>
               <div className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg bg-surface-muted px-4 py-3">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="font-display text-label-lg text-ink">{comment.author.display_name}</span>
+                  <span className="font-display text-label-lg text-ink">
+                    <ProfileNameLink username={comment.author.username}>{comment.author.display_name}</ProfileNameLink>
+                  </span>
                   <RoleBadge role={comment.author.role} />
                   {/* Borné à maintenant : l'horloge du serveur peut avoir quelques secondes d'avance. */}
                   <span className="text-label-sm text-ink-soft">{format.relativeTime(new Date(Math.min(Date.parse(comment.created_at), now.getTime())), now)}</span>
