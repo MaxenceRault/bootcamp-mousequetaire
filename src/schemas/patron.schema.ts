@@ -1,14 +1,14 @@
 import { z } from "zod";
 
-// Webhook Buy Me a Coffee : pas de .strict(), le corps est signé et Buy Me a Coffee peut ajouter des champs.
+// Webhook Buy Me a Coffee : looseObject voulu (exception à strictObject), le corps est signé et Buy Me a Coffee peut ajouter des champs.
 // Seuls les champs utilisés sont validés ; le reste est ignoré.
-export const bmcEventSchema = z.object({
+export const bmcEventSchema = z.looseObject({
   type: z.string().max(64),
   live_mode: z.boolean(),
   data: z.unknown(),
 });
 
-export const bmcDonationSchema = z.object({
+export const bmcDonationSchema = z.looseObject({
   id: z.number().int().positive(),
   status: z.enum(["succeeded", "refunded"]),
   amount: z.coerce.number().positive().max(100_000),
