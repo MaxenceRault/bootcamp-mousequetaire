@@ -125,7 +125,7 @@ scripts/
 └── utils/                     # Clients GCP, serveur uniquement : db.ts (Cloud SQL, auth IAM), storage.ts (Cloud Storage)
 db/                            # Scripts SQL à exécuter dans Cloud SQL Studio
 Dockerfile                     # Images multi-étapes, utilisateur non-root : « dev » (compose.yaml) et production (Cloud Run, sortie standalone)
-compose.yaml                   # Dev conteneurisé : code monté, node_modules dans un volume, identifiants gcloud de la machine en lecture seule
+compose.yaml                   # Dev conteneurisé : code monté, node_modules dans un volume, identifiants gcloud de la machine en lecture seule ; service « stripe » (CLI) qui relaie les webhooks de test vers l'app
 .github/workflows/deploy.yml   # Déploiement continu : push sur main → lint → image Docker → Cloud Run
 ```
 

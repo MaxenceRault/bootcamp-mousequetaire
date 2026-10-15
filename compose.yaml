@@ -23,6 +23,24 @@ services:
       # Windows : GCLOUD_CONFIG_DIR=%APPDATA%\gcloud.
       - ${GCLOUD_CONFIG_DIR:-${HOME}/.config/gcloud}:/gcloud:ro
 
+  # Relais des webhooks Stripe vers l'app (Stripe ne joint pas localhost). Clé de test du .env.local, sans stripe login.
+  # STRIPE_WEBHOOK_SECRET (une fois par compte Stripe) : docker compose run --rm --no-deps stripe 'stripe listen --api-key "$STRIPE_SECRET_KEY" --print-secret'
+  stripe:
+    image: stripe/stripe-cli:v1.53.0
+    depends_on:
+      - app
+    env_file:
+      - path: .env.local
+        required: true
+    entrypoint: ["/bin/sh", "-c"]
+    # $$ : variable lue dans le conteneur, pas par compose (la clé n'apparaît pas dans la config).
+    command:
+      - >-
+        case "$$STRIPE_SECRET_KEY" in sk_live_*|rk_live_*) echo "Clé live refusée : utiliser sk_test_" >&2; exit 1;; esac;
+        exec stripe listen --api-key "$$STRIPE_SECRET_KEY"
+        --events checkout.session.completed,checkout.session.async_payment_succeeded
+        --forward-to app:3000/api/v1/payments/webhook
+
 volumes:
   node_modules:
   next:
