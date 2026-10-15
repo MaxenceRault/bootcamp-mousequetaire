@@ -88,6 +88,16 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
 
   return (
     <>
+      {/* Photo du récit en haut de page : floutée, elle s'efface vers le bas et laisse place au fond global.
+          absolute (et non fixed) : elle défile avec la page. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-screen overflow-hidden [mask-image:linear-gradient(to_bottom,black_35%,transparent)]"
+      >
+        <Image src={post.photoUrl} alt="" fill sizes="100vw" className="scale-110 object-cover blur-sm" />
+        <div className="absolute inset-0 bg-ink/30" />
+      </div>
+
       <main className="relative w-full flex-1 pt-24 pb-12">
         <div className="mx-auto grid max-w-340 items-start gap-8 px-4 sm:px-6 lg:grid-cols-12 lg:px-8">
           <Card className="p-6 shadow-xl md:p-10 lg:col-span-8">
