@@ -10,6 +10,8 @@ import {
   type ReactionKind,
 } from "@/lib/repositories/reaction.repository";
 
+export type { ReactionKind };
+
 export class ReactionError extends Error {
   constructor(public readonly code: "NOT_FOUND") {
     super(code);

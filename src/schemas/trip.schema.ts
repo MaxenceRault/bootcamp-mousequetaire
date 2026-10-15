@@ -17,7 +17,7 @@ const euros = z.number().int().min(0).max(1_000_000);
 export const idParamSchema = z.coerce.number().int().positive().max(2_147_483_647);
 
 export const createTripSchema = z
-  .object({
+  .strictObject({
     destinationCountry: countryCode,
     destinationState: stateCode.optional(),
     destinationCity: cityName.optional(),
@@ -25,13 +25,12 @@ export const createTripSchema = z
     endDate: isoDate,
     archetype: archetypeSlugSchema,
   })
-  .strict()
   // Dates AAAA-MM-JJ : l'ordre des chaînes est chronologique.
   .refine((trip) => trip.endDate >= trip.startDate, { path: ["endDate"] })
   .refine((trip) => !trip.destinationCity || trip.destinationState, { path: ["destinationCity"] });
 
 export const updateTripSchema = z
-  .object({
+  .strictObject({
     title: z.string().trim().min(1).max(100),
     budgetTarget: euros.nullable(),
     budgetLodging: euros,
@@ -40,20 +39,15 @@ export const updateTripSchema = z
     budgetActivities: euros,
   })
   .partial()
-  .strict()
   .refine((changes) => Object.keys(changes).length > 0);
 
-export const sendTripMessageSchema = z
-  .object({
-    content: z.string().trim().min(2).max(TRIP_MESSAGE_MAX),
-  })
-  .strict();
+export const sendTripMessageSchema = z.strictObject({
+  content: z.string().trim().min(2).max(TRIP_MESSAGE_MAX),
+});
 
-export const answerTripSuggestionSchema = z
-  .object({
-    accepted: z.boolean(),
-  })
-  .strict();
+export const answerTripSuggestionSchema = z.strictObject({
+  accepted: z.boolean(),
+});
 
 const tripItemFields = {
   day: isoDate,
@@ -67,27 +61,23 @@ const tripItemFields = {
   category: z.enum(TRIP_ITEM_CATEGORIES),
 };
 
-export const createTripItemSchema = z.object(tripItemFields).strict();
+export const createTripItemSchema = z.strictObject(tripItemFields);
 
 export const updateTripItemSchema = z
-  .object(tripItemFields)
+  .strictObject(tripItemFields)
   .partial()
-  .strict()
   .refine((changes) => Object.keys(changes).length > 0);
 
-export const createTripTaskSchema = z
-  .object({
-    label: z.string().trim().min(1).max(120),
-  })
-  .strict();
+export const createTripTaskSchema = z.strictObject({
+  label: z.string().trim().min(1).max(120),
+});
 
 export const updateTripTaskSchema = z
-  .object({
+  .strictObject({
     label: z.string().trim().min(1).max(120),
     done: z.boolean(),
   })
   .partial()
-  .strict()
   .refine((changes) => Object.keys(changes).length > 0);
 
 export type CreateTripInput = z.infer<typeof createTripSchema>;
