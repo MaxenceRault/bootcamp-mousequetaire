@@ -19,6 +19,7 @@ export class PatronError extends Error {
 
 export type PatronStatus = {
   enabled: boolean;
+  minEur: number | null;
   isPatron: boolean;
   // Le don est rattaché au compte par cette adresse : affichée seulement à son titulaire.
   email: string | null;
@@ -32,6 +33,7 @@ export async function getPatronStatus(userId: string): Promise<PatronStatus> {
   const bmc = getBuyMeACoffeeConfig();
   return {
     enabled: bmc !== null,
+    minEur: bmc?.patronMinEur ?? null,
     isPatron: access.role === "patron" || access.role === "admin",
     email,
     pageUrl: bmc?.pageUrl ?? null,
@@ -62,6 +64,9 @@ export async function handleBuyMeACoffeeWebhook(rawBody: string, signature: stri
   }
 
   if (status !== "succeeded") return logInfo("patron", { ignored: type, paymentId: id, reason: "not_succeeded" });
+  if (currency !== "EUR" || amount < bmc.patronMinEur) {
+    return logInfo("patron", { ignored: type, paymentId: id, reason: "amount_too_low", amount, currency });
+  }
   // Pas de compte Brb avec cet email : le don reste un simple don (jamais l'email dans les logs).
   const userId = email ? await findActiveUserIdByEmail(email) : null;
   if (!userId) return logInfo("patron", { ignored: type, paymentId: id, reason: "no_matching_account" });

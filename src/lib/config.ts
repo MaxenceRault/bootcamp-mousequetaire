@@ -147,9 +147,11 @@ export function getConfig(): ServerConfig {
 const buyMeACoffeeSchema = z.object({
   BMC_WEBHOOK_SECRET: z.string().regex(/^\S{16,200}$/),
   BMC_PAGE_URL: z.url({ protocol: /^https$/, hostname: /^(www\.)?buymeacoffee\.com$/ }),
+  // Don minimum (en euros) qui donne le rôle : le prix d'un café sur la page Buy Me a Coffee.
+  BMC_PATRON_MIN_EUR: z.coerce.number().positive().max(1000).default(5),
 });
 
-export type BuyMeACoffeeConfig = { webhookSecret: string; pageUrl: string };
+export type BuyMeACoffeeConfig = { webhookSecret: string; pageUrl: string; patronMinEur: number };
 
 let buyMeACoffee: BuyMeACoffeeConfig | null | undefined;
 
@@ -157,14 +159,18 @@ let buyMeACoffee: BuyMeACoffeeConfig | null | undefined;
 export function getBuyMeACoffeeConfig(): BuyMeACoffeeConfig | null {
   if (buyMeACoffee !== undefined) return buyMeACoffee;
 
-  const { BMC_WEBHOOK_SECRET, BMC_PAGE_URL } = process.env;
+  const { BMC_WEBHOOK_SECRET, BMC_PAGE_URL, BMC_PATRON_MIN_EUR } = process.env;
   if (!BMC_WEBHOOK_SECRET && !BMC_PAGE_URL) return (buyMeACoffee = null);
 
-  const parsed = buyMeACoffeeSchema.safeParse({ BMC_WEBHOOK_SECRET, BMC_PAGE_URL });
+  const parsed = buyMeACoffeeSchema.safeParse({ BMC_WEBHOOK_SECRET, BMC_PAGE_URL, BMC_PATRON_MIN_EUR });
   if (!parsed.success) {
     const names = parsed.error.issues.map((issue) => issue.path.join(".")).join(", ");
     logError("config", `invalid Buy Me a Coffee env (payment disabled): ${names}`);
     return (buyMeACoffee = null);
   }
-  return (buyMeACoffee = { webhookSecret: parsed.data.BMC_WEBHOOK_SECRET, pageUrl: parsed.data.BMC_PAGE_URL });
+  return (buyMeACoffee = {
+    webhookSecret: parsed.data.BMC_WEBHOOK_SECRET,
+    pageUrl: parsed.data.BMC_PAGE_URL,
+    patronMinEur: parsed.data.BMC_PATRON_MIN_EUR,
+  });
 }

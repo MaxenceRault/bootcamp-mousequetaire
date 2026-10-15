@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { Button, buttonClassName } from "@/components/ui/Button";
 import { FormError } from "@/components/ui/FormError";
 import { Icon } from "@/components/ui/Icon";
 import { apiFetch, getSessionSnapshot, subscribeSession } from "@/lib/session";
 
-type PatronStatus = { enabled: boolean; isPatron: boolean; email: string | null; pageUrl: string | null };
+type PatronStatus = { enabled: boolean; minEur: number | null; isPatron: boolean; email: string | null; pageUrl: string | null };
 type LoadState = { status: "loading" } | { status: "error" } | { status: "ready"; data: PatronStatus };
 
 // Seule destination autorisée pour le lien de paiement.
@@ -35,6 +35,7 @@ export function PatronView() {
 
 function PatronOffer() {
   const t = useTranslations("Patron");
+  const format = useFormatter();
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [checking, setChecking] = useState(false);
   const [notYet, setNotYet] = useState(false);
@@ -69,12 +70,16 @@ function PatronOffer() {
       </p>
     );
   }
-  if (!data.enabled || !data.pageUrl || !BMC_PAGE.test(data.pageUrl)) {
+  if (!data.enabled || !data.pageUrl || !data.minEur || !BMC_PAGE.test(data.pageUrl)) {
     return <p className="text-center text-body-md text-ink-soft">{t("unavailable")}</p>;
   }
+  const price = format.number(data.minEur, { style: "currency", currency: "EUR" });
 
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-center font-display text-headline-xl-mobile text-ink">
+        {price} <span className="text-body-md text-ink-soft">{t("oneTime")}</span>
+      </p>
       <p className="rounded-lg bg-surface-muted px-4 py-3 text-center text-body-md text-ink-soft">
         {t.rich("emailHint", { email: data.email ?? "", strong: (chunks) => <strong className="text-ink">{chunks}</strong> })}
       </p>
@@ -85,7 +90,7 @@ function PatronOffer() {
         className={buttonClassName("md", "w-full gap-2")}
       >
         <Icon name="heartFilled" className="size-4" />
-        {t("submit")}
+        {t("submit", { price })}
       </a>
       <Button variant="secondary" onClick={handleCheck} disabled={checking} className="w-full">
         {checking ? t("checking") : t("check")}

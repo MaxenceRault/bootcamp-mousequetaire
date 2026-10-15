@@ -639,6 +639,7 @@ export function buildOpenApiDocument() {
               type: "object",
               properties: {
                 enabled: { type: "boolean" },
+                minEur: { type: "number", nullable: true, description: "Don minimum (EUR) qui donne le rôle" },
                 isPatron: { type: "boolean" },
                 email: { type: "string", nullable: true },
                 pageUrl: { type: "string", nullable: true },
@@ -655,7 +656,7 @@ export function buildOpenApiDocument() {
           summary: "Webhook Buy Me a Coffee (appelé par Buy Me a Coffee uniquement)",
           description:
             "Signature HMAC-SHA256 du corps brut vérifiée (en-tête x-signature-sha256, BMC_WEBHOOK_SECRET). " +
-            "donation.created : rôle mécène au compte non banni de même email. donation.refunded : rôle précédent rendu. " +
+            "donation.created d'au moins BMC_PATRON_MIN_EUR en euros : rôle mécène au compte non banni de même email. donation.refunded : rôle précédent rendu. " +
             "Idempotent ; événements de test ignorés en production.",
           responses: {
             200: json("Événement reçu", { type: "object", properties: { received: { type: "boolean" } } }),
