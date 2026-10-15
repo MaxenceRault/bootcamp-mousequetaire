@@ -53,7 +53,7 @@ jobs:
           docker build --build-arg APP_URL="$APP_URL" -t "$IMAGE" .
           docker push "$IMAGE"
 
-      # Secrets JWT dans Secret Manager. Une seule instance : les rate limits sont en mémoire.
+      # Secrets JWT et Stripe dans Secret Manager. Une seule instance : les rate limits sont en mémoire.
       - name: Déploiement Cloud Run
         run: |
           gcloud run deploy "$SERVICE" \
@@ -67,6 +67,6 @@ jobs:
             --cpu-boost \
             --min-instances=0 \
             --max-instances=1 \
-            --set-env-vars="CLOUD_SQL_INSTANCE=$PROJECT_ID:$REGION:biirb-db1,DB_NAME=brb,DB_USER=brb-run@$PROJECT_ID.iam,GCP_PROJECT_ID=$PROJECT_ID,VERTEX_LOCATION=$REGION,TRUSTED_PROXY_HOPS=1" \
-            --set-secrets="JWT_SECRET=brb-jwt-secret:latest,JWT_REFRESH_SECRET=brb-jwt-refresh-secret:latest" \
+            --set-env-vars="CLOUD_SQL_INSTANCE=$PROJECT_ID:$REGION:biirb-db1,DB_NAME=brb,DB_USER=brb-run@$PROJECT_ID.iam,GCP_PROJECT_ID=$PROJECT_ID,VERTEX_LOCATION=$REGION,TRUSTED_PROXY_HOPS=1,APP_URL=$APP_URL" \
+            --set-secrets="JWT_SECRET=brb-jwt-secret:latest,JWT_REFRESH_SECRET=brb-jwt-refresh-secret:latest,STRIPE_SECRET_KEY=brb-stripe-secret-key:latest,STRIPE_WEBHOOK_SECRET=brb-stripe-webhook-secret:latest" \
             --quiet
