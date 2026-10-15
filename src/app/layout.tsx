@@ -1,3 +1,4 @@
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
@@ -33,6 +34,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-canvas font-sans text-body-md text-ink">
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

@@ -52,6 +52,8 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // Service worker toujours revérifié : une nouvelle version remplace l'ancienne au prochain chargement.
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache" }] },
       ...(corsHeaders.length > 0 ? [{ source: "/api/:path*", headers: corsHeaders }] : []),
     ];
   },

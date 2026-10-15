@@ -1,6 +1,7 @@
 import "server-only";
 import { getDb } from "@/server/infra/db";
 import type { TripItemCategory } from "@/schemas/trip.schema";
+import type { TripAccessRole } from "@/schemas/trip-share.schema";
 
 export type TripSummary = {
   id: number;
@@ -13,9 +14,12 @@ export type TripSummary = {
   archetype: { slug: string; label: string };
   item_count: number;
   created_at: string;
+  // Voyages partagés : le rôle de l'utilisateur et le propriétaire.
+  role: TripAccessRole;
+  owner_name: string;
 };
 
-export type TripRow = Omit<TripSummary, "item_count"> & {
+export type TripRow = Omit<TripSummary, "item_count" | "role" | "owner_name"> & {
   user_id: string;
   archetype_id: number;
   budget_lodging: number;
@@ -88,6 +92,8 @@ export type TripMessageRow = {
   content: string;
   off_topic: boolean;
   created_at: string;
+  // Messages de l'utilisateur : qui l'a écrit (discussion partagée entre les membres).
+  author: { id: string; display_name: string } | null;
   suggestions: TripSuggestionRow[];
 };
 
@@ -131,12 +137,17 @@ export async function insertTrip(trip: NewTrip): Promise<number> {
   return rows[0].id;
 }
 
+// Voyages créés par l'utilisateur et voyages dont il est membre.
 export async function findTripsByUser(userId: string): Promise<TripSummary[]> {
   const db = await getDb();
   const { rows } = await db.query<TripSummary>(
-    `select ${TRIP_SUMMARY_COLUMNS}, (select count(*)::int from trip_item i where i.trip_id = t.id) as item_count
-     from trip t join archetype a on a.id = t.archetype_id
-     where t.user_id = $1
+    `select ${TRIP_SUMMARY_COLUMNS}, (select count(*)::int from trip_item i where i.trip_id = t.id) as item_count,
+       case when t.user_id = $1 then 'owner' else m.role::text end as role, owner.display_name as owner_name
+     from trip t
+     join archetype a on a.id = t.archetype_id
+     join users owner on owner.id = t.user_id
+     left join trip_member m on m.trip_id = t.id and m.user_id = $1
+     where t.user_id = $1 or m.user_id is not null
      order by t.start_date desc, t.id desc`,
     [userId],
   );
@@ -301,6 +312,7 @@ export async function findTripMessages(tripId: number): Promise<TripMessageRow[]
   const db = await getDb();
   const { rows } = await db.query<TripMessageRow>(
     `select m.id, m.role, m.content, m.off_topic, m.created_at,
+       case when u.id is null then null else json_build_object('id', u.id, 'display_name', u.display_name) end as author,
        coalesce(
          (select json_agg(json_build_object(
              'id', s.id, 'day', to_char(s.day, 'YYYY-MM-DD'), 'start_time', to_char(s.start_time, 'HH24:MI'),
@@ -311,7 +323,7 @@ export async function findTripMessages(tripId: number): Promise<TripMessageRow[]
           where s.message_id = m.id),
          '[]'
        ) as suggestions
-     from trip_message m
+     from trip_message m left join users u on u.id = m.author_id
      where m.trip_id = $1
      order by m.id`,
     [tripId],
@@ -329,13 +341,13 @@ export async function countTripUserMessages(tripId: number): Promise<number> {
 }
 
 // Une transaction : jamais de question sans sa réponse.
-export async function insertTripExchange(tripId: number, exchange: NewTripExchange) {
+export async function insertTripExchange(tripId: number, authorId: string, exchange: NewTripExchange) {
   const client = await (await getDb()).connect();
   try {
     await client.query("begin");
     await client.query(
-      `insert into trip_message (trip_id, role, content, off_topic) values ($1, 'user', $2, $3)`,
-      [tripId, exchange.user_content, exchange.off_topic],
+      `insert into trip_message (trip_id, role, content, off_topic, author_id) values ($1, 'user', $2, $3, $4)`,
+      [tripId, exchange.user_content, exchange.off_topic, authorId],
     );
     const { rows } = await client.query<{ id: number }>(
       `insert into trip_message (trip_id, role, content, off_topic) values ($1, 'assistant', $2, $3) returning id`,
