@@ -16,7 +16,7 @@ export function NewPostButton() {
     <Link
       href="/post/new"
       aria-label={t("newPost")}
-      className={buttonClassName("md", "group fixed right-4 bottom-4 z-50 gap-0 px-3.5 shadow-lg md:right-6 md:bottom-6")}
+      className={buttonClassName("md", "group gap-0 px-3.5 shadow-lg xl:hidden")}
     >
       <Icon name="add" className="size-5" />
       <span className="max-w-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-xs group-focus-visible:ml-2 group-focus-visible:max-w-xs">

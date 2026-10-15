@@ -22,7 +22,7 @@ messages/
 └── fr.json                    # Textes de l'interface (i18n, seule langue pour l'instant)
 src/
 ├── app/
-│   ├── layout.tsx             # Layout global (Navbar + Footer + Fonts)
+│   ├── layout.tsx             # Layout global (Navbar + Footer + Fonts) + fond de toutes les pages : courbes de niveau (public/topo.svg)
 │   ├── page.tsx               # Homepage : feed, ou résultats de recherche si /?q= (lieux, puis titres, puis textes)
 │   ├── post/[slug]/page.tsx   # Détail d'un récit : /post/<slug> (ancien lien /post/<id> → redirection 308)
 │   ├── patron/page.tsx        # Devenir mécène : don sur Buy Me a Coffee (rôle donné au compte de même email)
@@ -95,6 +95,9 @@ src/
 │   ├── ProfileLink.tsx        # Liens vers le profil public d'un auteur (avatar et nom) : fil d'actualité, page d'un récit, commentaires
 │   ├── TripContextBar.tsx     # Barre destination · dates · type de récit (éditeur de récit + planificateur)
 │   ├── HomeHero.tsx           # Bannière de l'accueil : couvertures de récits en fondu + slogan
+│   ├── HomeSidebar.tsx        # Colonnes latérales de l'accueil (grand écran) : types de récit, destinations tendance, invitation au planificateur
+│   ├── BackToTop.tsx          # Bouton « Revenir en haut » de l'accueil (desktop, client : apparaît après défilement)
+│   ├── HomeShortcuts.tsx      # Raccourcis de la colonne de gauche : nouveau récit, planifier (client, connectés uniquement)
 │   ├── NavbarLinks.tsx        # Liens principaux (page active), en ligne ou dans le menu mobile
 │   ├── NavbarMobileMenu.tsx   # Menu burger (< md) : recherche + liens
 │   ├── TripPrint.tsx          # Document imprimable du planning (export PDF)

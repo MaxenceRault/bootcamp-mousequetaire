@@ -24,7 +24,10 @@ export function NavbarLinks({ variant }: { variant: "inline" | "stacked" }) {
         aria-current={active ? "page" : undefined}
         className={
           variant === "inline"
-            ? `font-display text-label-lg transition hover:text-accent ${active ? "text-ink" : "text-ink-soft"}`
+            ? // Page active : texte foncé + trait corail sous le lien.
+              `relative font-display text-label-lg transition after:absolute after:inset-x-0 after:-bottom-1.5 after:h-0.5 after:rounded-full after:transition ${
+                active ? "text-ink after:bg-accent" : "text-ink-soft after:bg-transparent hover:text-ink hover:after:bg-line"
+              }`
             : `flex h-12 items-center gap-3 rounded-lg px-3 font-display text-label-lg transition ${
                 active ? "bg-surface-muted text-ink" : "text-ink-soft hover:bg-surface-muted hover:text-ink"
               }`
