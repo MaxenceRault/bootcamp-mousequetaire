@@ -17,6 +17,9 @@ export async function proxy(request: NextRequest) {
 
   // Le feed (GET /api/v1/posts) est public.
   if (request.method === "GET" && pathname === "/api/v1/posts") return NextResponse.next();
+  // Le profil public d'un utilisateur (GET /api/v1/users/{pseudo}) se lit sans compte.
+  // « me » (2 lettres) ne peut pas être un pseudo (3 à 30 caractères) : /api/v1/users/me reste privé.
+  if (request.method === "GET" && /^\/api\/v1\/users\/[a-z0-9_]{3,30}$/.test(pathname)) return NextResponse.next();
   // Les commentaires d'un récit se lisent sans compte.
   if (request.method === "GET" && /^\/api\/v1\/posts\/\d+\/comments$/.test(pathname)) return NextResponse.next();
 

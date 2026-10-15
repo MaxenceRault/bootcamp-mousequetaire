@@ -26,10 +26,21 @@ export function TravelCard({ post, now, preload = false }: TravelCardProps) {
       <article>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <Avatar src={post.author.avatarUrl} name={post.author.avatarSeed ?? post.author.id}
-              backgroundColor={post.author.avatarBackgroundColor} alt="" size={40} />
+            {/* Avatar et nom mènent au profil public de l'auteur (un seul lien pour les deux). */}
+            <Link
+              href={`/profile/${post.author.username}`}
+              aria-label={t("authorProfile", { name: post.author.displayName })}
+              className="shrink-0 rounded-lg transition hover:opacity-90 focus-visible:ring-4 focus-visible:ring-accent/25 focus-visible:outline-none"
+            >
+              <Avatar src={post.author.avatarUrl} name={post.author.avatarSeed ?? post.author.id}
+                backgroundColor={post.author.avatarBackgroundColor} alt="" size={40} />
+            </Link>
             <div className="min-w-0">
-              <p className="mb-1 font-display text-label-lg text-ink">{post.author.displayName}</p>
+              <p className="mb-1 font-display text-label-lg text-ink">
+                <Link href={`/profile/${post.author.username}`} className="transition hover:text-accent">
+                  {post.author.displayName}
+                </Link>
+              </p>
               <p className="flex flex-wrap items-center gap-1 text-body-sm text-ink-soft/70">
                 <span>
                   {post.location ?? country}{" "}

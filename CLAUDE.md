@@ -28,6 +28,7 @@ src/
 │   ├── tags/page.tsx          # Récits d'un lieu : /tags?country=FR[&state=IDF&city=Montesson] (destination ou tag)
 │   ├── post/new/page.tsx      # Éditeur de récit (création d'un post)
 │   ├── profile/page.tsx       # Tableau de bord utilisateur
+│   ├── profile/[username]/page.tsx # Profil public d'un autre utilisateur (lien depuis l'auteur dans le fil) : récits, enregistrés si partagés, ou « profil privé »
 │   ├── admin/page.tsx         # Administration (rôle admin) : modération, rôles, types de récit, réglages IA, journal
 │   ├── planner/page.tsx       # Planificateur : mes voyages + génération par l'IA
 │   ├── planner/[id]/print/page.tsx # Planning imprimable (export PDF via l'impression du navigateur)
@@ -46,6 +47,7 @@ src/
 │       ├── posts/[id]/reactions/route.ts # GET : mes réactions + nombre de likes (Bearer) → reaction.controller
 │       ├── locations/route.ts     # GET /api/v1/locations?q= recherche de villes / pays (country-state-city) → location.controller
 │       ├── users/me/route.ts  # GET / PATCH /api/v1/users/me (profil connecté) → user.controller
+│       ├── users/[username]/route.ts # GET /api/v1/users/{pseudo} : profil public (réglages de confidentialité appliqués côté serveur) → user.controller
 │       ├── users/me/reactions/route.ts # GET ?postIds=1,2,3 : mes likes / enregistrements sur une page du feed (Bearer) → reaction.controller
 │       ├── users/me/avatar/route.ts    # PUT (multipart « image ») / DELETE : photo de profil (Bearer) → user.controller
 │       ├── openapi.json/route.ts # GET /api/v1/openapi.json : spécification OpenAPI (dev uniquement)
@@ -54,17 +56,18 @@ src/
 ├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (auth.schema.ts, user.schema.ts, post.schema.ts)
 ├── services/                  # Couche SERVICE : logique métier (ex. post.service.ts)
 ├── repositories/              # Couche REPOSITORY : accès base de données (ex. post.repository.ts)
-├── proxy.ts                   # Middleware Next 16 : redirige (308) les anciens liens /post/{id} vers /post/{slug} ; refuse sans token valide les routes API privées (/api/v1/users/*, /api/v1/posts/* sauf GET /api/v1/posts, /api/v1/trips/*)
+├── proxy.ts                   # Middleware Next 16 : redirige (308) les anciens liens /post/{id} vers /post/{slug} ; refuse sans token valide les routes API privées (/api/v1/users/*, /api/v1/posts/* sauf GET /api/v1/posts et GET /api/v1/users/{pseudo}, /api/v1/trips/*)
 ├── types/
 │   └── swagger-ui-dist.d.ts   # Types du bundle navigateur de Swagger UI
 ├── i18n/
 │   └── request.ts             # Config next-intl (locale + chargement des messages)
 ├── components/
-│   ├── ui/                    # Design system : Button, Input, Textarea, Autocomplete, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar, Logo, Badge
+│   ├── ui/                    # Design system : EmptyState, Button, Input, Textarea, Autocomplete, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar, Logo, Badge
 │   ├── Navbar.tsx             # Barre du haut (version visiteur / connecté)
 │   ├── NavbarAccount.tsx      # Zone compte de la Navbar (client : lit la session du navigateur)
 │   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
+│   ├── ProfileHeader.tsx      # En-tête de profil partagé (bannière, avatar, nom, stats, style des onglets) : /profile et /profile/{pseudo}
 │   ├── TripContextBar.tsx     # Barre destination · dates · type de récit (éditeur de récit + planificateur)
 │   ├── HomeHero.tsx           # Bannière de l'accueil : couvertures de récits en fondu + slogan
 │   ├── NavbarLinks.tsx        # Liens principaux (page active), en ligne ou dans le menu mobile
@@ -123,7 +126,7 @@ compose.yaml                   # Dev conteneurisé : code monté, node_modules d
 - Les fichiers existent mais sont vides : ne les remplir que lorsqu'on travaille sur la fonctionnalité concernée. Ne pas inventer d'UI, de textes, de données ou de logique qui n'ont pas été demandés.
 - Base de données : **Cloud SQL (PostgreSQL)** sur GCP, instance `biirb-511608:europe-west9:biirb-db1`, base `brb`. Connexion via `src/utils/db.ts` (connecteur `@google-cloud/cloud-sql-connector` + `pg`, variables lues via `getConfig()`), en **authentification IAM** : aucun mot de passe de base dans l'app ni dans `.env*`. En local : `gcloud auth application-default login` + variables `CLOUD_SQL_INSTANCE`, `DB_NAME`, `DB_USER` (son email Google). `getDb()` n'est importé que par `repositories/`. Requêtes SQL toujours paramétrées (`$1, $2…`), jamais de concaténation. Le feed de la homepage lit la table `post` (Server Component → `post.service` → `post.repository`), pagination par curseur (id du dernier post affiché).
 - Photos des posts : bucket **Cloud Storage** `biirb-post-photos` (public en lecture), via `src/utils/storage.ts`, importé uniquement par `repositories/`. Écriture réservée au serveur.
-- Schéma de la base (tables `users`, `post` — dont `slug` : identifiant de l'URL, unique, généré par la base à la création (trigger `post_fill_slug`) et jamais modifié ; dont `is_hidden` : post masqué par son auteur, exclu du feed, de la page détail et des pages de lieu —, `archetype` — types de récit gérés depuis l'admin (libellé, description, actif), jamais écrits en dur dans le code —, `tag`, `post_tag`, `refresh_token`, `post_like`, `post_save`, `trip*`, `post_report`, `ai_usage`, `app_settings`, `admin_action`) dans `db/migrations/`. Une migration s'exécute **une seule fois** : tout changement de schéma passe par un nouveau fichier daté (jamais de modification à la main dans la console, jamais en modifiant ou relançant un ancien fichier), commençant par `set role brb_admin;`. Rôles Postgres : `brb_admin` (propriétaire, développeurs : migrations + seed) et `brb_app` (droits minimaux de l'app, compte de service Cloud Run `brb-run`) : chaque migration accorde à `brb_app` uniquement les droits utilisés par le code. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app.
+- Schéma de la base (tables `users` — dont `is_private` et `show_saved` : confidentialité du profil public —, `post` — dont `slug` : identifiant de l'URL, unique, généré par la base à la création (trigger `post_fill_slug`) et jamais modifié ; dont `is_hidden` : post masqué par son auteur, exclu du feed, de la page détail et des pages de lieu —, `archetype` — types de récit gérés depuis l'admin (libellé, description, actif), jamais écrits en dur dans le code —, `tag`, `post_tag`, `refresh_token`, `post_like`, `post_save`, `trip*`, `post_report`, `ai_usage`, `app_settings`, `admin_action`) dans `db/migrations/`. Une migration s'exécute **une seule fois** : tout changement de schéma passe par un nouveau fichier daté (jamais de modification à la main dans la console, jamais en modifiant ou relançant un ancien fichier), commençant par `set role brb_admin;`. Rôles Postgres : `brb_admin` (propriétaire, développeurs : migrations + seed) et `brb_app` (droits minimaux de l'app, compte de service Cloud Run `brb-run`) : chaque migration accorde à `brb_app` uniquement les droits utilisés par le code. Seed uniquement via le script manuel `npm run seed`, jamais via une route de l'app.
 - Architecture back : route → controller → service → repository → base. Pas d'accès base hors des repositories.
 - Documentation API : toute nouvelle route sous `/api/v1/` est ajoutée dans `src/lib/openapi.ts` (visible sur `/api-docs` en dev). Les schémas Zod des requêtes vont dans `schemas/` pour être réutilisés par la doc.
 - **Commentaires** : uniquement l'essentiel, c'est-à-dire le *pourquoi* non évident (sécurité, contournement, contrainte), en une ligne si possible. Pas de commentaire qui répète le code, pas de bandeau de section.

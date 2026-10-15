@@ -2,9 +2,14 @@ import "server-only";
 import { connection } from "next/server";
 import { getConfig } from "@/lib/config";
 import { getUserIdFromRequest } from "@/lib/jwt";
-import { isRateLimited } from "@/lib/rateLimit";
-import { getMyProfile, ProfileError, setMyAvatar, updateMyProfile } from "@/lib/services/user.service";
-import { PROFILE_IMAGE_MAX_BYTES, profileImageSchema, updateProfileSchema } from "@/schemas/user.schema";
+import { clientIp, isRateLimited } from "@/lib/rateLimit";
+import { getMyProfile, getPublicProfile, ProfileError, setMyAvatar, updateMyProfile } from "@/lib/services/user.service";
+import {
+  PROFILE_IMAGE_MAX_BYTES,
+  profileImageSchema,
+  updateProfileSchema,
+  usernameParamSchema,
+} from "@/schemas/user.schema";
 
 // GET /api/v1/users/me
 export async function getMeController(request: Request) {
@@ -16,6 +21,25 @@ export async function getMeController(request: Request) {
   try {
     return Response.json(await getMyProfile(userId));
   } catch (error) {
+    return handleError(error);
+  }
+}
+
+// GET /api/v1/users/{pseudo} : profil public (sans compte). Profil privé → identité seule.
+export async function getPublicProfileController(request: Request, { params }: RouteContext<"/api/v1/users/[username]">) {
+  // Jamais pré-calculé au build : les réglages de confidentialité peuvent changer à tout moment.
+  await connection();
+  const { max, windowMs } = getConfig().rateLimits.profileView;
+  if (isRateLimited(`users:view:${clientIp(request)}`, max, windowMs)) return errorResponse(429, "TOO_MANY_REQUESTS");
+
+  const username = usernameParamSchema.safeParse((await params).username);
+  if (!username.success) return errorResponse(400, "INVALID_INPUT");
+
+  try {
+    return Response.json(await getPublicProfile(username.data));
+  } catch (error) {
+    // Pseudo inconnu ou compte banni : 404, sans distinguer les deux cas.
+    if (error instanceof ProfileError && error.code === "NOT_FOUND") return errorResponse(404, "NOT_FOUND");
     return handleError(error);
   }
 }

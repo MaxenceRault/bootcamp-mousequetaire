@@ -45,6 +45,8 @@ const envSchema = z.object({
   RATE_LIMIT_POST_EDIT_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_POST_REACT_MAX: count.default(60),
   RATE_LIMIT_POST_REACT_WINDOW_SECONDS: seconds.default(60),
+  RATE_LIMIT_PROFILE_VIEW_MAX: count.default(120),
+  RATE_LIMIT_PROFILE_VIEW_WINDOW_SECONDS: seconds.default(60),
   RATE_LIMIT_PROFILE_UPDATE_MAX: count.default(10),
   RATE_LIMIT_PROFILE_UPDATE_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_REPORT_MAX: count.default(10),
@@ -69,7 +71,7 @@ export type ServerConfig = {
   bcryptSaltRounds: number;
   trustedProxyHops: number;
   rateLimits: Record<
-    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileUpdate" | "report" | "admin" | "comment",
+    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "admin" | "comment",
     RateLimit
   >;
 };
@@ -111,6 +113,7 @@ export function getConfig(): ServerConfig {
       postCreate: rateLimit(env.RATE_LIMIT_POST_CREATE_MAX, env.RATE_LIMIT_POST_CREATE_WINDOW_SECONDS),
       postEdit: rateLimit(env.RATE_LIMIT_POST_EDIT_MAX, env.RATE_LIMIT_POST_EDIT_WINDOW_SECONDS),
       postReact: rateLimit(env.RATE_LIMIT_POST_REACT_MAX, env.RATE_LIMIT_POST_REACT_WINDOW_SECONDS),
+      profileView: rateLimit(env.RATE_LIMIT_PROFILE_VIEW_MAX, env.RATE_LIMIT_PROFILE_VIEW_WINDOW_SECONDS),
       profileUpdate: rateLimit(env.RATE_LIMIT_PROFILE_UPDATE_MAX, env.RATE_LIMIT_PROFILE_UPDATE_WINDOW_SECONDS),
       report: rateLimit(env.RATE_LIMIT_REPORT_MAX, env.RATE_LIMIT_REPORT_WINDOW_SECONDS),
       comment: rateLimit(env.RATE_LIMIT_COMMENT_MAX, env.RATE_LIMIT_COMMENT_WINDOW_SECONDS),

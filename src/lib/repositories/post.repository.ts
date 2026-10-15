@@ -147,17 +147,24 @@ const AUTHOR_JSON = `json_build_object('id', u.id, 'username', u.username, 'disp
   'avatar_url', u.avatar_url, 'avatar_seed', u.avatar_seed,
   'avatar_background_color', u.avatar_background_color, 'role', u.role)`;
 
+// visibleOnly : profil vu par un visiteur (sans les récits masqués ni ceux en attente de modération).
 export async function findPostsByAuthor(
   authorId: string,
   limit: number,
+  { visibleOnly = false }: { visibleOnly?: boolean } = {},
 ): Promise<{ posts: PostSummary[]; total: number }> {
   const db = await getDb();
   const [posts, count] = await Promise.all([
     db.query<PostSummary>(
-      `select ${SUMMARY_COLUMNS.join(", ")} from post where author_id = $1 order by created_at desc limit $2`,
-      [authorId, limit],
+      `select ${SUMMARY_COLUMNS.join(", ")} from post
+       where author_id = $1 and (not $3 or not is_hidden)
+       order by created_at desc limit $2`,
+      [authorId, limit, visibleOnly],
     ),
-    db.query<{ total: number }>("select count(*)::int as total from post where author_id = $1", [authorId]),
+    db.query<{ total: number }>(
+      "select count(*)::int as total from post where author_id = $1 and (not $2 or not is_hidden)",
+      [authorId, visibleOnly],
+    ),
   ]);
 
   return { posts: posts.rows, total: count.rows[0].total };
