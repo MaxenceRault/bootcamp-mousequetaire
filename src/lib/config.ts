@@ -32,8 +32,9 @@ const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().regex(/^whsec_[A-Za-z0-9]+$/).optional(),
   // URL publique du site : adresses de retour après le paiement (sinon : origine de la requête, en dev).
   APP_URL: z.url({ protocol: /^https?$/ }).optional(),
-  // Prix du rôle mécène en centimes (paiement unique). 1 € à 1 000 €, défaut 5 €.
-  PATRON_PRICE_CENTS: z.coerce.number().int().min(100).max(100_000).default(500),
+  // Prix du rôle mécène en centimes (paiement unique). 0,50 € (minimum accepté par Stripe en euros)
+  // à 1 000 €, défaut 5 €.
+  PATRON_PRICE_CENTS: z.coerce.number().int().min(50).max(100_000).default(500),
   RATE_LIMIT_PATRON_CHECKOUT_MAX: count.default(10),
   RATE_LIMIT_PATRON_CHECKOUT_WINDOW_SECONDS: seconds.default(15 * 60),
 
