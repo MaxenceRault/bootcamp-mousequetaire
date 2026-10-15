@@ -19,9 +19,9 @@ import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { flagEmoji, placeHref } from "@/lib/country";
-import { getPostDetail, getPostSlug, type PostDetail } from "@/lib/services/post.service";
-import { listComments } from "@/lib/services/comment.service";
-import { getLikeCount } from "@/lib/services/reaction.service";
+import { getPostDetail, getPostSlug, type PostDetail } from "@/server/services/post.service";
+import { listComments } from "@/server/services/comment.service";
+import { getLikeCount } from "@/server/services/reaction.service";
 import { postIdSchema, postSlugSchema } from "@/schemas/post.schema";
 
 type ResolvedPost = { post: PostDetail } | { redirectTo: string } | null;

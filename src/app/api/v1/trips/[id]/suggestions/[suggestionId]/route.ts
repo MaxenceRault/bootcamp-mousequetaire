@@ -1,3 +1,3 @@
-import { answerTripSuggestionController } from "@/lib/controllers/trip.controller";
+import { answerTripSuggestionController } from "@/server/controllers/trip.controller";
 
 export const PATCH = answerTripSuggestionController;

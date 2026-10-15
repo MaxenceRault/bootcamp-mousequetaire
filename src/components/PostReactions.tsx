@@ -11,8 +11,8 @@ import {
   setReactionFromUser,
   subscribeReactions,
   type ReactionState,
-} from "@/lib/reactions-store";
-import { apiFetch, getSessionSnapshot, subscribeSession } from "@/lib/session";
+} from "@/client/reactions-store";
+import { apiFetch, getSessionSnapshot, subscribeSession } from "@/client/session";
 
 type Kind = "like" | "save";
 

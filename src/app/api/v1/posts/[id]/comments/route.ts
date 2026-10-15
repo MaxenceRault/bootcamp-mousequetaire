@@ -1,4 +1,4 @@
-import { createCommentController, listCommentsController } from "@/lib/controllers/comment.controller";
+import { createCommentController, listCommentsController } from "@/server/controllers/comment.controller";
 
 export const GET = listCommentsController;
 export const POST = createCommentController;

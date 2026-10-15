@@ -7,14 +7,14 @@ import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/Avatar";
 import { buttonClassName } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
-import { useDismiss } from "@/lib/useDismiss";
+import { useDismiss } from "@/client/hooks/useDismiss";
 import {
   getSessionSnapshot,
   logout,
   parseSessionUser,
   subscribeSession,
   type SessionUser,
-} from "@/lib/session";
+} from "@/client/session";
 
 // Session dans le navigateur : inconnue côté serveur → emplacement réservé.
 export function NavbarAccount() {

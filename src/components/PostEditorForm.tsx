@@ -17,8 +17,8 @@ import { Textarea } from "@/components/ui/Textarea";
 import { RichTextEditor, type RichTextEditorHandle } from "@/components/RichTextEditor";
 import { TripContextBar } from "@/components/TripContextBar";
 import type { Archetype } from "@/lib/posts";
-import { apiFetch, getSessionSnapshot } from "@/lib/session";
-import { usePlaceSearch, type Place } from "@/lib/usePlaceSearch";
+import { apiFetch, getSessionSnapshot } from "@/client/session";
+import { usePlaceSearch, type Place } from "@/client/hooks/usePlaceSearch";
 
 type PostEditorFormProps = {
   archetypes: readonly Archetype[];

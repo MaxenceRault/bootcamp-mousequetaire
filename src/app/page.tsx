@@ -9,8 +9,8 @@ import { HomeHero } from "@/components/HomeHero";
 import { NewPostButton } from "@/components/NewPostButton";
 import { Card } from "@/components/ui/Card";
 import type { Archetype, FeedPage } from "@/lib/posts";
-import { listActiveArchetypes } from "@/lib/services/archetype.service";
-import { getFeedPage, getHeroPhotos, searchPosts } from "@/lib/services/post.service";
+import { listActiveArchetypes } from "@/server/services/archetype.service";
+import { getFeedPage, getHeroPhotos, searchPosts } from "@/server/services/post.service";
 import { searchQuerySchema } from "@/schemas/post.schema";
 
 export default async function Home({ searchParams }: PageProps<"/">) {

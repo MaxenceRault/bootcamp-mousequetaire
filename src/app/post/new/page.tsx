@@ -6,7 +6,7 @@ import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { PostEditorForm } from "@/components/PostEditorForm";
 import { Card } from "@/components/ui/Card";
-import { listActiveArchetypes } from "@/lib/services/archetype.service";
+import { listActiveArchetypes } from "@/server/services/archetype.service";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("PostEditor");

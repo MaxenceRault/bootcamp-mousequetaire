@@ -64,15 +64,15 @@ jobs:
           fail=0
           for r in $(find src/app/api/v1 -name route.ts | sed 's#src/app/api/v1##; s#/route.ts##; s#\[\([a-zA-Z]*\)\]#{\1}#g'); do
             case "$r" in /chat|/openapi.json) continue ;; esac
-            grep -q "\"$r\"" src/lib/openapi.ts || { echo "::error file=src/lib/openapi.ts::Route /api/v1$r non documentée"; fail=1; }
+            grep -q "\"$r\"" src/server/openapi.ts || { echo "::error file=src/server/openapi.ts::Route /api/v1$r non documentée"; fail=1; }
           done
           exit $fail
 
       - name: Variables dans .env.example
         run: |
           fail=0
-          for v in $(grep -oE '^  [A-Z][A-Z0-9_]+:' src/lib/config.ts | tr -d ' :' | sort -u); do
-            grep -qE "^#? ?$v=" .env.example || { echo "::error file=.env.example::$v (lue par src/lib/config.ts) absente"; fail=1; }
+          for v in $(grep -oE '^  [A-Z][A-Z0-9_]+:' src/server/config.ts | tr -d ' :' | sort -u); do
+            grep -qE "^#? ?$v=" .env.example || { echo "::error file=.env.example::$v (lue par src/server/config.ts) absente"; fail=1; }
           done
           exit $fail
 

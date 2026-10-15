@@ -1,4 +1,4 @@
-import { deleteTripController, getTripController, updateTripController } from "@/lib/controllers/trip.controller";
+import { deleteTripController, getTripController, updateTripController } from "@/server/controllers/trip.controller";
 
 export const GET = getTripController;
 export const PATCH = updateTripController;
