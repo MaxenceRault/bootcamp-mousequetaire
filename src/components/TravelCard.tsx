@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { PostReactions } from "@/components/PostReactions";
 import { ProfileAvatarLink, ProfileNameLink } from "@/components/ProfileLink";
+import { RoleBadge } from "@/components/RoleBadge";
 import { Avatar } from "@/components/ui/Avatar";
 import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -33,8 +34,9 @@ export function TravelCard({ post, now, preload = false }: TravelCardProps) {
                 backgroundColor={post.author.avatarBackgroundColor} alt="" size={40} />
             </ProfileAvatarLink>
             <div className="min-w-0">
-              <p className="mb-1 font-display text-label-lg text-ink">
+              <p className="mb-1 flex flex-wrap items-center gap-2 font-display text-label-lg text-ink">
                 <ProfileNameLink username={post.author.username}>{post.author.displayName}</ProfileNameLink>
+                <RoleBadge role={post.author.role} />
               </p>
               <p className="flex flex-wrap items-center gap-1 text-body-sm text-ink-soft/70">
                 <span>

@@ -334,6 +334,7 @@ export type FeedPostRow = {
     avatar_url: string | null;
     avatar_seed: string | null;
     avatar_background_color: string | null;
+    role: UserRole;
   };
 };
 
