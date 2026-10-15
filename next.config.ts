@@ -55,6 +55,8 @@ const nextConfig: NextConfig = {
       ...(corsHeaders.length > 0 ? [{ source: "/api/:path*", headers: corsHeaders }] : []),
     ];
   },
+  // Création d'un récit : couverture (5 Mo) + 5 photos du texte (1 Mo) + texte, au-dessus des 10 Mo par défaut.
+  experimental: { proxyClientMaxBodySize: "12mb" },
   cacheComponents: true,
   partialPrefetching: true,
   images: {

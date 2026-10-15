@@ -24,3 +24,9 @@ export async function detectImage(file: File): Promise<DetectedImage | null> {
   const found = IMAGE_SIGNATURES.find((signature) => signature.matches(bytes));
   return found ? { extension: found.extension, contentType: found.contentType } : null;
 }
+
+// Photo réduite pour la modération IA : à 384 px, Gemini la facture au minimum (258 tokens au lieu de ~1 800).
+export async function downscaleForModeration(file: File): Promise<Buffer> {
+  const sharp = (await import("sharp")).default;
+  return sharp(Buffer.from(await file.arrayBuffer())).resize(384, 384, { fit: "inside" }).jpeg({ quality: 70 }).toBuffer();
+}

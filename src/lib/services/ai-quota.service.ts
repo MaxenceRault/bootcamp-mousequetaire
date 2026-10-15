@@ -1,4 +1,5 @@
 import "server-only";
+import { getConfig } from "@/lib/config";
 import {
   countAiCallsToday,
   countUserAiCallsToday,
@@ -7,8 +8,10 @@ import {
 } from "@/lib/repositories/ai-usage.repository";
 import { findUserAccess } from "@/lib/repositories/user.repository";
 
-// Génération, re-génération et messages, hors admins.
-export const AI_DAILY_LIMIT_PER_USER = 15;
+// Génération, re-génération et messages, hors admins (AI_DAILY_LIMIT_PER_USER dans le .env).
+export function aiDailyLimitPerUser() {
+  return getConfig().aiDailyLimitPerUser;
+}
 
 export class AiQuotaError extends Error {
   constructor(
@@ -29,12 +32,12 @@ export async function consumeAiCall(userId: string) {
     throw new AiQuotaError("AI_DISABLED");
   }
 
-  const limit = access.role === "admin" ? null : AI_DAILY_LIMIT_PER_USER;
+  const limit = access.role === "admin" ? null : aiDailyLimitPerUser();
   if (!(await incrementAiUsage(userId, limit))) throw new AiQuotaError("DAILY_LIMIT_REACHED");
 }
 
 // limit null : illimité (admin).
 export async function getAiQuota(userId: string): Promise<{ used: number; limit: number | null }> {
   const [access, used] = await Promise.all([findUserAccess(userId), countUserAiCallsToday(userId)]);
-  return { used, limit: access?.role === "admin" ? null : AI_DAILY_LIMIT_PER_USER };
+  return { used, limit: access?.role === "admin" ? null : aiDailyLimitPerUser() };
 }

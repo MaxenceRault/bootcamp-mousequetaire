@@ -5,6 +5,7 @@ import {
   findCommentAuthor,
   findCommentsByPost,
   insertComment,
+  isThreadRoot,
 } from "@/lib/repositories/comment.repository";
 import { findPostSlugById } from "@/lib/repositories/post.repository";
 import { findUserAccess } from "@/lib/repositories/user.repository";
@@ -12,7 +13,7 @@ import { moderateComment, type ModerationReason } from "@/lib/services/moderatio
 
 export class CommentError extends Error {
   constructor(
-    public readonly code: "NOT_FOUND" | "FORBIDDEN" | "CONTENT_REJECTED",
+    public readonly code: "NOT_FOUND" | "FORBIDDEN" | "CONTENT_REJECTED" | "INVALID_PARENT",
     public readonly reasons: ModerationReason[] = [],
   ) {
     super(code);
@@ -27,16 +28,18 @@ export async function listComments(postId: number) {
   return findCommentsByPost(postId, COMMENTS_LIMIT);
 }
 
-export async function addComment(userId: string, postId: number, content: string) {
+export async function addComment(userId: string, postId: number, content: string, parentId?: number) {
   const [access, slug] = await Promise.all([findUserAccess(userId), findPostSlugById(postId)]);
   if (!access || access.banned_at) throw new CommentError("FORBIDDEN");
   if (!slug) throw new CommentError("NOT_FOUND");
 
-  // IA indisponible : un commentaire court est publié quand même (l'admin peut le supprimer).
   const moderation = await moderateComment(content);
   if (moderation.status === "rejected") throw new CommentError("CONTENT_REJECTED", moderation.reasons);
 
-  return insertComment(postId, userId, content);
+  // Un seul niveau de réponses : le parent doit être un commentaire de premier niveau du même post.
+  if (parentId !== undefined && !(await isThreadRoot(postId, parentId))) throw new CommentError("INVALID_PARENT");
+
+  return insertComment(postId, userId, content, parentId ?? null);
 }
 
 // Par son auteur ou par un admin (action tracée dans le journal).

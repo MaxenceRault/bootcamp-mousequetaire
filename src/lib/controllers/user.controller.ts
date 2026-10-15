@@ -2,14 +2,10 @@ import "server-only";
 import { connection } from "next/server";
 import { getConfig } from "@/lib/config";
 import { getUserIdFromRequest } from "@/lib/jwt";
-import { clientIp, isRateLimited } from "@/lib/rateLimit";
-import { getMyProfile, getPublicProfile, ProfileError, setMyAvatar, updateMyProfile } from "@/lib/services/user.service";
-import {
-  PROFILE_IMAGE_MAX_BYTES,
-  profileImageSchema,
-  updateProfileSchema,
-  usernameParamSchema,
-} from "@/schemas/user.schema";
+import { isRateLimited } from "@/lib/rateLimit";
+import { getMyProfile, ProfileError, setMyAvatar, updateMyProfile } from "@/lib/services/user.service";
+import { PROFILE_IMAGE_MAX_BYTES, profileImageSchema, updateProfileSchema } from "@/schemas/user.schema";
+import { logError } from "@/lib/logger";
 
 // GET /api/v1/users/me
 export async function getMeController(request: Request) {
@@ -111,12 +107,6 @@ function handleError(error: unknown) {
     return errorResponse(401, "UNAUTHORIZED");
   }
 
-  console.error(
-    JSON.stringify({
-      level: "error",
-      scope: "users",
-      message: String((error as { message?: unknown })?.message ?? "unknown error"),
-    }),
-  );
+  logError("users", error);
   return errorResponse(500, "INTERNAL_ERROR");
 }

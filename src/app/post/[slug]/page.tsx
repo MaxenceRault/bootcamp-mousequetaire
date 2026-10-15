@@ -7,6 +7,7 @@ import { cache, Suspense, type ReactNode } from "react";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
+import { PostBody } from "@/components/PostBody";
 import { PostComments } from "@/components/PostComments";
 import { PostReactions } from "@/components/PostReactions";
 import { ProfileAvatarLink, ProfileNameLink, profileHref } from "@/components/ProfileLink";
@@ -184,21 +185,25 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
                 </div>
               </figure>
 
-              {/* Texte brut, jamais interprété comme du HTML. */}
-              <div className="space-y-6 text-body-lg whitespace-pre-line text-ink-soft">
-                {post.paragraphs.map((paragraph, index) => (
-                  <p
-                    key={index}
-                    className={
-                      index === 0
-                        ? "flow-root text-body-xl text-ink first-letter:float-left first-letter:pr-3 first-letter:font-display first-letter:text-5xl first-letter:leading-none first-letter:text-accent"
-                        : undefined
-                    }
-                  >
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
+              {post.body ? (
+                <PostBody body={post.body} fallbackAlt={t("bodyPhotoAlt", { title: post.title })} />
+              ) : (
+                /* Ancien récit : texte brut, jamais interprété comme du HTML. */
+                <div className="space-y-6 text-body-lg whitespace-pre-line text-ink-soft">
+                  {post.paragraphs.map((paragraph, index) => (
+                    <p
+                      key={index}
+                      className={
+                        index === 0
+                          ? "flow-root text-body-xl text-ink first-letter:float-left first-letter:pr-3 first-letter:font-display first-letter:text-5xl first-letter:leading-none first-letter:text-accent"
+                          : undefined
+                      }
+                    >
+                      {paragraph}
+                    </p>
+                  ))}
+                </div>
+              )}
 
               <footer className="mt-12 flex flex-col gap-6 pt-8">
                 {post.tags.length > 0 && (

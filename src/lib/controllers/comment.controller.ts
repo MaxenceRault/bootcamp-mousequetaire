@@ -6,6 +6,7 @@ import { isRateLimited } from "@/lib/rateLimit";
 import { addComment, CommentError, listComments, removeComment } from "@/lib/services/comment.service";
 import { createCommentSchema } from "@/schemas/comment.schema";
 import { postIdSchema } from "@/schemas/post.schema";
+import { logError, logInfo } from "@/lib/logger";
 
 type Context = { params: Promise<Record<string, string | string[] | undefined>> };
 
@@ -35,7 +36,7 @@ export async function createCommentController(request: Request, { params }: Cont
   if (!postId.success || !body.success) return errorResponse(400, "INVALID_INPUT");
 
   try {
-    return Response.json({ comment: await addComment(userId, postId.data, body.data.content) }, { status: 201 });
+    return Response.json({ comment: await addComment(userId, postId.data, body.data.content, body.data.parentId) }, { status: 201 });
   } catch (error) {
     return handleError(error);
   }
@@ -65,11 +66,14 @@ function errorResponse(status: number, code: string) {
 
 function handleError(error: unknown) {
   if (error instanceof CommentError) {
-    if (error.code === "CONTENT_REJECTED") return Response.json({ error: error.code, reasons: error.reasons }, { status: 422 });
-    return errorResponse(error.code === "FORBIDDEN" ? 403 : 404, error.code);
+    if (error.code === "CONTENT_REJECTED") {
+      // Motif dans les logs seulement : l'auteur ne doit pas pouvoir deviner la liste des mots bannis.
+      logInfo("moderation", { rejected: error.reasons });
+      return errorResponse(422, error.code);
+    }
+    const status = error.code === "FORBIDDEN" ? 403 : error.code === "INVALID_PARENT" ? 400 : 404;
+    return errorResponse(status, error.code);
   }
-  console.error(
-    JSON.stringify({ level: "error", scope: "comments", message: String((error as { message?: unknown })?.message ?? "unknown error") }),
-  );
+  logError("comments", error);
   return errorResponse(500, "INTERNAL_ERROR");
 }

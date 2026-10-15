@@ -1,6 +1,7 @@
 import "server-only";
 import type { z } from "zod";
 import { getUserIdFromRequest } from "@/lib/jwt";
+import { getConfig } from "@/lib/config";
 import { isRateLimited } from "@/lib/rateLimit";
 import {
   addTripItem,
@@ -31,11 +32,7 @@ import {
   updateTripSchema,
   updateTripTaskSchema,
 } from "@/schemas/trip.schema";
-
-const ONE_HOUR = 60 * 60 * 1000;
-// Par utilisateur : génération d'un côté, discussion de l'autre.
-const AI_CALLS_PER_HOUR = 20;
-const CHAT_MESSAGES_PER_HOUR = 30;
+import { logError } from "@/lib/logger";
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
@@ -96,7 +93,8 @@ export function sendTripMessageController(request: Request, { params }: { params
   return withTrip(request, params, async (userId, tripId) => {
     const body = await parseBody(request, sendTripMessageSchema);
     if (!body) return errorResponse(400, "INVALID_INPUT");
-    if (isRateLimited(`trips:chat:${userId}`, CHAT_MESSAGES_PER_HOUR, ONE_HOUR)) {
+    const { max, windowMs } = getConfig().rateLimits.tripChat;
+    if (isRateLimited(`trips:chat:${userId}`, max, windowMs)) {
       return errorResponse(429, "TOO_MANY_REQUESTS");
     }
 
@@ -201,7 +199,8 @@ async function parseBody<T extends z.ZodType>(request: Request, schema: T): Prom
 }
 
 function isAiRateLimited(userId: string) {
-  return isRateLimited(`trips:ai:${userId}`, AI_CALLS_PER_HOUR, ONE_HOUR);
+  const { max, windowMs } = getConfig().rateLimits.tripAi;
+  return isRateLimited(`trips:ai:${userId}`, max, windowMs);
 }
 
 function json(data: unknown, status = 200) {
@@ -223,12 +222,6 @@ function handleError(error: unknown) {
     return errorResponse(400, error.code);
   }
 
-  console.error(
-    JSON.stringify({
-      level: "error",
-      scope: "trips",
-      message: String((error as { message?: unknown })?.message ?? "unknown error"),
-    }),
-  );
+  logError("trips", error);
   return errorResponse(500, "INTERNAL_ERROR");
 }

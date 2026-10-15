@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { logError } from "@/lib/logger";
 
 // Variables d'environnement validées au premier appel (lecture paresseuse : le build n'en a pas besoin).
 // L'erreur nomme la variable, jamais sa valeur.
@@ -31,7 +32,7 @@ const envSchema = z.object({
   // Par email, quelle que soit l'IP : contre le bruteforce réparti.
   RATE_LIMIT_LOGIN_EMAIL_MAX: count.default(10),
   RATE_LIMIT_LOGIN_EMAIL_WINDOW_SECONDS: seconds.default(15 * 60),
-  RATE_LIMIT_REFRESH_MAX: count.default(30),
+  RATE_LIMIT_REFRESH_MAX: count.default(300),
   RATE_LIMIT_REFRESH_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_REGISTER_MAX: count.default(5),
   RATE_LIMIT_REGISTER_WINDOW_SECONDS: seconds.default(15 * 60),
@@ -55,6 +56,13 @@ const envSchema = z.object({
   RATE_LIMIT_COMMENT_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_ADMIN_MAX: count.default(120),
   RATE_LIMIT_ADMIN_WINDOW_SECONDS: seconds.default(60),
+  // Quota IA par utilisateur et par jour (heure de Paris), admins exclus ; compteur en base (ai_usage).
+  AI_DAILY_LIMIT_PER_USER: count.default(15),
+  // IA du planificateur, par utilisateur : génération d'un côté, discussion de l'autre.
+  RATE_LIMIT_TRIP_AI_MAX: count.default(20),
+  RATE_LIMIT_TRIP_AI_WINDOW_SECONDS: seconds.default(60 * 60),
+  RATE_LIMIT_TRIP_CHAT_MAX: count.default(30),
+  RATE_LIMIT_TRIP_CHAT_WINDOW_SECONDS: seconds.default(60 * 60),
 }).refine((env) => env.JWT_REFRESH_SECRET !== env.JWT_SECRET, {
   path: ["JWT_REFRESH_SECRET"],
   message: "doit être différente de JWT_SECRET",
@@ -70,8 +78,9 @@ export type ServerConfig = {
   refreshTokenTtlMs: { remember: number; session: number };
   bcryptSaltRounds: number;
   trustedProxyHops: number;
+  aiDailyLimitPerUser: number;
   rateLimits: Record<
-    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "admin" | "comment",
+    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileUpdate" | "report" | "admin" | "comment" | "tripAi" | "tripChat",
     RateLimit
   >;
 };
@@ -85,7 +94,7 @@ export function getConfig(): ServerConfig {
   if (!parsed.success) {
     const names = parsed.error.issues.map((issue) => issue.path.join(".")).join(", ");
     // Log ici : l'erreur peut être masquée plus haut (ex. simple 401).
-    console.error(JSON.stringify({ level: "error", scope: "config", message: `invalid env: ${names}` }));
+    logError("config", `invalid env: ${names}`);
     throw new Error(`Configuration invalide ou manquante : ${names}`);
   }
 
@@ -103,6 +112,7 @@ export function getConfig(): ServerConfig {
     },
     bcryptSaltRounds: env.BCRYPT_SALT_ROUNDS,
     trustedProxyHops: env.TRUSTED_PROXY_HOPS,
+    aiDailyLimitPerUser: env.AI_DAILY_LIMIT_PER_USER,
     rateLimits: {
       login: rateLimit(env.RATE_LIMIT_LOGIN_MAX, env.RATE_LIMIT_LOGIN_WINDOW_SECONDS),
       loginEmail: rateLimit(env.RATE_LIMIT_LOGIN_EMAIL_MAX, env.RATE_LIMIT_LOGIN_EMAIL_WINDOW_SECONDS),
@@ -118,6 +128,8 @@ export function getConfig(): ServerConfig {
       report: rateLimit(env.RATE_LIMIT_REPORT_MAX, env.RATE_LIMIT_REPORT_WINDOW_SECONDS),
       comment: rateLimit(env.RATE_LIMIT_COMMENT_MAX, env.RATE_LIMIT_COMMENT_WINDOW_SECONDS),
       admin: rateLimit(env.RATE_LIMIT_ADMIN_MAX, env.RATE_LIMIT_ADMIN_WINDOW_SECONDS),
+      tripAi: rateLimit(env.RATE_LIMIT_TRIP_AI_MAX, env.RATE_LIMIT_TRIP_AI_WINDOW_SECONDS),
+      tripChat: rateLimit(env.RATE_LIMIT_TRIP_CHAT_MAX, env.RATE_LIMIT_TRIP_CHAT_WINDOW_SECONDS),
     },
   };
   return config;

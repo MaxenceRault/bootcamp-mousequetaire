@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BANNED_KINDS, BANNED_REASONS } from "@/lib/moderationFilter";
 import { USER_ROLES } from "@/lib/roles";
 
 // 50 lignes par page.
@@ -35,5 +36,15 @@ export const adminUpdateSettingsSchema = z
   .strict()
   .refine((changes) => Object.keys(changes).length > 0);
 
+// POST /api/v1/admin/banned-words : terme normalisé côté serveur (minuscules, sans accents).
+export const adminCreateBannedWordSchema = z
+  .object({
+    term: z.string().trim().min(2).max(60),
+    reason: z.enum(BANNED_REASONS),
+    kind: z.enum(BANNED_KINDS),
+  })
+  .strict();
+
+export type AdminCreateBannedWordInput = z.infer<typeof adminCreateBannedWordSchema>;
 export type AdminUpdateUserInput = z.infer<typeof adminUpdateUserSchema>;
 export type AdminUpdateSettingsInput = z.infer<typeof adminUpdateSettingsSchema>;

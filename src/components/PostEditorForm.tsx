@@ -14,6 +14,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { Label } from "@/components/ui/Label";
 import { FIELD_CLASS_NAME, Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { RichTextEditor, type RichTextEditorHandle } from "@/components/RichTextEditor";
 import { TripContextBar } from "@/components/TripContextBar";
 import type { Archetype } from "@/lib/posts";
 import { apiFetch, getSessionSnapshot } from "@/lib/session";
@@ -28,17 +29,16 @@ const TITLE_MAX = 100;
 const PHOTO_ALT_MAX = 200;
 const SHORT_DESCRIPTION_MAX = 252;
 const PHOTO_TYPES = "image/jpeg,image/png,image/webp";
-const API_ERRORS = ["INVALID_INPUT", "TOO_MANY_REQUESTS", "PAYLOAD_TOO_LARGE", "CONTENT_REJECTED", "INTERNAL_ERROR"] as const;
-const MODERATION_REASONS = ["sexual", "violence", "hate", "insult", "politics", "blasphemy", "other"] as const;
+const API_ERRORS = ["EMPTY_BODY", "INVALID_INPUT", "TOO_MANY_REQUESTS", "PAYLOAD_TOO_LARGE", "CONTENT_REJECTED", "INTERNAL_ERROR"] as const;
 type ApiError = (typeof API_ERRORS)[number];
 
 export function PostEditorForm({ archetypes }: PostEditorFormProps) {
   const t = useTranslations("PostEditor");
   const router = useRouter();
   const photoInput = useRef<HTMLInputElement>(null);
+  const bodyEditor = useRef<RichTextEditorHandle>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
-  const [reasons, setReasons] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
   const [pendingReview, setPendingReview] = useState(false);
 
@@ -67,6 +67,10 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const body = new FormData(event.currentTarget);
+    const story = bodyEditor.current?.getPayload();
+    if (!story) return setError("EMPTY_BODY");
+    body.set("body", story.body);
+    story.photos.forEach((photo) => body.append("bodyPhotos", photo));
 
     setPending(true);
     setError(null);
@@ -75,7 +79,6 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
 
     if ("error" in result) {
       if (result.error === "UNAUTHORIZED") return router.push("/login");
-      setReasons((result.reasons ?? []).filter((reason) => (MODERATION_REASONS as readonly string[]).includes(reason)));
       return setError(API_ERRORS.find((code) => code === result.error) ?? "INTERNAL_ERROR");
     }
     // Masqué en attente de modération : la page du récit n'existe pas encore pour le public.
@@ -169,13 +172,7 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
         </Field>
 
         <Field id="post-long-description" label={t("fields.longDescription")}>
-          <Textarea
-            id="post-long-description"
-            name="longDescription"
-            placeholder={t("fields.longDescriptionPlaceholder")}
-            required
-            className="min-h-64"
-          />
+          <RichTextEditor id="post-long-description" ref={bodyEditor} placeholder={t("fields.longDescriptionPlaceholder")} />
         </Field>
       </Card>
 
@@ -189,17 +186,7 @@ export function PostEditorForm({ archetypes }: PostEditorFormProps) {
       </section>
 
       <div className="flex flex-col items-end gap-3">
-        <FormError>
-          {error &&
-            [
-              t(`errors.${error}`),
-              error === "CONTENT_REJECTED" && reasons.length > 0
-                ? t("moderation.reasons", {
-                    list: reasons.map((reason) => t(`moderation.${reason as (typeof MODERATION_REASONS)[number]}`)).join(", "),
-                  })
-                : "",
-            ].join(" ")}
-        </FormError>
+        <FormError>{error && t(`errors.${error}`)}</FormError>
         {pendingReview ? (
           <p role="status" className="text-body-md text-ink-soft">
             {t("moderation.pendingReview")}{" "}

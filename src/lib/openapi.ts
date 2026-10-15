@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { loginSchema, refreshTokenSchema, registerSchema } from "@/schemas/auth.schema";
+import { loginSchema, registerSchema } from "@/schemas/auth.schema";
 import {
   answerTripSuggestionSchema,
   createTripItemSchema,
@@ -14,6 +14,7 @@ import {
 import { createPostSchema, FEED_MAX_LIMIT, reportPostSchema, updatePostSchema } from "@/schemas/post.schema";
 import {
   adminCloseReportsSchema,
+  adminCreateBannedWordSchema,
   adminUpdatePostSchema,
   adminUpdateSettingsSchema,
   adminUpdateUserSchema,
@@ -116,17 +117,14 @@ const authResult = {
       type: "string",
       description: "JWT HS256, durée JWT_EXPIRES_IN (1 h par défaut). À envoyer dans « Authorization: Bearer <token> ».",
     },
-    refreshToken: {
-      type: "string",
-      description:
-        "JWT signé avec une clé distincte de l'access token (JWT_REFRESH_SECRET), à usage unique " +
-        "(REFRESH_TOKEN_REMEMBER_DAYS avec remember, 30 jours par défaut ; REFRESH_TOKEN_SESSION_HOURS sinon, 24 h par défaut). " +
-        "À envoyer à /auth/refresh pour obtenir une nouvelle paire : l'ancien devient invalide, et le réutiliser " +
-        "révoque toute la session.",
-    },
     user: publicUser,
   },
 };
+
+const REFRESH_COOKIE_DOC =
+  "Le refresh token n'est jamais dans le corps : il est posé dans le cookie `brb_refresh` (HttpOnly, SameSite=Strict, " +
+  "Secure en production, Path=/api/v1/auth), illisible par le JavaScript. JWT signé avec JWT_REFRESH_SECRET, à usage unique " +
+  "(REFRESH_TOKEN_REMEMBER_DAYS avec remember, 30 jours par défaut ; REFRESH_TOKEN_SESSION_HOURS sinon, 24 h par défaut).";
 
 function error(description: string, codes: string[]) {
   return {
@@ -348,7 +346,7 @@ export function buildOpenApiDocument() {
           summary: "Créer un compte",
           requestBody: requestBody(registerSchema),
           responses: {
-            201: json("Compte créé, utilisateur connecté", authResult),
+            201: json("Compte créé, utilisateur connecté (refresh token dans le cookie brb_refresh)", authResult),
             400: invalidInput,
             409: error("Email déjà utilisé", ["EMAIL_TAKEN"]),
             429: tooManyRequests,
@@ -365,7 +363,7 @@ export function buildOpenApiDocument() {
             "L'access token dure toujours 1 h.",
           requestBody: requestBody(loginSchema),
           responses: {
-            200: json("Connecté", authResult),
+            200: json("Connecté (refresh token dans le cookie brb_refresh)", authResult),
             400: invalidInput,
             401: error("Email ou mot de passe incorrect (message volontairement identique)", ["INVALID_CREDENTIALS"]),
             429: tooManyRequests,
@@ -377,12 +375,14 @@ export function buildOpenApiDocument() {
         post: {
           tags: ["Auth"],
           summary: "Renouveler l'access token",
-          description: "Rotation : renvoie une nouvelle paire et invalide le refresh token envoyé.",
-          requestBody: requestBody(refreshTokenSchema),
+          description:
+            "Sans corps : le refresh token est lu dans le cookie `brb_refresh`. Rotation : nouvel access token dans la réponse, " +
+            "nouveau refresh token dans le cookie, l'ancien devient invalide (le réutiliser révoque toute la session). " +
+            "En-tête Origin obligatoire et identique au site (CSRF). " + REFRESH_COOKIE_DOC,
           responses: {
-            200: json("Nouvelle paire de tokens", authResult),
-            400: invalidInput,
-            401: error("Refresh token inconnu, expiré, révoqué ou déjà utilisé", ["INVALID_REFRESH_TOKEN"]),
+            200: json("Nouvel access token (refresh token renouvelé dans le cookie)", authResult),
+            401: error("Cookie absent, refresh token inconnu, expiré, révoqué ou déjà utilisé (cookie effacé)", ["INVALID_REFRESH_TOKEN"]),
+            403: error("Origine absente ou différente du site", ["FORBIDDEN"]),
             429: tooManyRequests,
             500: internalError,
           },
@@ -392,11 +392,12 @@ export function buildOpenApiDocument() {
         post: {
           tags: ["Auth"],
           summary: "Se déconnecter",
-          description: "Révoque toute la session liée au refresh token. Répond 204 même si le token est inconnu.",
-          requestBody: requestBody(refreshTokenSchema),
+          description:
+            "Sans corps : révoque toute la session liée au cookie `brb_refresh` et efface le cookie. " +
+            "Répond 204 même sans cookie ou si le token est inconnu. En-tête Origin obligatoire et identique au site (CSRF).",
           responses: {
-            204: { description: "Session révoquée" },
-            400: invalidInput,
+            204: { description: "Session révoquée, cookie effacé" },
+            403: error("Origine absente ou différente du site", ["FORBIDDEN"]),
             500: internalError,
           },
         },
@@ -471,7 +472,10 @@ export function buildOpenApiDocument() {
           description:
             "L'auteur est toujours celui du token. Destination et tags vérifiés dans country-state-city, " +
             "type réel de la photo vérifié (JPEG, PNG, WebP, 5 Mo max). Chaque tag est un JSON : " +
-            '`{"country":"JP","state":"26","city":"Kyoto"}`.',
+            '`{"country":"JP","state":"26","city":"Kyoto"}`. `body` : récit mis en page, document JSON de l\'éditeur ' +
+            "(paragraph, bulletList, image ; marques bold, italic, underline, textStyle.fontSize 14px / 20px / 24px), " +
+            "tout autre nœud ou attribut est refusé. Une image a pour src `upload:N` : N-ième fichier `bodyPhotos` " +
+            "(5 max, 1 Mo chacun), chacun placé une seule fois. Texte vérifié par la liste de mots bannis, photos par l'IA.",
           security: [{ bearerAuth: [] }],
           requestBody: multipartBody(createPostSchema),
           responses: {
@@ -770,7 +774,7 @@ export function buildOpenApiDocument() {
             401: unauthorized,
             403: error("Compte banni", ["FORBIDDEN"]),
             404: error("Récit introuvable ou masqué", ["NOT_FOUND"]),
-            422: error("Refusé par la modération (motifs dans reasons)", ["CONTENT_REJECTED"]),
+            422: error("Refusé par la modération (motif non communiqué)", ["CONTENT_REJECTED"]),
             429: tooManyRequests,
             500: internalError,
           },
@@ -826,6 +830,13 @@ export function buildOpenApiDocument() {
       "/admin/settings": {
         get: adminRoute("Réglages de l'IA", {}),
         patch: adminRoute("Couper l'IA / changer le plafond global", { body: adminUpdateSettingsSchema }),
+      },
+      "/admin/banned-words": {
+        get: adminRoute("Mots bannis (modération du texte)", {}),
+        post: adminRoute("Bannir un terme", { body: adminCreateBannedWordSchema, ok: { 201: json("Ajouté", { type: "object" }) }, conflict: true }),
+      },
+      "/admin/banned-words/{id}": {
+        delete: adminRoute("Retirer un terme", { params: [numericIdParam("id")], ok: noContent }),
       },
       "/admin/actions": {
         get: adminRoute("Journal des actions admin", { description: "200 dernières actions." }),

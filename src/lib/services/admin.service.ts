@@ -30,10 +30,18 @@ import {
   updateUserBanned,
   updateUserRole,
 } from "@/lib/repositories/user.repository";
-import { AI_DAILY_LIMIT_PER_USER } from "@/lib/services/ai-quota.service";
+import { aiDailyLimitPerUser } from "@/lib/services/ai-quota.service";
+import { normalizeText } from "@/lib/moderationFilter";
+import {
+  BannedWordTakenError,
+  deleteBannedWord,
+  findBannedWords,
+  insertBannedWord,
+} from "@/lib/repositories/banned-word.repository";
+import { clearBannedTermsCache } from "@/lib/services/banned-word.service";
 import type { CreateArchetypeInput, UpdateArchetypeInput } from "@/schemas/archetype.schema";
 import { ARCHETYPE_SLUG_PATTERN } from "@/schemas/archetype.schema";
-import type { AdminUpdateSettingsInput, AdminUpdateUserInput } from "@/schemas/admin.schema";
+import type { AdminCreateBannedWordInput, AdminUpdateSettingsInput, AdminUpdateUserInput } from "@/schemas/admin.schema";
 
 export class AdminError extends Error {
   constructor(
@@ -43,7 +51,8 @@ export class AdminError extends Error {
       | "INVALID_INPUT"
       | "CANNOT_TARGET_SELF"
       | "TARGET_IS_ADMIN"
-      | "ARCHETYPE_TAKEN",
+      | "ARCHETYPE_TAKEN"
+      | "BANNED_WORD_TAKEN",
   ) {
     super(code);
   }
@@ -86,7 +95,7 @@ export async function getDashboard() {
       perDay: aiPerDay,
       enabled: settings.ai_enabled,
       dailyCap: settings.ai_daily_cap,
-      perUserLimit: AI_DAILY_LIMIT_PER_USER,
+      perUserLimit: aiDailyLimitPerUser(),
     },
     recentUsers,
   };
@@ -155,12 +164,16 @@ export async function setPostHidden(adminId: string, postId: number, hidden: boo
 }
 
 export async function deletePost(adminId: string, postId: number) {
-  const photoUrl = await deletePostById(postId);
-  if (photoUrl === null) throw new AdminError("NOT_FOUND");
+  const photoUrls = await deletePostById(postId);
+  if (photoUrls === null) throw new AdminError("NOT_FOUND");
   await log(adminId, "post.delete", "post", postId);
 
-  const path = photoPathFromUrl(photoUrl);
-  if (path) await deletePostPhoto(path).catch(() => {});
+  await Promise.all(
+    photoUrls.map((url) => {
+      const path = photoPathFromUrl(url);
+      return path ? deletePostPhoto(path).catch(() => {}) : null;
+    }),
+  );
 }
 
 export function listOpenReports() {
@@ -231,4 +244,31 @@ export async function updateSettings(adminId: string, input: AdminUpdateSettings
 
 export function listActions() {
   return findAdminActions(ACTIONS_LIMIT);
+}
+
+export function listBannedWords() {
+  return findBannedWords();
+}
+
+// Terme normalisé comme le texte vérifié (« Connard » → « connard ») : sinon il ne serait jamais trouvé.
+export async function addBannedWord(adminId: string, input: AdminCreateBannedWordInput) {
+  const term = normalizeText(input.term);
+  if (!/^[a-z]+( [a-z]+)*$/.test(term) || (input.kind !== "phrase" && term.includes(" "))) throw new AdminError("INVALID_INPUT");
+
+  try {
+    const word = await insertBannedWord({ term, reason: input.reason, kind: input.kind });
+    clearBannedTermsCache();
+    await log(adminId, "banned_word.create", "settings", word.id, { term, reason: input.reason, kind: input.kind });
+    return word;
+  } catch (error) {
+    if (error instanceof BannedWordTakenError) throw new AdminError("BANNED_WORD_TAKEN");
+    throw error;
+  }
+}
+
+export async function removeBannedWord(adminId: string, id: number) {
+  const term = await deleteBannedWord(id);
+  if (term === null) throw new AdminError("NOT_FOUND");
+  clearBannedTermsCache();
+  await log(adminId, "banned_word.delete", "settings", id, { term });
 }

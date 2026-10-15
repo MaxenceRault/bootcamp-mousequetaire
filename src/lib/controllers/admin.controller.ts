@@ -6,6 +6,7 @@ import { getUserIdFromRequest } from "@/lib/jwt";
 import { isRateLimited } from "@/lib/rateLimit";
 import {
   AdminError,
+  addBannedWord,
   createArchetype,
   deletePost,
   deleteUser,
@@ -15,9 +16,11 @@ import {
   getSettings,
   listActions,
   listArchetypes,
+  listBannedWords,
   listOpenReports,
   listPosts,
   listUsers,
+  removeBannedWord,
   requireAdmin,
   setPostHidden,
   updateSettings,
@@ -25,6 +28,7 @@ import {
 } from "@/lib/services/admin.service";
 import {
   adminCloseReportsSchema,
+  adminCreateBannedWordSchema,
   adminPostsQuerySchema,
   adminUpdatePostSchema,
   adminUpdateSettingsSchema,
@@ -34,6 +38,7 @@ import {
 } from "@/schemas/admin.schema";
 import { createArchetypeSchema, updateArchetypeSchema } from "@/schemas/archetype.schema";
 import { postIdSchema } from "@/schemas/post.schema";
+import { logError } from "@/lib/logger";
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 type Context = { params: Params };
@@ -153,6 +158,30 @@ export function updateSettingsController(request: Request) {
   });
 }
 
+// GET /api/v1/admin/banned-words
+export function listBannedWordsController(request: Request) {
+  return withAdmin(request, async () => json({ words: await listBannedWords() }));
+}
+
+// POST /api/v1/admin/banned-words { term, reason, kind }
+export function createBannedWordController(request: Request) {
+  return withAdmin(request, async (adminId) => {
+    const body = await parseBody(request, adminCreateBannedWordSchema);
+    if (!body) return errorResponse(400, "INVALID_INPUT");
+    return json({ word: await addBannedWord(adminId, body) }, 201);
+  });
+}
+
+// DELETE /api/v1/admin/banned-words/[id]
+export function deleteBannedWordController(request: Request, { params }: Context) {
+  return withAdmin(request, async (adminId) => {
+    const id = postIdSchema.safeParse((await params).id);
+    if (!id.success) return errorResponse(400, "INVALID_INPUT");
+    await removeBannedWord(adminId, id.data);
+    return new Response(null, { status: 204 });
+  });
+}
+
 // GET /api/v1/admin/actions
 export function listActionsController(request: Request) {
   return withAdmin(request, async () => json({ actions: await listActions() }));
@@ -201,17 +230,12 @@ const ADMIN_ERROR_STATUS: Record<AdminError["code"], number> = {
   CANNOT_TARGET_SELF: 409,
   TARGET_IS_ADMIN: 409,
   ARCHETYPE_TAKEN: 409,
+  BANNED_WORD_TAKEN: 409,
 };
 
 function handleError(error: unknown) {
   if (error instanceof AdminError) return errorResponse(ADMIN_ERROR_STATUS[error.code], error.code);
 
-  console.error(
-    JSON.stringify({
-      level: "error",
-      scope: "admin",
-      message: String((error as { message?: unknown })?.message ?? "unknown error"),
-    }),
-  );
+  logError("admin", error);
   return errorResponse(500, "INTERNAL_ERROR");
 }

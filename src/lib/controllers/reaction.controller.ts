@@ -6,6 +6,7 @@ import { isRateLimited } from "@/lib/rateLimit";
 import type { ReactionKind } from "@/lib/repositories/reaction.repository";
 import { getReactions, getViewerReactions, ReactionError, setReaction } from "@/lib/services/reaction.service";
 import { postIdSchema, viewerReactionsQuerySchema } from "@/schemas/post.schema";
+import { logError } from "@/lib/logger";
 
 type PostRouteContext = { params: Promise<{ id: string }> };
 
@@ -73,12 +74,6 @@ function errorResponse(status: number, code: string) {
 function handleError(error: unknown) {
   if (error instanceof ReactionError) return errorResponse(404, "NOT_FOUND");
 
-  console.error(
-    JSON.stringify({
-      level: "error",
-      scope: "reactions",
-      message: String((error as { message?: unknown })?.message ?? "unknown error"),
-    }),
-  );
+  logError("reactions", error);
   return errorResponse(500, "INTERNAL_ERROR");
 }
