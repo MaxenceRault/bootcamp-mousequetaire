@@ -5,7 +5,7 @@ import { cache, Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
-import { StoryCard } from "@/components/StoryCard";
+import { StoryCard, StoryGrid } from "@/components/StoryCard";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { flagEmoji } from "@/lib/country";
@@ -89,13 +89,13 @@ async function PlacePostsList({ searchParams }: { searchParams: SearchParams }) 
       {posts.length === 0 ? (
         <Card className="px-6 py-12 text-center text-body-md text-ink-soft">{t("empty")}</Card>
       ) : (
-        <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <StoryGrid>
           {posts.map((post) => (
             <li key={post.id}>
               <StoryCard story={post} />
             </li>
           ))}
-        </ul>
+        </StoryGrid>
       )}
     </div>
   );

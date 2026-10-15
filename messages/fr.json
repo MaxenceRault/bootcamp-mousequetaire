@@ -108,6 +108,15 @@
     },
     "itinerariesError": "Impossible de charger vos itinéraires. Réessayez plus tard."
   },
+  "PublicProfile": {
+    "metaTitle": "{name} (@{username})",
+    "private": "Ce profil est privé",
+    "privateHint": "Ses récits restent visibles dans le fil d'actualité.",
+    "empty": {
+      "stories": "{name} n'a encore publié aucun récit.",
+      "saved": "Aucun récit enregistré pour l'instant."
+    }
+  },
   "ApiDocs": {
     "metaTitle": "Documentation API"
   },
@@ -142,7 +151,8 @@
     "empty": "Aucun récit pour ce lieu pour l'instant."
   },
   "TravelCard": {
-    "cta": "Découvrir ce voyage"
+    "cta": "Découvrir ce voyage",
+    "authorProfile": "Voir le profil de {name}"
   },
   "Footer": {
     "brand": "Brb",

@@ -28,6 +28,7 @@ src/
 │   ├── tags/page.tsx          # Récits d'un lieu : /tags?country=FR[&state=IDF&city=Montesson] (destination ou tag)
 │   ├── post/new/page.tsx      # Éditeur de récit (création d'un post)
 │   ├── profile/page.tsx       # Tableau de bord utilisateur
+│   ├── profile/[username]/page.tsx # Profil public d'un autre utilisateur (lien depuis l'auteur dans le fil) : récits, enregistrés si partagés, ou « profil privé »
 │   ├── admin/page.tsx         # Administration (rôle admin) : modération, rôles, types de récit, réglages IA, journal
 │   ├── planner/page.tsx       # Planificateur : mes voyages + génération par l'IA
 │   ├── planner/[id]/print/page.tsx # Planning imprimable (export PDF via l'impression du navigateur)
@@ -61,11 +62,12 @@ src/
 ├── i18n/
 │   └── request.ts             # Config next-intl (locale + chargement des messages)
 ├── components/
-│   ├── ui/                    # Design system : Button, Input, Textarea, Autocomplete, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar, Logo, Badge
+│   ├── ui/                    # Design system : EmptyState, Button, Input, Textarea, Autocomplete, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar, Logo, Badge
 │   ├── Navbar.tsx             # Barre du haut (version visiteur / connecté)
 │   ├── NavbarAccount.tsx      # Zone compte de la Navbar (client : lit la session du navigateur)
 │   ├── Footer.tsx
 │   ├── TravelCard.tsx         # Carte de post dans le feed
+│   ├── ProfileHeader.tsx      # En-tête de profil partagé (bannière, avatar, nom, stats, style des onglets) : /profile et /profile/{pseudo}
 │   ├── TripContextBar.tsx     # Barre destination · dates · type de récit (éditeur de récit + planificateur)
 │   ├── HomeHero.tsx           # Bannière de l'accueil : couvertures de récits en fondu + slogan
 │   ├── NavbarLinks.tsx        # Liens principaux (page active), en ligne ou dans le menu mobile
