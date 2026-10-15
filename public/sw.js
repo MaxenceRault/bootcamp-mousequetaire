@@ -1,4 +1,4 @@
-// Brb hors ligne : le planificateur (pages, voyages, dépenses) reste consultable sans réseau.
+// Biirb hors ligne : le planificateur (pages, voyages, dépenses) reste consultable sans réseau.
 // Lecture seule : seules les requêtes GET sont mises en cache ; les modifications exigent le réseau.
 // Les données de voyage en cache sont effacées à la déconnexion (src/client/session.ts).
 

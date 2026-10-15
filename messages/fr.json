@@ -1,11 +1,11 @@
 {
   "Metadata": {
-    "title": "Brb",
+    "title": "Biirb",
     "description": "Blog et planificateur de voyage grâce aux posts et avis des voyageurs"
   },
   "Navbar": {
-    "brand": "Brb",
-    "home": "Brb, retour à l'accueil",
+    "brand": "Biirb",
+    "home": "Biirb, retour à l'accueil",
     "searchLabel": "Rechercher une destination avec l'IA",
     "searchPlaceholder": "Rechercher un lieu, un titre, un récit…",
     "askAi": "Demander à l'IA",
@@ -37,7 +37,7 @@
     "searchCount": "{count, plural, =0 {Aucun récit trouvé} one {# récit trouvé} other {# récits trouvés}}",
     "searchEmpty": "Aucun récit ne correspond à votre recherche. Essayez un pays, une ville ou un autre mot.",
     "searchClear": "Effacer la recherche",
-    "heroLabel": "Bienvenue sur Brb",
+    "heroLabel": "Bienvenue sur Biirb",
     "heroBrand": "Biirb.",
     "heroTagline": "Un coup d'ailes sur un coup de cœur."
   },
@@ -177,10 +177,10 @@
     "avatarLabel": "Voir le profil de {name}"
   },
   "Footer": {
-    "brand": "Brb",
-    "rights": "© 2026 Brb. Tous droits réservés.",
+    "brand": "Biirb",
+    "rights": "© 2026 Biirb. Tous droits réservés.",
     "patron": "Devenir mécène",
-    "patronPitch": "Brb est gratuit : soutenez le projet"
+    "patronPitch": "Biirb est gratuit : soutenez le projet"
   },
   "PasswordInput": {
     "show": "Afficher le mot de passe",
@@ -799,13 +799,13 @@
   },
   "TripExport": {
     "metaTitle": "Planning à imprimer",
-    "brand": "Brb.",
+    "brand": "Biirb.",
     "documentTitle": "Planning de voyage",
     "exportedOn": "Exporté le {date}",
     "days": "{count, plural, one {# jour} other {# jours}}",
     "euros": "{amount} €",
     "total": "Total",
-    "footer": "Planning généré avec Brb, à partir des récits de la communauté",
+    "footer": "Planning généré avec Biirb, à partir des récits de la communauté",
     "hint": "Choisissez « Enregistrer au format PDF » dans la fenêtre d'impression.",
     "print": "Imprimer / PDF",
     "loading": "Préparation du document…",
@@ -839,16 +839,16 @@
   "Patron": {
     "metaTitle": "Devenir mécène",
     "title": "Devenir mécène",
-    "pitch": "Brb est gratuit et sans publicité. En offrant un café sur Buy Me a Coffee, vous soutenez l'hébergement et l'IA qui compose les itinéraires, et vous obtenez le rôle mécène sur votre compte.",
+    "pitch": "Biirb est gratuit et sans publicité. En offrant un café sur Buy Me a Coffee, vous soutenez l'hébergement et l'IA qui compose les itinéraires, et vous obtenez le rôle mécène sur votre compte.",
     "loading": "Chargement…",
     "loginRequired": "Connectez-vous pour devenir mécène : le rôle est attaché à votre compte.",
     "login": "Se connecter",
-    "emailHint": "Sur Buy Me a Coffee, utilisez l'adresse email de votre compte Brb : <strong>{email}</strong>. C'est elle qui relie votre don à votre compte.",
+    "emailHint": "Sur Buy Me a Coffee, utilisez l'adresse email de votre compte Biirb : <strong>{email}</strong>. C'est elle qui relie votre don à votre compte.",
     "submit": "Offrir {price} sur Buy Me a Coffee",
     "check": "J'ai payé : vérifier mon rôle",
     "checking": "Vérification…",
     "notYet": "Le rôle n'est pas encore arrivé. Il est ajouté quelques secondes après le paiement ; réessayez dans un instant. Vérifiez aussi que l'email utilisé est bien celui de votre compte et que le don atteint le minimum, en euros.",
-    "secure": "Paiement sécurisé sur Buy Me a Coffee : vos données bancaires ne passent jamais par Brb.",
+    "secure": "Paiement sécurisé sur Buy Me a Coffee : vos données bancaires ne passent jamais par Biirb.",
     "alreadyPatron": "Votre compte a déjà le rôle mécène (ou un rôle supérieur). Merci pour votre soutien !",
     "unavailable": "Le paiement est momentanément indisponible. Réessayez plus tard.",
     "errors": {

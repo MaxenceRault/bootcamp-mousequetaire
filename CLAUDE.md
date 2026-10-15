@@ -1,6 +1,6 @@
 # TripPlanner IA
 
-Projet fil rouge : blog et planificateur de voyage basé sur les posts et avis des voyageurs. Nom de l'app : **Brb** (BeRightBack). Next.js (App Router) + TypeScript strict + Tailwind CSS v4, gestionnaire de paquets **npm**.
+Projet fil rouge : blog et planificateur de voyage basé sur les posts et avis des voyageurs. Nom de l'app : **Biirb**. Next.js (App Router) + TypeScript strict + Tailwind CSS v4, gestionnaire de paquets **npm**.
 
 ## Commandes
 
