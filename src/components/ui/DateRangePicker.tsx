@@ -5,19 +5,15 @@ import { useFormatter, useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/Icon";
 
 type DateRangePickerProps = {
-  // Noms des champs envoyés avec le formulaire (dates « AAAA-MM-JJ »).
   startName: string;
   endName: string;
-  // Interdit les dates passées (ex. planificateur ; un récit raconte au contraire un voyage passé).
   disablePast?: boolean;
-  // Durée maximale en jours, début et fin inclus : les dates au-delà sont grisées.
   maxDays?: number;
-  // Id du bouton (pour le <label> du parent).
   id?: string;
   className?: string;
 };
 
-// Jours manipulés en chaînes « AAAA-MM-JJ » et calculés en UTC : aucun décalage dû au fuseau horaire.
+// Dates « AAAA-MM-JJ » calculées en UTC : aucun décalage de fuseau.
 function toDay(date: Date) {
   return date.toISOString().slice(0, 10);
 }
@@ -37,12 +33,11 @@ function todayDay() {
   return toDay(new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())));
 }
 
-// Premier jour du mois (UTC), décalé de `offset` mois.
 function monthStart(year: number, month: number, offset = 0) {
   return new Date(Date.UTC(year, month + offset, 1));
 }
 
-// Cases d'un mois : semaines commençant le lundi, cases vides (null) avant le 1er.
+// Semaines commençant le lundi.
 function monthCells(month: Date) {
   const year = month.getUTCFullYear();
   const index = month.getUTCMonth();
@@ -54,8 +49,6 @@ function monthCells(month: Date) {
   ];
 }
 
-// Sélecteur de période façon comparateur de vols : deux mois côte à côte (un seul sur mobile),
-// un clic pour le départ, un pour le retour, la période surlignée.
 export function DateRangePicker({ startName, endName, disablePast = false, maxDays, id, className = "" }: DateRangePickerProps) {
   const t = useTranslations("DateRangePicker");
   const format = useFormatter();
@@ -66,22 +59,19 @@ export function DateRangePicker({ startName, endName, disablePast = false, maxDa
   const [start, setStart] = useState<string | null>(null);
   const [end, setEnd] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
-  // Mois affiché et date du jour : calculés à l'ouverture, côté navigateur uniquement
-  // (jamais pendant le pré-rendu serveur, où la date du jour n'a pas de sens).
+  // Calculés à l'ouverture, côté navigateur (pas au pré-rendu serveur).
   const [view, setView] = useState<Date | null>(null);
   const [today, setToday] = useState<string | null>(null);
 
   const minDay = disablePast ? today : null;
-  // Départ choisi, retour pas encore : au-delà de la durée maximale, les jours sont grisés.
   const maxDay = start && !end && maxDays ? addDays(start, maxDays - 1) : null;
   const complete = Boolean(start && end);
 
-  // Période incomplète : le navigateur bloque l'envoi du formulaire avec ce message.
+  // Période incomplète : le navigateur bloque l'envoi du formulaire.
   useEffect(() => {
     validity.current?.setCustomValidity(complete ? "" : t("required"));
   }, [complete, t]);
 
-  // Fermeture au clic en dehors et avec Échap.
   useEffect(() => {
     if (!open) return;
     function handlePointer(event: PointerEvent) {
@@ -102,7 +92,6 @@ export function DateRangePicker({ startName, endName, disablePast = false, maxDa
     if (!open) {
       const now = todayDay();
       setToday(now);
-      // Ouvre sur le mois du départ s'il est choisi, sinon sur le mois en cours.
       const focus = start ?? now;
       setView(monthStart(Number(focus.slice(0, 4)), Number(focus.slice(5, 7)) - 1));
     }
@@ -129,9 +118,7 @@ export function DateRangePicker({ startName, endName, disablePast = false, maxDa
     setEnd(null);
   }
 
-  // Fin affichée : le retour choisi, ou le jour survolé (aperçu de la période).
   const previewEnd = end ?? (start && hovered && hovered >= start && !isDisabled(hovered) ? hovered : null);
-  // Survol d'un jour trop éloigné : on explique pourquoi il n'est pas sélectionnable.
   const tooFar = Boolean(maxDay && hovered && hovered > maxDay);
   const selectedDays = start && end ? daysBetween(start, end) + 1 : null;
 
@@ -162,7 +149,6 @@ export function DateRangePicker({ startName, endName, disablePast = false, maxDa
         <span className={end ? "truncate" : "truncate text-ink-soft/50"}>{end ? shortDate(end) : t("end")}</span>
       </button>
 
-      {/* Contrôle de validité du formulaire (invisible, sous le bouton) + valeurs envoyées. */}
       <input
         ref={validity}
         tabIndex={-1}
@@ -207,7 +193,6 @@ export function DateRangePicker({ startName, endName, disablePast = false, maxDa
               <MonthGrid
                 key={toDay(month)}
                 month={month}
-                // Second mois masqué sur mobile.
                 className={index === 1 ? "hidden md:block" : ""}
                 start={start}
                 end={previewEnd}
@@ -224,13 +209,13 @@ export function DateRangePicker({ startName, endName, disablePast = false, maxDa
               role={tooFar ? "alert" : "status"}
               className={`text-body-sm ${tooFar ? "text-error" : "text-ink-soft"}`}
             >
-              {tooFar && maxDays
-                ? t("tooLong", { max: maxDays })
+              {tooFar && maxDays && maxDay
+                ? t("tooLong", { max: maxDays, last: shortDate(maxDay) })
                 : selectedDays
                   ? t("selected", { count: selectedDays })
                   : start
-                    ? maxDays
-                      ? t("pickEndMax", { max: maxDays })
+                    ? maxDays && maxDay
+                      ? t("pickEndMax", { max: maxDays, last: shortDate(maxDay) })
                       : t("pickEnd")
                     : t("pickStart")}
             </p>
@@ -277,7 +262,7 @@ function MonthGrid({
   onHover: (day: string | null) => void;
 }) {
   const format = useFormatter();
-  // Lundi 5 janvier 1970 → dimanche : libellés courts des jours de la semaine.
+  // Lundi 5 janvier 1970 : sert à générer les libellés des jours.
   const weekdays = Array.from({ length: 7 }, (_, index) =>
     format.dateTime(new Date(Date.UTC(1970, 0, 5 + index, 12)), { weekday: "narrow" }),
   );
@@ -311,7 +296,7 @@ function MonthGrid({
             >
               <button
                 type="button"
-                // aria-disabled (et non disabled) : le survol reste détecté pour expliquer pourquoi le jour est grisé.
+                // aria-disabled plutôt que disabled : le survol explique pourquoi le jour est grisé.
                 aria-disabled={disabled}
                 onClick={() => onSelect(day)}
                 onPointerEnter={() => onHover(day)}

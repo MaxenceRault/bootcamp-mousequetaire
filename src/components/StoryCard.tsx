@@ -16,7 +16,6 @@ export type StoryCardData = {
   destination_country_code: string;
   destination_city: string | null;
   start_date: string;
-  // Affiché seulement quand la liste mélange plusieurs auteurs (ex. page d'un lieu).
   author?: {
     id: string;
     display_name: string;
@@ -28,17 +27,17 @@ export type StoryCardData = {
 
 type StoryCardProps = {
   story: StoryCardData;
-  // Récit masqué par son auteur (profil uniquement) : photo atténuée + badge « Masqué ».
   hidden?: boolean;
-  // Boutons affichés sous la carte (profil : masquer / supprimer). Hors du lien : pas de bouton dans un <a>.
+  // Masqué en attente de modération (badge différent).
+  pendingReview?: boolean;
+  // Hors du lien : pas de bouton dans un <a>.
   actions?: ReactNode;
 };
 
-// Id du titre de la carte : les boutons d'actions s'y réfèrent (aria-describedby) pour annoncer le récit concerné.
+// Référencé par aria-describedby dans les boutons d'actions.
 export const storyTitleId = (id: number) => `story-title-${id}`;
 
-// Carte d'un récit dans une grille (profil, page d'un lieu). Utilisable côté serveur comme client.
-export function StoryCard({ story, hidden = false, actions }: StoryCardProps) {
+export function StoryCard({ story, hidden = false, pendingReview = false, actions }: StoryCardProps) {
   const t = useTranslations("StoryCard");
   const format = useFormatter();
   const locale = useLocale();
@@ -56,8 +55,8 @@ export function StoryCard({ story, hidden = false, actions }: StoryCardProps) {
           />
           {hidden && (
             <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-lg bg-ink/80 px-2 py-1 font-display text-label-sm text-surface">
-              <Icon name="visibilityOff" className="size-3.5" />
-              {t("hidden")}
+              <Icon name={pendingReview ? "clock" : "visibilityOff"} className="size-3.5" />
+              {pendingReview ? t("pendingReview") : t("hidden")}
             </span>
           )}
         </div>
@@ -71,7 +70,6 @@ export function StoryCard({ story, hidden = false, actions }: StoryCardProps) {
               <span aria-hidden="true">{flagEmoji(story.destination_country_code)}</span>
             </span>
             <span aria-hidden="true">•</span>
-            {/* Date du voyage (début du séjour). */}
             <time dateTime={story.start_date}>
               {format.dateTime(new Date(story.start_date), { month: "short", year: "numeric" })}
             </time>

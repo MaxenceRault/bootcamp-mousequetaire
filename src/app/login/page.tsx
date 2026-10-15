@@ -7,7 +7,7 @@ import { LoginForm } from "@/components/LoginForm";
 import { RegisterForm } from "@/components/RegisterForm";
 import { Card } from "@/components/ui/Card";
 
-// Vues autorisées (allowlist) : toute autre valeur de ?view= retombe sur la connexion.
+// Toute autre valeur de ?view= retombe sur la connexion.
 const VIEWS = ["login", "register", "forgot"] as const;
 type AuthView = (typeof VIEWS)[number];
 
@@ -15,7 +15,6 @@ function parseView(value: string | string[] | undefined): AuthView {
   return VIEWS.find((view) => view === value) ?? "login";
 }
 
-// Lien en bas de carte pour changer de vue.
 const SWITCH_HREF: Record<AuthView, string> = {
   login: "/login?view=register",
   register: "/login",
@@ -49,7 +48,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           <span className="font-display text-headline-sm text-ink">{t("title")}</span>
         </div>
 
-        {/* La vue dépend de l'URL (donnée de requête) : elle est rendue dans un Suspense. */}
+        {/* Dépend de l'URL : rendu dans un Suspense. */}
         <Suspense>
           <AuthPanel searchParams={searchParams} />
         </Suspense>

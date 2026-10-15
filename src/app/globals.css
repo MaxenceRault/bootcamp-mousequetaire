@@ -11,7 +11,7 @@
   --color-line: rgb(55 71 79 / 0.12); /* bordures fines */
   --color-accent: #ff5a5f; /* actions principales uniquement, jamais en grand fond */
   --color-on-accent: #ffffff; /* texte posé sur l'accent */
-  --color-logo: #868e96; /* oiseau du logo : gris clair, contraste 3.3:1 sur blanc (WCAG, éléments graphiques) */
+  --color-logo: #868e96; /* logo : contraste ≥ 3:1 sur blanc (WCAG) */
   --color-error: #ba1a1a;
 
   /* Typographie : Space Grotesk (display/titres/labels) + Inter (texte) */
@@ -80,8 +80,20 @@
   --text-label-sm--font-weight: 700;
 }
 
-/* Polices chargées par next/font dans layout.tsx */
 @theme inline {
   --font-sans: var(--font-inter);
   --font-display: var(--font-space-grotesk);
+}
+
+/* Export PDF du planning (impression) : A4, couleurs conservées. */
+@page {
+  size: A4;
+  margin: 14mm;
+}
+
+@media print {
+  body {
+    print-color-adjust: exact;
+    background: var(--color-surface);
+  }
 }

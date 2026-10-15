@@ -33,7 +33,7 @@ export async function findRefreshTokenByHash(tokenHash: string): Promise<Refresh
   return rows[0] ?? null;
 }
 
-// Révoque un token encore actif. false si il était déjà révoqué (ex. deux refresh simultanés).
+// false s'il était déjà révoqué (ex. deux refresh simultanés).
 export async function revokeRefreshToken(id: string): Promise<boolean> {
   const db = await getDb();
   const { rowCount } = await db.query(
@@ -48,4 +48,9 @@ export async function revokeRefreshTokenFamily(familyId: string) {
   await db.query("update refresh_token set revoked_at = now() where family_id = $1 and revoked_at is null", [
     familyId,
   ]);
+}
+
+export async function revokeUserRefreshTokens(userId: string) {
+  const db = await getDb();
+  await db.query("update refresh_token set revoked_at = now() where user_id = $1 and revoked_at is null", [userId]);
 }

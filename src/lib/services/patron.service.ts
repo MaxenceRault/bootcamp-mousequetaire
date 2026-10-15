@@ -1,7 +1,8 @@
 import "server-only";
 import { z } from "zod";
 import { getConfig } from "@/lib/config";
-import { ADMIN_ROLE, findUserRole, grantPatronRole, PATRON_ROLE } from "@/lib/repositories/patron.repository";
+import { ADMIN_ROLE, grantPatronRole, PATRON_ROLE } from "@/lib/repositories/patron.repository";
+import { findUserAccess } from "@/lib/repositories/user.repository";
 import {
   createCheckoutSession,
   isPaymentConfigured,
@@ -25,8 +26,7 @@ export type PatronStatus = { enabled: boolean; isPatron: boolean; priceCents: nu
 
 // État affiché sur la page « Devenir mécène ».
 export async function getPatronStatus(userId: string): Promise<PatronStatus> {
-  const role = await findUserRole(userId);
-  if (role === null) throw new PatronError("NOT_FOUND");
+  const role = await activeRole(userId);
   return {
     enabled: isPaymentConfigured(),
     // Un admin a déjà tous les droits : la page lui indique qu'il n'a rien à acheter.
@@ -38,8 +38,7 @@ export async function getPatronStatus(userId: string): Promise<PatronStatus> {
 
 // Page de paiement Stripe pour le rôle mécène. Le prix vient du serveur (jamais du client).
 export async function startPatronCheckout(userId: string, baseUrl: string): Promise<string> {
-  const role = await findUserRole(userId);
-  if (role === null) throw new PatronError("NOT_FOUND");
+  const role = await activeRole(userId);
   // Déjà mécène, ou admin (l'achat remplacerait son rôle) : rien à payer.
   if (role === PATRON_ROLE || role === ADMIN_ROLE) throw new PatronError("ALREADY_PATRON");
 
@@ -99,4 +98,12 @@ export async function getPatronPaymentResult(userId: string, sessionId: string):
     amountCents: session.amountCents,
     currency: session.currency,
   };
+}
+
+// Rôle d'un compte actif. Compte supprimé ou banni : traité comme une session invalide
+// (un banni ne peut déjà plus se connecter ; son token encore valide ne doit rien lui permettre).
+async function activeRole(userId: string) {
+  const access = await findUserAccess(userId);
+  if (!access || access.banned_at) throw new PatronError("NOT_FOUND");
+  return access.role;
 }

@@ -7,7 +7,10 @@ import { cache, Suspense, type ReactNode } from "react";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
+import { PostComments } from "@/components/PostComments";
 import { PostReactions } from "@/components/PostReactions";
+import { ReportButton } from "@/components/ReportButton";
+import { RoleBadge } from "@/components/RoleBadge";
 import { ShareButton } from "@/components/ShareButton";
 import { Avatar } from "@/components/ui/Avatar";
 import { buttonClassName } from "@/components/ui/Button";
@@ -15,15 +18,14 @@ import { Card } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { flagEmoji, placeHref } from "@/lib/country";
 import { getPostDetail, getPostSlug, type PostDetail } from "@/lib/services/post.service";
+import { listComments } from "@/lib/services/comment.service";
 import { getLikeCount } from "@/lib/services/reaction.service";
 import { postIdSchema, postSlugSchema } from "@/schemas/post.schema";
 
 type ResolvedPost = { post: PostDetail } | { redirectTo: string } | null;
 
-// Lecture du post à partir du segment d'URL, partagée par generateMetadata et la page (une requête par visite).
-// - « okinawa-et-ile-zamami » : slug, l'adresse normale ;
-// - « 30 » : ancien lien par id (un slug n'est jamais uniquement des chiffres) → redirection vers le slug ;
-// - autre chose (« ../ », majuscules…) : introuvable, sans requête en base.
+// Partagée par generateMetadata et la page. « 30 » : ancien lien par id → redirection ;
+// autre chose qu'un slug valide : introuvable, sans requête en base.
 const resolvePost = cache(async (segment: string): Promise<ResolvedPost> => {
   const id = postIdSchema.safeParse(segment);
   if (id.success) {
@@ -53,7 +55,6 @@ export default function PostPage({ params }: PageProps<"/post/[slug]">) {
   return (
     <>
       <Navbar />
-      {/* Le post dépend de l'URL : rendu à la requête, dans un Suspense. */}
       <Suspense fallback={<PostSkeleton />}>
         <PostContent params={params} />
       </Suspense>
@@ -64,17 +65,16 @@ export default function PostPage({ params }: PageProps<"/post/[slug]">) {
 
 async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">) {
   const { slug } = await params;
-  // « il y a 2 jours » dépend de l'heure actuelle : calculé à chaque requête.
+  // Dates relatives : calculées à chaque requête.
   await connection();
   const resolved = await resolvePost(slug);
   if (!resolved) notFound();
-  // Ancien lien /post/30 : redirection permanente vers /post/{slug} (les liens déjà partagés restent valides).
+  // Les liens déjà partagés restent valides.
   if ("redirectTo" in resolved) permanentRedirect(resolved.redirectTo);
   const { post } = resolved;
-  const likeCount = await getLikeCount(post.id);
+  const [likeCount, comments] = await Promise.all([getLikeCount(post.id), listComments(post.id).catch(() => [])]);
 
   const t = await getTranslations("Post");
-  const tArchetype = await getTranslations("Archetypes");
   const format = await getFormatter();
   const { destination } = post;
   const destinationLabel = [destination.city ?? destination.state, destination.country].filter(Boolean).join(", ");
@@ -86,7 +86,6 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
 
   return (
     <>
-      {/* Fond décoratif : la photo du récit, floutée et assombrie. */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
         <Image src={post.photoUrl} alt="" fill sizes="100vw" className="scale-105 object-cover blur-xs" />
         <div className="absolute inset-0 bg-ink/35" />
@@ -123,13 +122,14 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
                 <div className="flex flex-wrap items-center gap-2">
                   <PostReactions postId={post.id} initialLikeCount={likeCount} />
                   <ShareButton title={post.title} />
+                  <ReportButton postId={post.id} authorId={post.author.id} />
                 </div>
               </div>
 
               <header className="mb-8 flex flex-col">
                 <span className="mb-4 inline-flex items-center gap-2 self-start rounded-lg bg-surface-muted px-3 py-1 font-display text-label-sm text-ink-soft uppercase">
                   <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />
-                  {tArchetype(post.archetype)}
+                  {post.archetype.label}
                 </span>
                 <h1 className="mb-4 font-display text-headline-xl-mobile text-ink md:text-headline-xl">{post.title}</h1>
                 <p className="mb-6 text-body-xl text-ink-soft">{post.shortDescription}</p>
@@ -141,6 +141,7 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-display text-label-lg text-ink">{post.author.displayName}</span>
+                        <RoleBadge role={post.author.role} />
                         <span className="rounded bg-surface px-1.5 py-0.5 font-display text-label-sm text-ink-soft/70">
                           @{post.author.username}
                         </span>
@@ -178,14 +179,14 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
                 </div>
               </figure>
 
-              {/* Texte brut de l'auteur (jamais interprété comme du HTML). */}
+              {/* Texte brut, jamais interprété comme du HTML. */}
               <div className="space-y-6 text-body-lg whitespace-pre-line text-ink-soft">
                 {post.paragraphs.map((paragraph, index) => (
                   <p
                     key={index}
                     className={
                       index === 0
-                        ? "text-body-xl text-ink first-letter:float-left first-letter:pr-3 first-letter:font-display first-letter:text-5xl first-letter:leading-none first-letter:text-accent"
+                        ? "flow-root text-body-xl text-ink first-letter:float-left first-letter:pr-3 first-letter:font-display first-letter:text-5xl first-letter:leading-none first-letter:text-accent"
                         : undefined
                     }
                   >
@@ -222,6 +223,7 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
                 </div>
               </footer>
             </article>
+            <PostComments postId={post.id} initialComments={comments} />
           </Card>
 
           <aside className="flex flex-col gap-6 lg:sticky lg:top-24 lg:col-span-4">
@@ -239,12 +241,11 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
                   {dates}
                 </TripFact>
                 <TripFact icon="book" label={t("archetype")} wide>
-                  {tArchetype(post.archetype)}
+                  {post.archetype.label}
                 </TripFact>
               </dl>
             </Card>
 
-            {/* L'itinéraire IA n'existe pas encore : on l'annonce, sans données inventées. */}
             <Card className="p-6 shadow-xl">
               <h2 className="mb-1.5 flex items-center gap-2 font-display text-headline-sm text-ink">
                 <Icon name="sparkles" className="size-5 text-accent" />
@@ -263,7 +264,6 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
   );
 }
 
-// Élément du fil d'Ariane : lien (lieu) ou page courante (titre du récit).
 function Crumb({ children, href, current = false }: { children: ReactNode; href?: string; current?: boolean }) {
   return (
     <>

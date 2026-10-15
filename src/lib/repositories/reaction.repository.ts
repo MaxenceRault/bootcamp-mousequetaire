@@ -1,13 +1,12 @@
 import "server-only";
 import { getDb } from "@/utils/db";
 
-// Réactions d'un utilisateur sur un post : like et enregistrement (« voyage enregistré »).
 export type ReactionKind = "like" | "save";
 
-// Nom de table choisi dans cette liste fixe (jamais à partir d'une entrée) ; les valeurs restent en $1, $2.
+// Nom de table issu de cette liste fixe, jamais d'une entrée.
 const TABLES: Record<ReactionKind, string> = { like: "post_like", save: "post_save" };
 
-// Code Postgres d'une clé étrangère violée (post supprimé entre la vérification et l'insertion).
+// Post supprimé entre la vérification et l'insertion.
 const FOREIGN_KEY_VIOLATION = "23503";
 
 export class ReactionTargetMissingError extends Error {
@@ -22,7 +21,6 @@ export async function isPostVisible(postId: number): Promise<boolean> {
   return rowCount === 1;
 }
 
-// Idempotent : liker deux fois ne crée pas de doublon.
 export async function addReaction(kind: ReactionKind, userId: string, postId: number) {
   const db = await getDb();
   try {
@@ -51,7 +49,6 @@ export async function countLikes(postId: number): Promise<number> {
 
 export type ReactionState = { like_count: number; liked: boolean; saved: boolean };
 
-// État des réactions d'un utilisateur sur un post, en une requête.
 export async function findReactionState(userId: string, postId: number): Promise<ReactionState> {
   const db = await getDb();
   const { rows } = await db.query<ReactionState>(
@@ -65,7 +62,6 @@ export async function findReactionState(userId: string, postId: number): Promise
 
 export type ViewerReaction = { post_id: number; like_count: number; liked: boolean; saved: boolean };
 
-// « Aimé / enregistré » par l'utilisateur, pour une liste de posts (ex. une page du feed).
 export async function findViewerReactions(userId: string, postIds: number[]): Promise<ViewerReaction[]> {
   const db = await getDb();
   const { rows } = await db.query<ViewerReaction>(

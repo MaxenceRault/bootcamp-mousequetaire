@@ -12,12 +12,12 @@ import {
 import {
   createUser,
   findProfileById,
+  findUserAccess,
   findUserByEmail,
   type PublicUser,
 } from "@/lib/repositories/user.repository";
 
-// Hash factice comparé quand l'email est inconnu : même coût bcrypt que les vrais hashes,
-// pour que la réponse prenne le même temps (on ne peut pas deviner quels emails existent).
+// Email inconnu : comparaison avec un hash factice, même temps de réponse (pas d'énumération des comptes).
 let dummyHash: Promise<string> | null = null;
 function getDummyHash() {
   dummyHash ??= bcrypt.hash(randomBytes(16).toString("hex"), getConfig().bcryptSaltRounds);
@@ -25,7 +25,7 @@ function getDummyHash() {
 }
 
 export class AuthError extends Error {
-  constructor(public readonly code: "INVALID_CREDENTIALS" | "EMAIL_TAKEN" | "INVALID_REFRESH_TOKEN") {
+  constructor(public readonly code: "INVALID_CREDENTIALS" | "EMAIL_TAKEN" | "INVALID_REFRESH_TOKEN" | "ACCOUNT_BANNED") {
     super(code);
   }
 }
@@ -37,9 +37,11 @@ export async function login(email: string, password: string, remember: boolean):
   const valid = await bcrypt.compare(password, user?.password_hash ?? (await getDummyHash()));
 
   if (!user || !user.password_hash || !valid) throw new AuthError("INVALID_CREDENTIALS");
+  // Après le mot de passe : seul le titulaire apprend le bannissement.
+  if (user.banned_at) throw new AuthError("ACCOUNT_BANNED");
 
-  const { id, username, display_name, avatar_url, avatar_seed, avatar_background_color } = user;
-  return createSession({ id, username, display_name, avatar_url, avatar_seed, avatar_background_color }, remember);
+  const { id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role } = user;
+  return createSession({ id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role }, remember);
 }
 
 export async function register(name: string, email: string, password: string): Promise<AuthResult> {
@@ -55,9 +57,8 @@ export async function register(name: string, email: string, password: string): P
   return createSession(user, false);
 }
 
-// Échange un refresh token contre une nouvelle paire (rotation : l'ancien devient inutilisable).
+// Rotation : l'ancien token devient inutilisable.
 export async function refreshSession(refreshToken: string): Promise<AuthResult> {
-  // 1. Signature (clé de refresh) et expiration du JWT ; 2. présence en base, non révoqué, même utilisateur.
   const userId = await verifyRefreshToken(refreshToken);
   if (!userId) throw new AuthError("INVALID_REFRESH_TOKEN");
 
@@ -66,28 +67,33 @@ export async function refreshSession(refreshToken: string): Promise<AuthResult> 
     throw new AuthError("INVALID_REFRESH_TOKEN");
   }
 
-  // Token déjà utilisé (ou deux refresh simultanés) : vol probable, toute la session est coupée.
+  // Token déjà utilisé : vol probable, toute la session est coupée.
   if (stored.revoked_at || !(await revokeRefreshToken(stored.id))) {
     await revokeRefreshTokenFamily(stored.family_id);
     throw new AuthError("INVALID_REFRESH_TOKEN");
   }
 
-  const profile = await findProfileById(stored.user_id);
-  if (!profile) throw new AuthError("INVALID_REFRESH_TOKEN");
+  const [profile, access] = await Promise.all([findProfileById(stored.user_id), findUserAccess(stored.user_id)]);
+  if (!profile || !access || access.banned_at) {
+    await revokeRefreshTokenFamily(stored.family_id);
+    throw new AuthError("INVALID_REFRESH_TOKEN");
+  }
 
-  const { id, username, display_name, avatar_url, avatar_seed, avatar_background_color } = profile;
+  const { id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role } = profile;
   const next = await issueRefreshToken(id, stored.family_id, new Date(stored.expires_at));
-  return { token: await signToken(id), refreshToken: next, user: { id, username, display_name, avatar_url, avatar_seed, avatar_background_color } };
+  return {
+    token: await signToken(id),
+    refreshToken: next,
+    user: { id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role },
+  };
 }
 
-// Déconnexion : révoque toute la session (famille) du refresh token. Silencieux si token inconnu.
 export async function logout(refreshToken: string) {
   const stored = await findRefreshTokenByHash(hashToken(refreshToken));
   if (stored) await revokeRefreshTokenFamily(stored.family_id);
 }
 
 async function createSession(user: PublicUser, remember: boolean): Promise<AuthResult> {
-  // Durée de vie absolue du refresh token (et donc de la session) : « Se souvenir de moi » ou non.
   const { remember: rememberMs, session: sessionMs } = getConfig().refreshTokenTtlMs;
   const expiresAt = new Date(Date.now() + (remember ? rememberMs : sessionMs));
   const [token, refreshToken] = await Promise.all([
@@ -97,7 +103,7 @@ async function createSession(user: PublicUser, remember: boolean): Promise<AuthR
   return { token, refreshToken, user };
 }
 
-// JWT signé avec la clé de refresh ; seule son empreinte SHA-256 est stockée en base (révocation).
+// Seule l'empreinte SHA-256 est stockée en base.
 async function issueRefreshToken(userId: string, familyId: string, expiresAt: Date) {
   const token = await signRefreshToken(userId, expiresAt);
   await insertRefreshToken({ user_id: userId, family_id: familyId, token_hash: hashToken(token), expires_at: expiresAt });

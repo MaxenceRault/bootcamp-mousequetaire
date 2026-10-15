@@ -4,7 +4,6 @@ import { clientIp, isRateLimited } from "@/lib/rateLimit";
 import { AuthError, login, logout, refreshSession, register } from "@/lib/services/auth.service";
 import { loginSchema, refreshTokenSchema, registerSchema } from "@/schemas/auth.schema";
 
-// Corps JSON des routes d'auth (email + mot de passe ou refresh token) : quelques centaines d'octets.
 const MAX_BODY_BYTES = 4 * 1024;
 
 export async function loginController(request: Request) {
@@ -26,7 +25,6 @@ export async function loginController(request: Request) {
   }
 
   try {
-    // remember fixe la durée du refresh token (REFRESH_TOKEN_REMEMBER_DAYS ou REFRESH_TOKEN_SESSION_HOURS).
     const result = await login(body.data.email, body.data.password, body.data.remember);
     return tokenResponse(result);
   } catch (error) {
@@ -88,7 +86,7 @@ export async function logoutController(request: Request) {
   }
 }
 
-// Refuse un corps trop gros avant de le lire (il serait chargé entièrement en mémoire).
+// Refusé avant lecture (il serait chargé entièrement en mémoire).
 function checkBodySize(request: Request) {
   const length = Number(request.headers.get("content-length"));
   if (!length) return errorResponse(411, "LENGTH_REQUIRED");
@@ -100,7 +98,7 @@ function readJson(request: Request) {
   return request.json().catch(() => null);
 }
 
-// Réponse contenant des tokens : jamais mise en cache (navigateur, proxy, CDN).
+// Contient des tokens : jamais mis en cache.
 function tokenResponse(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 }
@@ -111,7 +109,8 @@ function errorResponse(status: number, code: string) {
 
 function handleError(error: unknown) {
   if (error instanceof AuthError) {
-    return errorResponse(error.code === "EMAIL_TAKEN" ? 409 : 401, error.code);
+    const status = error.code === "EMAIL_TAKEN" ? 409 : error.code === "ACCOUNT_BANNED" ? 403 : 401;
+    return errorResponse(status, error.code);
   }
 
   console.error(

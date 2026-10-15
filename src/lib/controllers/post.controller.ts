@@ -14,9 +14,9 @@ import { createPost, deleteOwnPost, getFeedPage, PostError, setPostHidden } from
 
 const MAX_BODY_BYTES = PHOTO_MAX_BYTES + 1024 * 1024;
 
-// GET /api/v1/posts?archetype=&cursor=&limit= (public) → { posts, nextCursor }
+// GET /api/v1/posts?archetype=&cursor=&limit= (public)
 export async function getFeedController(request: Request) {
-  // Réponse propre à chaque requête : jamais pré-calculée au build (cacheComponents), où l'env n'existe pas.
+  // Jamais pré-calculé au build (cacheComponents).
   await connection();
   const { max, windowMs } = getConfig().rateLimits.feed;
   if (isRateLimited(`posts:feed:${clientIp(request)}`, max, windowMs)) {
@@ -33,7 +33,7 @@ export async function getFeedController(request: Request) {
   }
 }
 
-// POST /api/v1/posts (multipart/form-data, Authorization: Bearer <token>) → 201 { id }
+// POST /api/v1/posts (multipart)
 export async function createPostController(request: Request) {
   const userId = await getUserIdFromRequest(request);
   if (!userId) return errorResponse(401, "UNAUTHORIZED");
@@ -56,12 +56,15 @@ export async function createPostController(request: Request) {
   try {
     return Response.json(await createPost(userId, body.data), { status: 201 });
   } catch (error) {
+    if (error instanceof PostError && error.code === "CONTENT_REJECTED") {
+      return Response.json({ error: error.code, reasons: error.reasons }, { status: 422 });
+    }
     if (error instanceof PostError) return errorResponse(400, error.code);
     return internalError(error);
   }
 }
 
-// PATCH /api/v1/posts/{id} (JSON { hidden }, Bearer) → 200 { id, hidden } : masquer / réafficher son post.
+// PATCH /api/v1/posts/{id} { hidden }
 export async function updatePostController(request: Request, { params }: RouteContext<"/api/v1/posts/[id]">) {
   const guard = await authorizePostEdit(request, (await params).id);
   if ("response" in guard) return guard.response;
@@ -76,7 +79,7 @@ export async function updatePostController(request: Request, { params }: RouteCo
   }
 }
 
-// DELETE /api/v1/posts/{id} (Bearer) → 204 : suppression définitive de son post.
+// DELETE /api/v1/posts/{id}
 export async function deletePostController(request: Request, { params }: RouteContext<"/api/v1/posts/[id]">) {
   const guard = await authorizePostEdit(request, (await params).id);
   if ("response" in guard) return guard.response;
@@ -89,8 +92,7 @@ export async function deletePostController(request: Request, { params }: RouteCo
   }
 }
 
-// Étapes communes à PATCH et DELETE : token, rate limit par utilisateur, id de l'URL.
-// (La vérification que l'utilisateur est l'auteur du post est faite par le service.)
+// L'auteur du post est vérifié par le service.
 async function authorizePostEdit(
   request: Request,
   rawId: string,
@@ -109,7 +111,10 @@ async function authorizePostEdit(
 }
 
 function postEditError(error: unknown) {
-  if (error instanceof PostError) return errorResponse(error.code === "NOT_FOUND" ? 404 : 400, error.code);
+  if (error instanceof PostError) {
+    const status = error.code === "NOT_FOUND" ? 404 : error.code === "PENDING_REVIEW" ? 403 : 400;
+    return errorResponse(status, error.code);
+  }
   return internalError(error);
 }
 
@@ -126,7 +131,6 @@ function errorResponse(status: number, code: string) {
   return Response.json({ error: code }, { status });
 }
 
-// Détail dans les logs serveur uniquement ; le client reçoit un code générique.
 function internalError(error: unknown) {
   console.error(
     JSON.stringify({

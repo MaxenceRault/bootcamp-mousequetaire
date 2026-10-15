@@ -1,16 +1,11 @@
 import "server-only";
+import type { UserRole } from "@/lib/roles";
 import { getDb } from "@/utils/db";
 
-// Valeurs de l'enum user_role (colonne users.role) utilisées ici.
-export const PATRON_ROLE = "patron";
+// Valeurs de l'enum user_role (colonne users.role, liste dans lib/roles.ts) utilisées ici.
+export const PATRON_ROLE: UserRole = "patron";
 // Rôle jamais remplacé par l'achat du rôle mécène (une seule colonne : l'admin perdrait ses droits).
-export const ADMIN_ROLE = "admin";
-
-export async function findUserRole(userId: string): Promise<string | null> {
-  const db = await getDb();
-  const { rows } = await db.query<{ role: string }>("select role from users where id = $1", [userId]);
-  return rows[0]?.role ?? null;
-}
+export const ADMIN_ROLE: UserRole = "admin";
 
 export type ConfirmedPayment = {
   stripe_session_id: string;

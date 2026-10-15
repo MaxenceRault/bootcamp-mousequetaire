@@ -3,22 +3,22 @@ import { getUserIdFromRequest } from "@/lib/jwt";
 import { getPostSlug } from "@/lib/services/post.service";
 import { postIdSchema } from "@/schemas/post.schema";
 
-// 1. Anciens liens de récit par id (/post/30) : vraie redirection permanente 308 vers /post/{slug},
-//    avant le rendu de la page (une redirection depuis la page, rendue en streaming, répondrait 200).
-// 2. Première barrière sur les routes API privées : refuse tout de suite une requête sans token valide.
-//    Chaque controller revérifie le token (une modification du matcher ne doit pas ouvrir de faille).
+// 1. Anciens liens /post/{id} : redirection 308 avant le rendu (depuis la page, rendue en streaming, ce serait 200).
+// 2. Routes API privées : refus immédiat sans token valide (chaque controller revérifie aussi).
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith("/post/")) {
     const id = postIdSchema.safeParse(pathname.slice("/post/".length));
     const slug = id.success ? await getPostSlug(id.data) : null;
-    // Introuvable ou masqué : la page affiche « introuvable » (sans révéler l'existence du post).
+    // Sans révéler l'existence d'un post masqué.
     return slug ? NextResponse.redirect(new URL(`/post/${slug}`, request.url), 308) : NextResponse.next();
   }
 
-  // Exception : la lecture du feed (GET /api/v1/posts, chemin exact) est publique.
+  // Le feed (GET /api/v1/posts) est public.
   if (request.method === "GET" && pathname === "/api/v1/posts") return NextResponse.next();
+  // Les commentaires d'un récit se lisent sans compte.
+  if (request.method === "GET" && /^\/api\/v1\/posts\/\d+\/comments$/.test(pathname)) return NextResponse.next();
 
   if (!(await getUserIdFromRequest(request))) {
     return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
@@ -28,11 +28,11 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Anciens liens /post/{id} uniquement (chiffres) : /post/{slug} ne passe pas par ici.
     "/post/:id(\\d+)",
-    // Routes API privées (les pages ne reçoivent pas le token : il est dans le navigateur, pas dans un cookie).
+    // Les pages ne reçoivent pas le token (navigateur, pas de cookie).
     "/api/v1/users/:path*",
     "/api/v1/posts/:path*",
     "/api/v1/trips/:path*",
+    "/api/v1/admin/:path*",
   ],
 };

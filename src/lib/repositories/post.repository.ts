@@ -1,8 +1,9 @@
 import "server-only";
+import type { UserRole } from "@/lib/roles";
 import { getDb } from "@/utils/db";
 import { getBucket, publicUrl } from "@/utils/storage";
 
-// Bucket Cloud Storage des photos de couverture et des images de profil (public en lecture).
+// Photos des posts et avatars (public en lecture).
 export const PHOTO_BUCKET = "biirb-post-photos";
 
 export type NewPost = {
@@ -18,6 +19,9 @@ export type NewPost = {
   start_date: string;
   end_date: string;
   archetype_id: number;
+  is_hidden: boolean;
+  // En attente de modération : masqué, seul un admin peut le publier.
+  pending_review: boolean;
 };
 
 export type NewTag = {
@@ -26,21 +30,14 @@ export type NewTag = {
   city: string | null;
 };
 
-export async function findArchetypeIdBySlug(slug: string): Promise<number | null> {
-  const db = await getDb();
-  const { rows } = await db.query<{ id: number }>("select id from archetype where slug = $1", [slug]);
-  return rows[0]?.id ?? null;
-}
-
-// Le slug est généré par la base (trigger post_fill_slug, à partir du titre).
-// Renvoie l'id et le slug du post créé, ou null si le slug vient d'être pris par un post créé au même instant.
+// Slug généré par la base (trigger post_fill_slug). null si ce slug vient d'être pris.
 export async function insertPost(post: NewPost): Promise<{ id: number; slug: string } | null> {
   const db = await getDb();
   const result = await db
     .query<{ id: number; slug: string }>(
       `insert into post (author_id, title, photo_url, photo_alt, short_description, long_description,
-         destination_country_code, destination_state_code, destination_city, start_date, end_date, archetype_id)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         destination_country_code, destination_state_code, destination_city, start_date, end_date, archetype_id, is_hidden, pending_review)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        returning id, slug`,
       [
         post.author_id,
@@ -55,31 +52,32 @@ export async function insertPost(post: NewPost): Promise<{ id: number; slug: str
         post.start_date,
         post.end_date,
         post.archetype_id,
+        post.is_hidden,
+        post.pending_review,
       ],
     )
     .catch((error: { code?: string; constraint?: string }) => {
-      // 23505 = violation d'unicité ; seule celle du slug est attendue (sinon l'erreur remonte).
+      // Seule la collision de slug est attendue.
       if (error.code === "23505" && error.constraint === "post_slug_key") return null;
       throw error;
     });
   return result?.rows[0] ?? null;
 }
 
-// Slug d'un post visible à partir de son id (anciens liens /post/30), null s'il n'existe pas ou est masqué.
+// Anciens liens /post/{id}.
 export async function findPostSlugById(id: number): Promise<string | null> {
   const db = await getDb();
   const { rows } = await db.query<{ slug: string }>("select slug from post where id = $1 and not is_hidden", [id]);
   return rows[0]?.slug ?? null;
 }
 
-// Suppression (nettoyage si la création échoue en cours de route) ; post_tag suit en cascade.
+// Nettoyage si la création échoue ; post_tag suit en cascade.
 export async function deletePost(id: number) {
   const db = await getDb();
   await db.query("delete from post where id = $1", [id]);
 }
 
-// Crée les lieux manquants et renvoie les ids de tous les lieux (existants ou nouveaux).
-// Le « do update » sans effet sert uniquement à ce que « returning » renvoie aussi les lieux existants.
+// Le « do update » sans effet fait renvoyer aussi les lieux existants.
 export async function upsertTags(tags: NewTag[]): Promise<number[]> {
   const db = await getDb();
   const { rows } = await db.query<{ id: number }>(
@@ -97,14 +95,13 @@ export async function insertPostTags(postId: number, tagIds: number[]) {
   await db.query("insert into post_tag (post_id, tag_id) select $1, unnest($2::int[])", [postId, tagIds]);
 }
 
-// Envoie la photo dans le bucket et renvoie son URL publique.
 export async function uploadPostPhoto(path: string, photo: File, contentType: string): Promise<string> {
   await getBucket(PHOTO_BUCKET)
     .file(path)
     .save(Buffer.from(await photo.arrayBuffer()), {
       contentType,
       resumable: false,
-      // Échoue si un fichier existe déjà à ce chemin (jamais d'écrasement).
+      // Jamais d'écrasement.
       preconditionOpts: { ifGenerationMatch: 0 },
     });
   return publicUrl(PHOTO_BUCKET, path);
@@ -114,7 +111,6 @@ export async function deletePostPhoto(path: string) {
   await getBucket(PHOTO_BUCKET).file(path).delete();
 }
 
-// Résumé d'un post pour la grille « Récits publiés » du profil.
 export type PostSummary = {
   id: number;
   title: string;
@@ -127,6 +123,7 @@ export type PostSummary = {
   start_date: string;
   created_at: string;
   is_hidden: boolean;
+  pending_review: boolean;
 };
 
 const SUMMARY_COLUMNS = [
@@ -141,17 +138,15 @@ const SUMMARY_COLUMNS = [
   "start_date",
   "created_at",
   "is_hidden",
+  "pending_review",
 ];
 
-// Colonnes préfixées par l'alias de table (requêtes avec jointure).
 const prefixed = (alias: string, columns: string[]) => columns.map((column) => `${alias}.${column}`).join(", ");
 
-// Auteur d'un post, au même format que PublicUser.
 const AUTHOR_JSON = `json_build_object('id', u.id, 'username', u.username, 'display_name', u.display_name,
   'avatar_url', u.avatar_url, 'avatar_seed', u.avatar_seed,
-  'avatar_background_color', u.avatar_background_color)`;
+  'avatar_background_color', u.avatar_background_color, 'role', u.role)`;
 
-// Posts d'un auteur, du plus récent au plus ancien, avec le nombre total.
 export async function findPostsByAuthor(
   authorId: string,
   limit: number,
@@ -168,7 +163,6 @@ export async function findPostsByAuthor(
   return { posts: posts.rows, total: count.rows[0].total };
 }
 
-// Post complet pour la page détail (null s'il n'existe pas ou s'il est masqué par son auteur).
 export type PostDetailRow = {
   id: number;
   title: string;
@@ -183,20 +177,19 @@ export type PostDetailRow = {
   start_date: string;
   end_date: string;
   created_at: string;
-  archetype: { slug: string };
-  author: { id: string; username: string; display_name: string; avatar_url: string | null; avatar_seed: string | null; avatar_background_color: string | null };
+  archetype: { slug: string; label: string };
+  author: { id: string; username: string; display_name: string; avatar_url: string | null; avatar_seed: string | null; avatar_background_color: string | null; role: UserRole };
   post_tag: { tag: { country_code: string; state_code: string | null; city: string | null } }[];
 };
 
-// Recherche par slug (URL /post/okinawa-et-ile-zamami) ou par id. « column » vient de ce type fermé,
-// jamais de l'utilisateur ; la valeur reste passée en paramètre $1.
+// « column » vient de ce type fermé, jamais de l'utilisateur.
 export async function findPostDetail(key: { slug: string } | { id: number }): Promise<PostDetailRow | null> {
   const [column, value] = "slug" in key ? ["slug", key.slug] : ["id", key.id];
   const db = await getDb();
   const { rows } = await db.query<PostDetailRow>(
     `select p.id, p.title, p.slug, p.photo_url, p.photo_alt, p.short_description, p.long_description,
        p.destination_country_code, p.destination_state_code, p.destination_city, p.start_date, p.end_date, p.created_at,
-       json_build_object('slug', a.slug) as archetype,
+       json_build_object('slug', a.slug, 'label', a.label) as archetype,
        ${AUTHOR_JSON} as author,
        coalesce(
          (select json_agg(json_build_object('tag', json_build_object(
@@ -216,8 +209,7 @@ export async function findPostDetail(key: { slug: string } | { id: number }): Pr
 
 export type PlaceFilter = { country: string; state?: string; city?: string };
 
-// Ids des posts visibles (non masqués) liés à un lieu : destination OU tag dans ce lieu.
-// Hiérarchique : un pays inclut ses régions et ses villes, une région inclut ses villes.
+// Destination ou tag dans ce lieu ; un pays inclut ses régions et villes.
 export async function findPostIdsByPlace({ country, state, city }: PlaceFilter): Promise<number[]> {
   const db = await getDb();
   const { rows } = await db.query<{ id: number }>(
@@ -238,7 +230,6 @@ export async function findPostIdsByPlace({ country, state, city }: PlaceFilter):
   return rows.map(({ id }) => id);
 }
 
-// Résumé d'un post avec son auteur, pour les listes de récits.
 export type PostSummaryWithAuthor = PostSummary & {
   author: { id: string; username: string; display_name: string; avatar_url: string | null; avatar_seed: string | null; avatar_background_color: string | null };
 };
@@ -258,7 +249,7 @@ export async function findPostSummariesByIds(ids: number[], limit: number): Prom
   return rows;
 }
 
-// Post transmis à l'IA du planificateur (textes tronqués : taille du prompt maîtrisée).
+// Textes tronqués : taille du prompt maîtrisée.
 export type PostForTrip = {
   id: number;
   title: string;
@@ -270,8 +261,7 @@ export type PostForTrip = {
   tags: { country_code: string; state_code: string | null; city: string | null }[];
 };
 
-// Posts du même type de récit dont la destination OU un tag est dans le lieu choisi (hiérarchique,
-// comme findPostIdsByPlace), les plus récents d'abord.
+// Même filtre de lieu que findPostIdsByPlace, plus le type de récit.
 export async function findPostsForTrip(
   { country, state, city }: PlaceFilter,
   archetypeId: number,
@@ -308,7 +298,7 @@ export async function findPostsForTrip(
   return rows;
 }
 
-// Ligne du feed : post + slug du type de récit + profil public de l'auteur (jamais email ni hash).
+// Jamais d'email ni de hash.
 export type FeedPostRow = {
   id: number;
   title: string;
@@ -321,7 +311,7 @@ export type FeedPostRow = {
   destination_city: string | null;
   created_at: string;
   like_count: number;
-  archetype: { slug: string };
+  archetype: { slug: string; label: string };
   author: {
     id: string;
     username: string;
@@ -332,13 +322,11 @@ export type FeedPostRow = {
   };
 };
 
-// Posts visibles du plus récent au plus ancien. Pagination par curseur : beforeId = id du dernier post
-// déjà affiché (les ids sont croissants dans le temps). Filtre facultatif sur le slug du type de récit.
-// Colonnes et jointures d'une ligne du feed (partagées par le feed et la recherche).
+// Pagination par curseur : les ids croissent dans le temps.
 const FEED_SELECT = `select p.id, p.title, p.slug, p.short_description, p.photo_url, p.photo_alt,
        p.destination_country_code, p.destination_state_code, p.destination_city, p.created_at,
        (select count(*)::int from post_like l where l.post_id = p.id) as like_count,
-       json_build_object('slug', a.slug) as archetype,
+       json_build_object('slug', a.slug, 'label', a.label) as archetype,
        ${AUTHOR_JSON} as author
      from post p
      join archetype a on a.id = p.archetype_id
@@ -366,20 +354,22 @@ export async function findFeedPosts({
   return rows;
 }
 
-// Auteur et photo d'un post (vérification du propriétaire avant modification), null s'il n'existe pas.
-export async function findPostOwnership(id: number): Promise<{ author_id: string; photo_url: string } | null> {
+export async function findPostOwnership(
+  id: number,
+): Promise<{ author_id: string; photo_url: string; pending_review: boolean } | null> {
   const db = await getDb();
-  const { rows } = await db.query<{ author_id: string; photo_url: string }>(
-    "select author_id, photo_url from post where id = $1",
+  const { rows } = await db.query<{ author_id: string; photo_url: string; pending_review: boolean }>(
+    "select author_id, photo_url, pending_review from post where id = $1",
     [id],
   );
   return rows[0] ?? null;
 }
 
-// Le filtre author_id double la vérification du service : un post d'un autre auteur n'est jamais touché.
+// Double la vérification du service : un post d'un autre auteur n'est jamais touché.
 export async function updatePostVisibility(id: number, authorId: string, hidden: boolean): Promise<boolean> {
   const db = await getDb();
-  const { rowCount } = await db.query("update post set is_hidden = $3 where id = $1 and author_id = $2", [
+  // Jamais de réaffichage par l'auteur d'un post en attente de modération.
+  const { rowCount } = await db.query("update post set is_hidden = $3 where id = $1 and author_id = $2 and (not pending_review or $3)", [
     id,
     authorId,
     hidden,
@@ -393,14 +383,12 @@ export async function deleteAuthorPost(id: number, authorId: string): Promise<bo
   return (rowCount ?? 0) > 0;
 }
 
-// Chemin d'une photo dans le bucket à partir de son URL publique ; null si elle est hébergée ailleurs
-// (ex. photos Unsplash des données de démo).
+// null si la photo est hébergée ailleurs (ex. Unsplash pour la démo).
 export function photoPathFromUrl(url: string): string | null {
   const prefix = publicUrl(PHOTO_BUCKET, "");
   return url.startsWith(prefix) ? decodeURIComponent(url.slice(prefix.length)) : null;
 }
 
-// Posts enregistrés par un utilisateur (visibles uniquement), du dernier enregistré au premier.
 export async function findSavedPostsByUser(userId: string, limit: number): Promise<PostSummaryWithAuthor[]> {
   const db = await getDb();
   const { rows } = await db.query<PostSummaryWithAuthor>(
@@ -416,18 +404,13 @@ export async function findSavedPostsByUser(userId: string, limit: number): Promi
   return rows;
 }
 
-// Échappe les caractères spéciaux de LIKE (le texte reste ensuite passé en paramètre $1).
 function escapeLike(text: string) {
   return text.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
 export type SearchPlace = { country: string; state: string | null; city: string | null };
 
-// Recherche dans les posts visibles, classés par pertinence :
-//   1. un tag ou la destination est dans un des lieux trouvés (hiérarchique : un pays inclut ses villes) ;
-//   2. sinon le titre contient le texte ;
-//   3. sinon la description courte ou longue contient le texte.
-// À rang égal, du plus récent au plus ancien.
+// Classement : lieu (tag ou destination), puis titre, puis texte ; à égalité, le plus récent.
 export async function searchFeedPosts({
   text,
   places,
@@ -467,6 +450,84 @@ export async function searchFeedPosts({
      order by r.rank, p.id desc
      limit $3`,
     [`%${escapeLike(text)}%`, JSON.stringify(places), limit],
+  );
+  return rows;
+}
+
+export type AdminPostRow = {
+  id: number;
+  title: string;
+  slug: string;
+  photo_url: string;
+  is_hidden: boolean;
+  created_at: string;
+  archetype: { slug: string; label: string };
+  author: { id: string; username: string; display_name: string };
+  open_report_count: number;
+};
+
+export async function findPostsForAdmin({
+  search,
+  visibility,
+  offset,
+  limit,
+}: {
+  search?: string;
+  visibility: "all" | "visible" | "hidden";
+  offset: number;
+  limit: number;
+}): Promise<{ posts: AdminPostRow[]; total: number }> {
+  const db = await getDb();
+  const pattern = search ? `%${escapeLike(search)}%` : null;
+  const where = `where ($1::text is null or p.title ilike $1 escape '\\' or u.username ilike $1 escape '\\')
+       and ($2::text = 'all' or p.is_hidden = ($2::text = 'hidden'))`;
+  const [posts, count] = await Promise.all([
+    db.query<AdminPostRow>(
+      `select p.id, p.title, p.slug, p.photo_url, p.is_hidden, p.created_at,
+         json_build_object('slug', a.slug, 'label', a.label) as archetype,
+         json_build_object('id', u.id, 'username', u.username, 'display_name', u.display_name) as author,
+         (select count(*)::int from post_report r where r.post_id = p.id and r.status = 'open') as open_report_count
+       from post p
+       join archetype a on a.id = p.archetype_id
+       join users u on u.id = p.author_id
+       ${where}
+       order by p.id desc
+       offset $3 limit $4`,
+      [pattern, visibility, offset, limit],
+    ),
+    db.query<{ total: number }>(
+      `select count(*)::int as total from post p join users u on u.id = p.author_id ${where}`,
+      [pattern, visibility],
+    ),
+  ]);
+  return { posts: posts.rows, total: count.rows[0].total };
+}
+
+export async function updatePostVisibilityById(id: number, hidden: boolean): Promise<boolean> {
+  const db = await getDb();
+  // Réaffiché par un admin : la modération est validée.
+  const { rowCount } = await db.query(
+    "update post set is_hidden = $2, pending_review = pending_review and $2 where id = $1",
+    [id, hidden],
+  );
+  return rowCount === 1;
+}
+
+// Renvoie l'URL de la photo à retirer du bucket.
+export async function deletePostById(id: number): Promise<string | null> {
+  const db = await getDb();
+  const { rows } = await db.query<{ photo_url: string }>("delete from post where id = $1 returning photo_url", [id]);
+  return rows[0]?.photo_url ?? null;
+}
+
+export type CoverPhoto = { slug: string; photo_url: string };
+
+// Couvertures de posts visibles tirées au hasard (bannière de l'accueil).
+export async function findRandomCoverPhotos(limit: number): Promise<CoverPhoto[]> {
+  const db = await getDb();
+  const { rows } = await db.query<CoverPhoto>(
+    "select slug, photo_url from post where not is_hidden order by random() limit $1",
+    [limit],
   );
   return rows;
 }

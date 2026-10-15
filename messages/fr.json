@@ -17,7 +17,10 @@
     "savedTrips": "Voyages enregistrés",
     "settings": "Paramètres",
     "logout": "Se déconnecter",
-    "search": "Rechercher"
+    "search": "Rechercher",
+    "admin": "Administration",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu"
   },
   "Home": {
     "title": "Les derniers voyages de la communauté",
@@ -33,13 +36,10 @@
     "searchTitle": "Résultats pour « {query} »",
     "searchCount": "{count, plural, =0 {Aucun récit trouvé} one {# récit trouvé} other {# récits trouvés}}",
     "searchEmpty": "Aucun récit ne correspond à votre recherche. Essayez un pays, une ville ou un autre mot.",
-    "searchClear": "Effacer la recherche"
-  },
-  "Archetypes": {
-    "slow_travel_photography": "Slow travel & photo",
-    "solo_architecture": "Architecture en solo",
-    "culinary_heritage": "Patrimoine culinaire",
-    "mountain_trek": "Trek en montagne"
+    "searchClear": "Effacer la recherche",
+    "heroLabel": "Bienvenue sur Brb",
+    "heroBrand": "Biirb.",
+    "heroTagline": "Un coup d'ailes sur un coup de cœur."
   },
   "Profile": {
     "metaTitle": "Mon profil",
@@ -103,7 +103,8 @@
       "NOT_FOUND": "Ce récit n'existe plus.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
       "PAYLOAD_TOO_LARGE": "Image trop lourde : 3 Mo maximum.",
-      "LENGTH_REQUIRED": "Envoi impossible. Réessayez."
+      "LENGTH_REQUIRED": "Envoi impossible. Réessayez.",
+      "PENDING_REVIEW": "Ce récit est en attente de vérification par la modération."
     },
     "itinerariesError": "Impossible de charger vos itinéraires. Réessayez plus tard."
   },
@@ -141,7 +142,7 @@
     "empty": "Aucun récit pour ce lieu pour l'instant."
   },
   "TravelCard": {
-    "cta": "Voir / Demander à l'IA"
+    "cta": "Découvrir ce voyage"
   },
   "Footer": {
     "brand": "Brb",
@@ -193,7 +194,8 @@
       "INVALID_INPUT": "Vérifiez les champs du formulaire.",
       "TOO_MANY_REQUESTS": "Trop de tentatives. Réessayez dans quelques minutes.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
-      "PASSWORD_MISMATCH": "Les mots de passe ne correspondent pas."
+      "PASSWORD_MISMATCH": "Les mots de passe ne correspondent pas.",
+      "ACCOUNT_BANNED": "Ce compte a été suspendu par la modération."
     }
   },
   "PostEditor": {
@@ -228,7 +230,21 @@
       "INVALID_INPUT": "Vérifiez les champs du formulaire.",
       "TOO_MANY_REQUESTS": "Trop de publications. Réessayez plus tard.",
       "PAYLOAD_TOO_LARGE": "La photo est trop lourde (5 Mo maximum).",
-      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
+      "CONTENT_REJECTED": "Votre récit n'a pas été publié : il ne respecte pas les règles de la communauté."
+    },
+    "moderation": {
+      "checking": "Vérification du récit…",
+      "reasons": "Motif : {list}. Modifiez le récit ou la photo, puis réessayez.",
+      "sexual": "contenu sexuel ou nudité",
+      "violence": "violence choquante",
+      "hate": "propos haineux",
+      "insult": "insultes",
+      "politics": "message politique",
+      "blasphemy": "propos blasphématoires",
+      "other": "contenu inapproprié",
+      "pendingReview": "Merci ! Votre récit est enregistré : il sera visible dès qu'un modérateur l'aura vérifié.",
+      "profileLink": "Voir mon profil"
     }
   },
   "TripContextBar": {
@@ -247,7 +263,8 @@
     "create": {
       "title": "Nouveau voyage",
       "submit": "Générer avec l'IA",
-      "pending": "L'IA prépare votre voyage… (de 10 secondes à 1 minute selon la durée)"
+      "pending": "L'IA prépare votre voyage… (de 10 secondes à 1 minute selon la durée)",
+      "quota": "Requêtes IA aujourd'hui : {used}/{limit}"
     },
     "list": {
       "title": "Voyages générés",
@@ -273,7 +290,8 @@
       "sources": "{count, plural, =0 {Aucun récit correspondant : planning général} one {Basé sur # récit de voyageur} other {Basé sur # récits de voyageurs}}",
       "loadError": "Impossible de charger ce voyage.",
       "notFound": "Ce voyage n'existe pas ou ne vous appartient pas.",
-      "back": "Retour à mes voyages"
+      "back": "Retour à mes voyages",
+      "seasonTitle": "À cette période"
     },
     "days": {
       "title": "Planning",
@@ -327,13 +345,13 @@
     },
     "chat": {
       "title": "Discuter avec l'IA",
-      "hint": "Posez vos questions sur ce voyage et sa destination. L'IA peut proposer des activités : vous choisissez lesquelles ajouter au planning.",
-      "empty": "Ex. « Que faire s'il pleut le jour 3 ? », « Un bon resto pas cher près de l'hôtel ? »",
+      "hint": "Une envie, une question ? L'IA vous dit où et quand la caser dans votre voyage, à partir des récits de la communauté. Vous choisissez ensuite quoi ajouter au planning.",
+      "empty": "Ex. « Je veux faire du parachute », « Un resto typique pas cher le jour 2 ? », « Que faire s'il pleut ? »",
       "label": "Message pour l'IA",
       "placeholder": "Votre question sur ce voyage…",
       "send": "Envoyer",
       "pending": "L'IA réfléchit…",
-      "offTopic": "Je ne peux parler que de ce voyage et de sa destination. Posez-moi une question sur votre séjour !",
+      "offTopic": "Je suis là pour votre voyage ! Dites-moi une envie ou une question sur votre séjour.",
       "suggestions": "Activités proposées",
       "suggestionWhen": "Jour {number} · {date} · {time}",
       "question": "L'ajouter au planning ?",
@@ -351,7 +369,23 @@
       "NOT_FOUND": "Élément introuvable.",
       "UNAUTHORIZED": "Votre session a expiré. Reconnectez-vous.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
-      "CHAT_LIMIT_REACHED": "Vous avez atteint la limite de messages pour ce voyage."
+      "CHAT_LIMIT_REACHED": "Vous avez atteint la limite de messages pour ce voyage.",
+      "DAILY_LIMIT_REACHED": "Vous avez utilisé vos 15 requêtes IA du jour. Revenez demain !",
+      "AI_DISABLED": "L'IA est momentanément indisponible. Réessayez plus tard.",
+      "FORBIDDEN": "Votre compte ne peut pas utiliser l'IA."
+    },
+    "export": {
+      "csv": "CSV",
+      "pdf": "PDF",
+      "columns": {
+        "day": "Jour",
+        "date": "Date",
+        "time": "Heure",
+        "category": "Catégorie",
+        "title": "Activité",
+        "description": "Description",
+        "source": "Récit source"
+      }
     }
   },
   "DateRangePicker": {
@@ -362,15 +396,212 @@
     "next": "Mois suivant",
     "pickStart": "Choisissez la date de départ.",
     "pickEnd": "Choisissez la date de retour.",
-    "pickEndMax": "Choisissez la date de retour ({max} jours maximum).",
-    "tooLong": "Un voyage dure 1 mois maximum ({max} jours) : choisissez une date plus proche.",
+    "pickEndMax": "Choisissez la date de retour : jusqu'au {last} ({max} jours maximum après le départ).",
+    "tooLong": "Un voyage dure 1 mois maximum après le départ : retour au plus tard le {last}.",
     "selected": "{count, plural, one {# jour} other {# jours}}",
     "required": "Choisissez une date de départ et une date de retour.",
     "clear": "Effacer",
     "done": "Valider"
   },
   "StoryCard": {
-    "hidden": "Masqué"
+    "hidden": "Masqué",
+    "pendingReview": "En attente de vérification"
+  },
+  "Roles": {
+    "traveler": "Voyageur",
+    "globetrotter": "Globe-trotteur",
+    "dreamer": "Rêveur",
+    "patron": "Mécène",
+    "admin": "Admin"
+  },
+  "Report": {
+    "button": "Signaler",
+    "title": "Signaler ce récit",
+    "hint": "Contenu choquant, faux ou hors sujet ? La modération sera prévenue.",
+    "reasonLabel": "Motif du signalement",
+    "reasonPlaceholder": "Motif (facultatif)",
+    "submit": "Envoyer",
+    "cancel": "Annuler",
+    "sent": "Signalement envoyé, merci",
+    "error": "Le signalement n'a pas pu être envoyé. Réessayez."
+  },
+  "Admin": {
+    "metaTitle": "Administration",
+    "heading": "Administration",
+    "subheading": "Modération des récits et des comptes, types de récit et réglages de l'IA.",
+    "denied": {
+      "title": "Accès réservé",
+      "text": "Cette page est réservée aux administrateurs.",
+      "back": "Retour à l'accueil"
+    },
+    "tabs": {
+      "dashboard": "Tableau de bord",
+      "reports": "Signalements",
+      "posts": "Récits",
+      "users": "Utilisateurs",
+      "archetypes": "Types de récit",
+      "ai": "IA",
+      "journal": "Journal"
+    },
+    "byAuthor": "par {name} (@{username})",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "searchSubmit": "Rechercher",
+    "results": "{count, plural, =0 {Aucun résultat} one {# résultat} other {# résultats}}",
+    "pagination": "Pagination",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "page": "Page {page} sur {pages}",
+    "dashboard": {
+      "users": "Utilisateurs",
+      "banned": "Comptes bannis",
+      "posts": "Récits",
+      "hidden": "Récits masqués",
+      "reports": "Signalements en attente",
+      "trips": "Voyages générés",
+      "new7d": "{count, plural, =0 {aucun cette semaine} one {+# cette semaine} other {+# cette semaine}}",
+      "aiTitle": "Requêtes IA",
+      "aiToday": "{count} requête(s) aujourd'hui sur un plafond de {cap}",
+      "aiPerUser": "Limite par utilisateur : {limit} par jour (admins illimités)",
+      "aiHistory": "Requêtes IA des 7 derniers jours",
+      "recentUsers": "Dernières inscriptions"
+    },
+    "reports": {
+      "empty": "Aucun signalement en attente.",
+      "count": "{count, plural, one {# signalement} other {# signalements}}",
+      "noReason": "Sans motif",
+      "dismiss": "Classer sans suite",
+      "system": "Modération automatique"
+    },
+    "posts": {
+      "search": "Titre du récit ou pseudo de l'auteur…",
+      "visibility": "Visibilité",
+      "filter": {
+        "all": "Tous les récits",
+        "visible": "Visibles",
+        "hidden": "Masqués"
+      },
+      "empty": "Aucun récit.",
+      "hiddenBadge": "Masqué",
+      "hide": "Masquer",
+      "show": "Réafficher",
+      "delete": "Supprimer",
+      "deleteLabel": "Supprimer le récit {title}",
+      "deleteConfirm": "Supprimer définitivement le récit « {title} » et sa photo ?",
+      "approve": "Valider et publier"
+    },
+    "users": {
+      "search": "Pseudo ou nom…",
+      "empty": "Aucun utilisateur.",
+      "you": "Vous",
+      "bannedBadge": "Banni",
+      "posts": "{count, plural, =0 {aucun récit} one {# récit} other {# récits}}",
+      "joined": "inscrit le {date}",
+      "roleLabel": "Rôle de {name}",
+      "promoteConfirm": "Donner les droits d'administration à {name} ? Il pourra modérer tout le site.",
+      "ban": "Bannir",
+      "unban": "Lever le bannissement",
+      "banConfirm": "Bannir {name} ? Ses sessions sont coupées et il ne pourra plus se connecter.",
+      "deleteLabel": "Supprimer le compte de {name}",
+      "deleteConfirm": "Supprimer définitivement le compte de {name}, ses récits, voyages et photos ?"
+    },
+    "archetypes": {
+      "createTitle": "Nouveau type de récit",
+      "createHint": "Proposé aussitôt dans le feed, l'éditeur de récit et le planificateur.",
+      "label": "Nom",
+      "labelPlaceholder": "Ex. Road trip en van",
+      "description": "Description",
+      "descriptionPlaceholder": "Facultative",
+      "create": "Créer",
+      "active": "Actif",
+      "inactive": "Désactivé",
+      "edit": "Modifier {label}"
+    },
+    "ai": {
+      "title": "Réglages de l'IA",
+      "hint": "Protège la facture : chaque utilisateur a 15 requêtes par jour, et ce plafond s'applique à tout le site.",
+      "on": "IA active",
+      "off": "IA coupée",
+      "enabled": "IA activée",
+      "enabledHint": "Décocher coupe immédiatement la génération de voyages et la discussion, pour tout le monde.",
+      "cap": "Plafond de requêtes par jour (tout le site)",
+      "capHint": "Une fois atteint, l'IA est indisponible jusqu'à minuit (heure de Paris), admins compris.",
+      "saved": "Réglages enregistrés.",
+      "updatedAt": "Dernière modification : {date}"
+    },
+    "journal": {
+      "empty": "Aucune action pour l'instant.",
+      "date": "Date",
+      "admin": "Admin",
+      "action": "Action",
+      "target": "Cible",
+      "deletedAdmin": "Admin supprimé",
+      "actions": {
+        "user_role": "Rôle modifié",
+        "user_ban": "Utilisateur banni",
+        "user_unban": "Bannissement levé",
+        "user_delete": "Compte supprimé",
+        "post_hide": "Récit masqué",
+        "post_show": "Récit réaffiché",
+        "post_delete": "Récit supprimé",
+        "reports_dismiss": "Signalements classés",
+        "archetype_create": "Type de récit créé",
+        "archetype_update": "Type de récit modifié",
+        "settings_update": "Réglages de l'IA modifiés",
+        "comment_delete": "Commentaire supprimé"
+      },
+      "targets": {
+        "user": "Utilisateur",
+        "post": "Récit",
+        "archetype": "Type de récit",
+        "settings": "Réglages"
+      }
+    },
+    "errors": {
+      "FORBIDDEN": "Action réservée aux administrateurs.",
+      "NOT_FOUND": "Élément introuvable (déjà supprimé ?).",
+      "INVALID_INPUT": "Vérifiez les champs.",
+      "CANNOT_TARGET_SELF": "Vous ne pouvez pas modifier votre propre compte depuis l'administration.",
+      "TARGET_IS_ADMIN": "Retirez d'abord le rôle admin de ce compte.",
+      "ARCHETYPE_TAKEN": "Un type de récit porte déjà ce nom.",
+      "TOO_MANY_REQUESTS": "Trop d'actions d'affilée. Patientez une minute.",
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+    }
+  },
+  "TripExport": {
+    "metaTitle": "Planning à imprimer",
+    "brand": "Brb.",
+    "documentTitle": "Planning de voyage",
+    "exportedOn": "Exporté le {date}",
+    "days": "{count, plural, one {# jour} other {# jours}}",
+    "euros": "{amount} €",
+    "total": "Total",
+    "footer": "Planning généré avec Brb, à partir des récits de la communauté",
+    "hint": "Choisissez « Enregistrer au format PDF » dans la fenêtre d'impression.",
+    "print": "Imprimer / PDF",
+    "loading": "Préparation du document…",
+    "error": "Impossible de charger ce voyage."
+  },
+  "Comments": {
+    "title": "{count, plural, =0 {Questions et commentaires} one {# commentaire} other {# commentaires}}",
+    "empty": "Pas encore de commentaire. Une question sur ce voyage ? Posez-la à l'auteur !",
+    "label": "Votre commentaire",
+    "placeholder": "Posez une question ou partagez votre avis…",
+    "submit": "Publier",
+    "sending": "Vérification…",
+    "delete": "Supprimer le commentaire",
+    "deleteConfirm": "Supprimer ce commentaire ?",
+    "loginPrompt": "Connectez-vous pour poser une question ou commenter.",
+    "login": "Se connecter",
+    "reasons": "Motif : {list}.",
+    "errors": {
+      "INVALID_INPUT": "Le commentaire est vide ou trop long.",
+      "TOO_MANY_REQUESTS": "Trop de commentaires d'affilée. Patientez quelques minutes.",
+      "FORBIDDEN": "Votre compte ne peut pas commenter.",
+      "NOT_FOUND": "Ce récit ou ce commentaire n'existe plus.",
+      "CONTENT_REJECTED": "Commentaire refusé : il ne respecte pas les règles de la communauté.",
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+    }
   },
   "Patron": {
     "metaTitle": "Devenir mécène",

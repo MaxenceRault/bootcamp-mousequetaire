@@ -20,10 +20,8 @@ export function isRateLimited(key: string, limit: number, windowMs: number) {
   return entry.count > limit;
 }
 
-// IP du client, utilisée comme clé de rate limit.
-// X-Forwarded-For = « ip1, ip2, …, ipN » : chaque proxy ajoute l'adresse qu'il voit À LA FIN. Les premières
-// entrées peuvent être écrites par le client lui-même (une valeur différente à chaque requête contournerait
-// le rate limit) : on lit donc l'entrée ajoutée par le dernier proxy de confiance (TRUSTED_PROXY_HOPS).
+// Chaque proxy ajoute l'IP qu'il voit à la FIN de X-Forwarded-For ; les premières entrées peuvent être
+// inventées par le client. On lit celle du dernier proxy de confiance (TRUSTED_PROXY_HOPS).
 export function clientIp(request: Request) {
   const forwarded = (request.headers.get("x-forwarded-for") ?? "")
     .split(",")

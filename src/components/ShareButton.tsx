@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 
-// Partage du lien de la page : menu de partage natif (mobile), sinon copie dans le presse-papiers.
+// Menu de partage natif (mobile), sinon copie dans le presse-papiers.
 export function ShareButton({ title }: { title: string }) {
   const t = useTranslations("Post");
   const [copied, setCopied] = useState(false);
@@ -14,7 +14,6 @@ export function ShareButton({ title }: { title: string }) {
     const url = window.location.href;
 
     if (navigator.share) {
-      // Annulation par l'utilisateur : rien à faire.
       await navigator.share({ title, url }).catch(() => {});
       return;
     }
@@ -24,7 +23,6 @@ export function ShareButton({ title }: { title: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Presse-papiers refusé par le navigateur : pas de retour visuel.
     }
   }
 

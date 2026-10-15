@@ -33,7 +33,7 @@ import {
 } from "@/schemas/trip.schema";
 
 const ONE_HOUR = 60 * 60 * 1000;
-// Appels à l'IA : coût maîtrisé par utilisateur (génération et régénération d'un côté, discussion de l'autre).
+// Par utilisateur : génération d'un côté, discussion de l'autre.
 const AI_CALLS_PER_HOUR = 20;
 const CHAT_MESSAGES_PER_HOUR = 30;
 
@@ -41,7 +41,7 @@ type Params = Promise<Record<string, string | string[] | undefined>>;
 
 // GET /api/v1/trips
 export function listTripsController(request: Request) {
-  return withUser(request, async (userId) => Response.json({ trips: await listTrips(userId) }));
+  return withUser(request, async (userId) => Response.json(await listTrips(userId)));
 }
 
 // POST /api/v1/trips
@@ -170,9 +170,7 @@ export function deleteTripTaskController(request: Request, { params }: { params:
   });
 }
 
-// ─── Communs ────────────────────────────────────────────────────────────────
-
-// Vérifie le JWT (en plus de proxy.ts), puis traduit les erreurs en réponses génériques.
+// JWT revérifié (en plus de proxy.ts) ; erreurs traduites en réponses génériques.
 async function withUser(request: Request, handler: (userId: string) => Promise<Response>) {
   const userId = await getUserIdFromRequest(request);
   if (!userId) return errorResponse(401, "UNAUTHORIZED");
@@ -219,6 +217,9 @@ function handleError(error: unknown) {
     if (error.code === "NOT_FOUND") return errorResponse(404, "NOT_FOUND");
     if (error.code === "AI_UNAVAILABLE") return errorResponse(503, "AI_UNAVAILABLE");
     if (error.code === "CHAT_LIMIT_REACHED") return errorResponse(429, "CHAT_LIMIT_REACHED");
+    if (error.code === "DAILY_LIMIT_REACHED") return errorResponse(429, "DAILY_LIMIT_REACHED");
+    if (error.code === "AI_DISABLED") return errorResponse(503, "AI_DISABLED");
+    if (error.code === "FORBIDDEN") return errorResponse(403, "FORBIDDEN");
     return errorResponse(400, error.code);
   }
 
