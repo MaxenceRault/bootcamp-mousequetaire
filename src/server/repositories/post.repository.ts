@@ -538,6 +538,24 @@ export async function deletePostById(id: number): Promise<string[] | null> {
   return rows[0]?.urls ?? null;
 }
 
+// Même règle que findPostIdsByPlace (destination ou tag, récits visibles) : le compte correspond à /tags?country=.
+export async function findTrendingCountries(limit: number): Promise<{ country_code: string; post_count: number }[]> {
+  const db = await getDb();
+  const { rows } = await db.query<{ country_code: string; post_count: number }>(
+    `select country_code, count(*)::int as post_count
+       from (select destination_country_code as country_code, id as post_id from post where not is_hidden
+             union
+             select t.country_code, pt.post_id from post_tag pt
+               join tag t on t.id = pt.tag_id
+               join post p on p.id = pt.post_id and not p.is_hidden) places
+      group by country_code
+      order by post_count desc, country_code
+      limit $1`,
+    [limit],
+  );
+  return rows;
+}
+
 export type CoverPhoto = { slug: string; photo_url: string };
 
 // Couvertures de posts visibles tirées au hasard (bannière de l'accueil).

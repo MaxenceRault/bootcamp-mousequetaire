@@ -1,7 +1,7 @@
 import "server-only";
 import { detectImage } from "@/server/images";
 import { randomUUID } from "node:crypto";
-import type { Archetype, FeedPage, FeedPost } from "@/lib/posts";
+import type { Archetype, FeedPage, FeedPost, TrendingDestination } from "@/lib/posts";
 import type { UserRole } from "@/lib/roles";
 import { findSelectableArchetype } from "@/server/services/archetype.service";
 import { moderatePost, type ModerationReason } from "@/server/services/moderation.service";
@@ -14,6 +14,7 @@ import {
   findPostOwnership,
   findPostDetail,
   findRandomCoverPhotos,
+  findTrendingCountries,
   findPostSlugById,
   findPostIdsByPlace,
   findPostSummariesByIds,
@@ -367,4 +368,11 @@ const HERO_PHOTOS = 6;
 
 export function getHeroPhotos() {
   return findRandomCoverPhotos(HERO_PHOTOS);
+}
+
+const TRENDING_DESTINATIONS = 5;
+
+export async function getTrendingDestinations(): Promise<TrendingDestination[]> {
+  const rows = await findTrendingCountries(TRENDING_DESTINATIONS);
+  return rows.map((row) => ({ countryCode: row.country_code, postCount: row.post_count }));
 }

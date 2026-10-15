@@ -88,11 +88,6 @@ async function PostContent({ params }: Pick<PageProps<"/post/[slug]">, "params">
 
   return (
     <>
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
-        <Image src={post.photoUrl} alt="" fill sizes="100vw" className="scale-105 object-cover blur-xs" />
-        <div className="absolute inset-0 bg-ink/35" />
-      </div>
-
       <main className="relative w-full flex-1 pt-24 pb-12">
         <div className="mx-auto grid max-w-340 items-start gap-8 px-4 sm:px-6 lg:grid-cols-12 lg:px-8">
           <Card className="p-6 shadow-xl md:p-10 lg:col-span-8">
