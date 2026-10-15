@@ -337,6 +337,7 @@ export function buildOpenApiDocument() {
       { name: "Posts", description: "Feed public, création, masquage et suppression de récits" },
       { name: "Lieux", description: "Recherche de villes et pays (country-state-city)" },
       { name: "Réactions", description: "Likes et voyages enregistrés" },
+      { name: "Mécène", description: "Rôle mécène obtenu par un don sur Buy Me a Coffee" },
       { name: "Administration", description: "Réservé au rôle admin : modération, rôles, types de récit, réglages de l'IA, journal" },
     ],
     paths: {
@@ -621,6 +622,48 @@ export function buildOpenApiDocument() {
             400: invalidInput,
             401: unauthorized,
             404: reactionNotFound,
+            500: internalError,
+          },
+        },
+      },
+      "/users/me/patron": {
+        get: {
+          tags: ["Mécène"],
+          summary: "État du rôle mécène",
+          description:
+            "`enabled` : paiement configuré. `pageUrl` : page Buy Me a Coffee. `email` : adresse du compte, à utiliser " +
+            "sur Buy Me a Coffee (elle relie le don au compte).",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: json("État", {
+              type: "object",
+              properties: {
+                enabled: { type: "boolean" },
+                minEur: { type: "number", nullable: true, description: "Don minimum (EUR) qui donne le rôle" },
+                isPatron: { type: "boolean" },
+                email: { type: "string", nullable: true },
+                pageUrl: { type: "string", nullable: true },
+              },
+            }),
+            401: unauthorized,
+            500: internalError,
+          },
+        },
+      },
+      "/payments/buymeacoffee": {
+        post: {
+          tags: ["Mécène"],
+          summary: "Webhook Buy Me a Coffee (appelé par Buy Me a Coffee uniquement)",
+          description:
+            "Signature HMAC-SHA256 du corps brut vérifiée (en-tête x-signature-sha256, BMC_WEBHOOK_SECRET). " +
+            "donation.created d'au moins BMC_PATRON_MIN_EUR en euros : rôle mécène au compte non banni de même email. donation.refunded : rôle précédent rendu. " +
+            "Idempotent ; événements de test ignorés en production.",
+          responses: {
+            200: json("Événement reçu", { type: "object", properties: { received: { type: "boolean" } } }),
+            400: invalidInput,
+            401: error("Signature absente ou invalide", ["INVALID_SIGNATURE"]),
+            413: error("Corps trop volumineux", ["PAYLOAD_TOO_LARGE"]),
+            503: error("Paiement non configuré", ["PAYMENT_UNAVAILABLE"]),
             500: internalError,
           },
         },

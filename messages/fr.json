@@ -165,7 +165,9 @@
   },
   "Footer": {
     "brand": "Brb",
-    "rights": "© 2026 Brb. Tous droits réservés."
+    "rights": "© 2026 Brb. Tous droits réservés.",
+    "patron": "Devenir mécène",
+    "patronPitch": "Brb est gratuit : soutenez le projet"
   },
   "PasswordInput": {
     "show": "Afficher le mot de passe",
@@ -661,5 +663,25 @@
     "replySubmit": "Répondre",
     "replyPlaceholder": "Répondre à {name}…",
     "cancel": "Annuler"
+  },
+  "Patron": {
+    "metaTitle": "Devenir mécène",
+    "title": "Devenir mécène",
+    "pitch": "Brb est gratuit et sans publicité. En offrant un café sur Buy Me a Coffee, vous soutenez l'hébergement et l'IA qui compose les itinéraires, et vous obtenez le rôle mécène sur votre compte.",
+    "loading": "Chargement…",
+    "loginRequired": "Connectez-vous pour devenir mécène : le rôle est attaché à votre compte.",
+    "login": "Se connecter",
+    "emailHint": "Sur Buy Me a Coffee, utilisez l'adresse email de votre compte Brb : <strong>{email}</strong>. C'est elle qui relie votre don à votre compte.",
+    "submit": "Offrir {price} sur Buy Me a Coffee",
+    "check": "J'ai payé : vérifier mon rôle",
+    "checking": "Vérification…",
+    "notYet": "Le rôle n'est pas encore arrivé. Il est ajouté quelques secondes après le paiement ; réessayez dans un instant. Vérifiez aussi que l'email utilisé est bien celui de votre compte et que le don atteint le minimum, en euros.",
+    "secure": "Paiement sécurisé sur Buy Me a Coffee : vos données bancaires ne passent jamais par Brb.",
+    "alreadyPatron": "Votre compte a déjà le rôle mécène (ou un rôle supérieur). Merci pour votre soutien !",
+    "unavailable": "Le paiement est momentanément indisponible. Réessayez plus tard.",
+    "errors": {
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+    },
+    "oneTime": "minimum, paiement unique"
   }
 }
