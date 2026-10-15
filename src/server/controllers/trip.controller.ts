@@ -21,6 +21,7 @@ import {
   updateTripItem,
   updateTripTask,
 } from "@/server/services/trip.service";
+import { TripAccessError } from "@/server/services/trip-access.service";
 import {
   answerTripSuggestionSchema,
   createTripItemSchema,
@@ -212,6 +213,7 @@ function errorResponse(status: number, code: string) {
 }
 
 function handleError(error: unknown) {
+  if (error instanceof TripAccessError) return errorResponse(error.code === "FORBIDDEN" ? 403 : 404, error.code);
   if (error instanceof TripError) {
     if (error.code === "NOT_FOUND") return errorResponse(404, "NOT_FOUND");
     if (error.code === "AI_UNAVAILABLE") return errorResponse(503, "AI_UNAVAILABLE");

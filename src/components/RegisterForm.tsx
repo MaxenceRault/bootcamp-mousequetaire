@@ -8,7 +8,7 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { FormError } from "@/components/ui/FormError";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { authErrorCode, postAuth, saveSession } from "@/client/session";
+import { authErrorCode, nextPathAfterLogin, postAuth, saveSession } from "@/client/session";
 
 export function RegisterForm() {
   const t = useTranslations("Auth");
@@ -35,7 +35,7 @@ export function RegisterForm() {
 
     if ("error" in result) return setError(t(`errors.${authErrorCode(result.error)}`));
     saveSession(result.token, result.user, false);
-    router.push("/");
+    router.push(nextPathAfterLogin());
   }
 
   return (

@@ -6,6 +6,8 @@ import { describePlace, placeExists } from "@/server/services/location.service";
 import { findPostsForTrip, type PostForTrip } from "@/server/repositories/post.repository";
 import { AiQuotaError, consumeAiCall, getAiQuota } from "@/server/services/ai-quota.service";
 import { findSelectableArchetype } from "@/server/services/archetype.service";
+import { requireTripRole } from "@/server/services/trip-access.service";
+import type { TripAccessRole } from "@/schemas/trip-share.schema";
 import {
   answerTripSuggestion as answerTripSuggestionRow,
   countTripUserMessages,
@@ -73,10 +75,11 @@ export async function listTrips(userId: string) {
   return { trips, aiQuota };
 }
 
+// role : ce que l'utilisateur peut faire sur ce voyage (affichage des actions côté client).
 export async function getTrip(userId: string, tripId: number) {
-  const trip = await findOwnedTrip(userId, tripId);
+  const { trip, role } = await findTripFor(userId, tripId, "viewer");
   const [items, tasks] = await Promise.all([findTripItems(tripId), findTripTasks(tripId)]);
-  return { trip: publicTrip(trip), items, tasks };
+  return { trip: publicTrip(trip), items, tasks, role };
 }
 
 // Rien n'est enregistré si l'IA échoue.
@@ -120,14 +123,14 @@ export async function createTrip(userId: string, input: CreateTripInput): Promis
 
 // Remplace activités, tâches et budget.
 export async function regenerateTrip(userId: string, tripId: number) {
-  const trip = await findOwnedTrip(userId, tripId);
+  const { trip } = await findTripFor(userId, tripId, "editor");
   await chargeAiCall(userId);
   const generated = await generatePlan({ ...tripContext(trip), posts: await postsForTrip(trip) });
   await replaceTripPlan(tripId, generated.plan);
 }
 
 export async function updateTrip(userId: string, tripId: number, input: UpdateTripInput) {
-  await findOwnedTrip(userId, tripId);
+  await findTripFor(userId, tripId, "editor");
   await updateTripRow(tripId, {
     title: input.title,
     budget_target: input.budgetTarget,
@@ -140,12 +143,12 @@ export async function updateTrip(userId: string, tripId: number, input: UpdateTr
 }
 
 export async function deleteTrip(userId: string, tripId: number) {
-  await findOwnedTrip(userId, tripId);
+  await findTripFor(userId, tripId, "owner");
   await deleteTripRow(tripId);
 }
 
 export async function addTripItem(userId: string, tripId: number, input: CreateTripItemInput) {
-  const trip = await findOwnedTrip(userId, tripId);
+  const { trip } = await findTripFor(userId, tripId, "editor");
   if (!isDuringTrip(trip.start_date, trip.end_date, input.day)) throw new TripError("INVALID_INPUT");
 
   await insertTripItem(tripId, { ...input, start_time: input.startTime });
@@ -153,7 +156,7 @@ export async function addTripItem(userId: string, tripId: number, input: CreateT
 }
 
 export async function updateTripItem(userId: string, tripId: number, itemId: number, input: UpdateTripItemInput) {
-  const trip = await findOwnedTrip(userId, tripId);
+  const { trip } = await findTripFor(userId, tripId, "editor");
   if (input.day && !isDuringTrip(trip.start_date, trip.end_date, input.day)) throw new TripError("INVALID_INPUT");
 
   const { startTime, ...fields } = input;
@@ -163,42 +166,43 @@ export async function updateTripItem(userId: string, tripId: number, itemId: num
 }
 
 export async function deleteTripItem(userId: string, tripId: number, itemId: number) {
-  await findOwnedTrip(userId, tripId);
+  await findTripFor(userId, tripId, "editor");
   if (!(await deleteTripItemRow(tripId, itemId))) throw new TripError("NOT_FOUND");
   return getTrip(userId, tripId);
 }
 
 export async function addTripTask(userId: string, tripId: number, label: string) {
-  await findOwnedTrip(userId, tripId);
+  await findTripFor(userId, tripId, "editor");
   await insertTripTask(tripId, label);
   return getTrip(userId, tripId);
 }
 
 export async function updateTripTask(userId: string, tripId: number, taskId: number, input: UpdateTripTaskInput) {
-  await findOwnedTrip(userId, tripId);
+  await findTripFor(userId, tripId, "editor");
   if (!(await updateTripTaskRow(tripId, taskId, input))) throw new TripError("NOT_FOUND");
   return getTrip(userId, tripId);
 }
 
 export async function deleteTripTask(userId: string, tripId: number, taskId: number) {
-  await findOwnedTrip(userId, tripId);
+  await findTripFor(userId, tripId, "editor");
   if (!(await deleteTripTaskRow(tripId, taskId))) throw new TripError("NOT_FOUND");
   return getTrip(userId, tripId);
 }
 
 export async function getTripMessages(userId: string, tripId: number) {
-  await findOwnedTrip(userId, tripId);
+  await findTripFor(userId, tripId, "viewer");
   return findTripMessages(tripId);
 }
 
 // Les propositions restent en attente jusqu'au « oui » de l'utilisateur.
+// Discussion partagée entre les membres ; chacun consomme son propre quota IA.
 export async function sendTripMessage(userId: string, tripId: number, content: string) {
-  const trip = await findOwnedTrip(userId, tripId);
+  const { trip } = await findTripFor(userId, tripId, "editor");
   if ((await countTripUserMessages(tripId)) >= CHAT_MAX_USER_MESSAGES) throw new TripError("CHAT_LIMIT_REACHED");
 
   // Injections connues : refusées sans appeler l'IA.
   if (isPromptAttack(content)) {
-    await insertTripExchange(tripId, { user_content: content, assistant_content: "…", off_topic: true, suggestions: [] });
+    await insertTripExchange(tripId, userId, { user_content: content, assistant_content: "…", off_topic: true, suggestions: [] });
     return findTripMessages(tripId);
   }
 
@@ -213,12 +217,12 @@ export async function sendTripMessage(userId: string, tripId: number, content: s
     message: content,
   });
 
-  await insertTripExchange(tripId, { user_content: content, ...answer });
+  await insertTripExchange(tripId, userId, { user_content: content, ...answer });
   return findTripMessages(tripId);
 }
 
 export async function answerTripSuggestion(userId: string, tripId: number, suggestionId: number, accepted: boolean) {
-  await findOwnedTrip(userId, tripId);
+  await findTripFor(userId, tripId, "editor");
   if (!(await answerTripSuggestionRow(tripId, suggestionId, accepted))) throw new TripError("NOT_FOUND");
   return getTrip(userId, tripId);
 }
@@ -232,11 +236,11 @@ async function chargeAiCall(userId: string) {
   }
 }
 
-// Voyage d'un autre : 404, sans révéler qu'il existe.
-async function findOwnedTrip(userId: string, tripId: number): Promise<TripRow> {
+async function findTripFor(userId: string, tripId: number, minimum: TripAccessRole): Promise<{ trip: TripRow; role: TripAccessRole }> {
+  const role = await requireTripRole(userId, tripId, minimum);
   const trip = await findTripById(tripId);
-  if (!trip || trip.user_id !== userId) throw new TripError("NOT_FOUND");
-  return trip;
+  if (!trip) throw new TripError("NOT_FOUND");
+  return { trip, role };
 }
 
 function publicTrip(trip: TripRow): Omit<TripRow, "user_id"> {
