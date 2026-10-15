@@ -78,13 +78,13 @@ function AccountMenu({ user }: { user: SessionUser }) {
             <p className="font-display text-label-lg text-ink">{user.display_name}</p>
             <p className="text-body-sm text-ink-soft/70">@{user.username}</p>
           </div>
-          <Link href="/profile?tab=saved" className="flex items-center gap-2 px-3 py-2 text-body-md text-ink-soft transition hover:bg-canvas hover:text-ink">
-            <Icon name="bookmark" className="size-4" />
-            {t("savedTrips")}
-          </Link>
           <Link href="/profile" className="flex items-center gap-2 px-3 py-2 text-body-md text-ink-soft transition hover:bg-canvas hover:text-ink">
             <Icon name="settings" className="size-4" />
             {t("settings")}
+          </Link>
+          <Link href="/support" className="flex items-center gap-2 px-3 py-2 text-body-md text-ink-soft transition hover:bg-canvas hover:text-ink">
+            <Icon name="help" className="size-4" />
+            {t("support")}
           </Link>
           {/* Affichage seulement : l'API vérifie le rôle en base. */}
           {user.role === "admin" && (

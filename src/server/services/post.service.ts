@@ -227,6 +227,7 @@ function toFeedPost(row: FeedPostRow): FeedPost {
       avatarUrl: row.author.avatar_url,
       avatarSeed: row.author.avatar_seed,
       avatarBackgroundColor: row.author.avatar_background_color,
+      role: row.author.role,
     },
   };
 }

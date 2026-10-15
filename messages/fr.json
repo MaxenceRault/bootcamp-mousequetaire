@@ -14,13 +14,13 @@
     "plan": "Planifier",
     "login": "Se connecter",
     "accountMenu": "Menu du compte",
-    "savedTrips": "Voyages enregistrés",
     "settings": "Paramètres",
     "logout": "Se déconnecter",
     "search": "Rechercher",
     "admin": "Administration",
     "openMenu": "Ouvrir le menu",
-    "closeMenu": "Fermer le menu"
+    "closeMenu": "Fermer le menu",
+    "support": "Support"
   },
   "Home": {
     "title": "Les derniers voyages de la communauté",
@@ -623,6 +623,7 @@
     "tabs": {
       "dashboard": "Tableau de bord",
       "reports": "Signalements",
+      "tickets": "Tickets",
       "posts": "Récits",
       "users": "Utilisateurs",
       "archetypes": "Types de récit",
@@ -737,13 +738,15 @@
         "settings_update": "Réglages de l'IA modifiés",
         "comment_delete": "Commentaire supprimé",
         "banned_word_create": "Terme banni",
-        "banned_word_delete": "Terme retiré"
+        "banned_word_delete": "Terme retiré",
+        "ticket_status": "État d'un ticket modifié"
       },
       "targets": {
         "user": "Utilisateur",
         "post": "Récit",
         "archetype": "Type de récit",
-        "settings": "Réglages"
+        "settings": "Réglages",
+        "ticket": "Ticket"
       }
     },
     "errors": {
@@ -781,6 +784,17 @@
       "count": "{count, plural, =0 {Aucun terme} one {# terme banni} other {# termes bannis}}",
       "show": "Afficher la liste",
       "hide": "Masquer la liste"
+    },
+    "tickets": {
+      "empty": "Aucun ticket dans cet état.",
+      "filterLabel": "Filtrer par état",
+      "statusLabel": "État",
+      "filter": {
+        "all": "Tous les tickets",
+        "open": "Ouverts",
+        "in_progress": "En cours",
+        "resolved": "Résolus"
+      }
     }
   },
   "TripExport": {
@@ -841,5 +855,35 @@
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
     },
     "oneTime": "minimum, paiement unique"
+  },
+  "TicketStatus": {
+    "open": "Ouvert",
+    "in_progress": "En cours",
+    "resolved": "Résolu"
+  },
+  "Support": {
+    "metaTitle": "Support",
+    "title": "Support",
+    "subtitle": "Un problème, une question ? Ouvrez un ticket : l'équipe le traite et vous suivez son avancement ici.",
+    "loginRequired": "Connectez-vous pour ouvrir un ticket : il est rattaché à votre compte.",
+    "login": "Se connecter",
+    "newTitle": "Nouveau ticket",
+    "subject": "Sujet",
+    "subjectPlaceholder": "Ex. Je n'arrive pas à publier un récit",
+    "message": "Message",
+    "messagePlaceholder": "Décrivez le problème : ce que vous faisiez, ce qui s'est passé…",
+    "submit": "Envoyer",
+    "sending": "Envoi…",
+    "sent": "Ticket envoyé. Vous pouvez suivre son état ci-dessous.",
+    "mineTitle": "Mes tickets",
+    "empty": "Vous n'avez encore ouvert aucun ticket.",
+    "createdAt": "Ouvert le {date}",
+    "updatedAt": "mis à jour le {date}",
+    "errors": {
+      "INVALID_INPUT": "Sujet de 3 à 120 caractères, message de 10 à 2000 caractères.",
+      "TOO_MANY_REQUESTS": "Trop de tickets d'affilée. Réessayez dans une heure.",
+      "FORBIDDEN": "Votre compte ne peut pas ouvrir de ticket.",
+      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+    }
   }
 }

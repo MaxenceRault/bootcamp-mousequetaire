@@ -56,6 +56,8 @@ const envSchema = z.object({
   RATE_LIMIT_PROFILE_UPDATE_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_REPORT_MAX: count.default(10),
   RATE_LIMIT_REPORT_WINDOW_SECONDS: seconds.default(60 * 60),
+  RATE_LIMIT_TICKET_MAX: count.default(5),
+  RATE_LIMIT_TICKET_WINDOW_SECONDS: seconds.default(60 * 60),
   RATE_LIMIT_COMMENT_MAX: count.default(20),
   RATE_LIMIT_COMMENT_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_ADMIN_MAX: count.default(120),
@@ -92,7 +94,7 @@ export type ServerConfig = {
   vertex: { project: string; location: string } | null;
   aiDailyLimitPerUser: number;
   rateLimits: Record<
-    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "admin" | "comment" | "tripAi" | "tripChat" | "tripShare" | "tripExpense",
+    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "ticket" | "admin" | "comment" | "tripAi" | "tripChat" | "tripShare" | "tripExpense",
     RateLimit
   >;
 };
@@ -140,6 +142,7 @@ export function getConfig(): ServerConfig {
       profileView: rateLimit(env.RATE_LIMIT_PROFILE_VIEW_MAX, env.RATE_LIMIT_PROFILE_VIEW_WINDOW_SECONDS),
       profileUpdate: rateLimit(env.RATE_LIMIT_PROFILE_UPDATE_MAX, env.RATE_LIMIT_PROFILE_UPDATE_WINDOW_SECONDS),
       report: rateLimit(env.RATE_LIMIT_REPORT_MAX, env.RATE_LIMIT_REPORT_WINDOW_SECONDS),
+      ticket: rateLimit(env.RATE_LIMIT_TICKET_MAX, env.RATE_LIMIT_TICKET_WINDOW_SECONDS),
       comment: rateLimit(env.RATE_LIMIT_COMMENT_MAX, env.RATE_LIMIT_COMMENT_WINDOW_SECONDS),
       admin: rateLimit(env.RATE_LIMIT_ADMIN_MAX, env.RATE_LIMIT_ADMIN_WINDOW_SECONDS),
       tripAi: rateLimit(env.RATE_LIMIT_TRIP_AI_MAX, env.RATE_LIMIT_TRIP_AI_WINDOW_SECONDS),

@@ -1,3 +1,5 @@
+import type { UserRole } from "@/lib/roles";
+
 // Type de récit géré depuis l'admin. slug : identifiant stable (URL ?archetype=).
 export type Archetype = { slug: string; label: string };
 
@@ -21,6 +23,7 @@ export type FeedPost = {
     avatarUrl: string | null;
     avatarSeed: string | null;
     avatarBackgroundColor: string | null;
+    role: UserRole;
   };
 };
 
