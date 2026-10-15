@@ -1,6 +1,7 @@
 import "server-only";
 import type Stripe from "stripe";
 import { getConfig } from "@/lib/config";
+import { logError } from "@/lib/logger";
 import { getStripe } from "@/utils/stripe";
 
 // Accès à Stripe (service de paiement externe), comme les autres repositories pour la base et le stockage.
@@ -49,7 +50,7 @@ export async function createCheckoutSession(request: CheckoutRequest): Promise<{
   } catch (error) {
     // Clé invalide, Stripe indisponible… : « paiement indisponible » pour le client, détail dans les logs.
     const { type, code } = error as { type?: string; code?: string };
-    console.error(JSON.stringify({ level: "error", scope: "payments", message: "checkout_failed", type, code }));
+    logError("payments", `checkout_failed type=${type} code=${code}`);
     return null;
   }
 

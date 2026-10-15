@@ -1,6 +1,7 @@
 import "server-only";
 import { getConfig } from "@/lib/config";
 import { getUserIdFromRequest } from "@/lib/jwt";
+import { logError } from "@/lib/logger";
 import { isRateLimited } from "@/lib/rateLimit";
 import {
   getPatronPaymentResult,
@@ -82,12 +83,6 @@ function handleError(error: unknown) {
 
 // Détail dans les logs serveur uniquement ; le client reçoit un code générique.
 function internalError(error: unknown) {
-  console.error(
-    JSON.stringify({
-      level: "error",
-      scope: "patron",
-      message: String((error as { message?: unknown })?.message ?? "unknown error"),
-    }),
-  );
+  logError("patron", error);
   return errorResponse(500, "INTERNAL_ERROR");
 }

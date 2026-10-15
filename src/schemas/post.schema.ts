@@ -18,12 +18,11 @@ const cityName = z.string().trim().min(1).max(100);
 
 // Une ville est toujours dans une région.
 export const placeSchema = z
-  .object({
+  .strictObject({
     country: countryCode,
     state: stateCode.optional(),
     city: cityName.optional(),
   })
-  .strict()
   .refine((place) => !place.city || place.state);
 
 // Un tag arrive en JSON : {"country":"JP","state":"26","city":"Kyoto"}.
@@ -42,42 +41,36 @@ const tagSchema = z
 
 // Récit mis en page : sous-ensemble du JSON de l'éditeur (TipTap), tout autre nœud ou attribut est refusé.
 const markSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("bold") }).strict(),
-  z.object({ type: z.literal("italic") }).strict(),
-  z.object({ type: z.literal("underline") }).strict(),
-  z.object({ type: z.literal("textStyle"), attrs: z.object({ fontSize: z.enum(BODY_FONT_SIZES) }).strict() }).strict(),
+  z.strictObject({ type: z.literal("bold") }),
+  z.strictObject({ type: z.literal("italic") }),
+  z.strictObject({ type: z.literal("underline") }),
+  z.strictObject({ type: z.literal("textStyle"), attrs: z.strictObject({ fontSize: z.enum(BODY_FONT_SIZES) }) }),
 ]);
 
 const inlineSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("text"), text: z.string().min(1).max(LONG_DESCRIPTION_MAX), marks: z.array(markSchema).max(4).optional() }).strict(),
-  z.object({ type: z.literal("hardBreak") }).strict(),
+  z.strictObject({ type: z.literal("text"), text: z.string().min(1).max(LONG_DESCRIPTION_MAX), marks: z.array(markSchema).max(4).optional() }),
+  z.strictObject({ type: z.literal("hardBreak") }),
 ]);
 
-const paragraphSchema = z.object({ type: z.literal("paragraph"), content: z.array(inlineSchema).max(2_000).optional() }).strict();
+const paragraphSchema = z.strictObject({ type: z.literal("paragraph"), content: z.array(inlineSchema).max(2_000).optional() });
 
-const listItemSchema = z.object({ type: z.literal("listItem"), content: z.array(paragraphSchema).min(1).max(20) }).strict();
-const bulletListSchema = z.object({ type: z.literal("bulletList"), content: z.array(listItemSchema).min(1).max(200) }).strict();
+const listItemSchema = z.strictObject({ type: z.literal("listItem"), content: z.array(paragraphSchema).min(1).max(20) });
+const bulletListSchema = z.strictObject({ type: z.literal("bulletList"), content: z.array(listItemSchema).min(1).max(200) });
 
 // src « upload:N » : N-ième fichier de bodyPhotos, remplacé par l'URL du bucket côté serveur.
 export const BODY_UPLOAD_PREFIX = "upload:";
-const bodyImageSchema = z
-  .object({
-    type: z.literal("image"),
-    attrs: z
-      .object({
-        src: z.string().regex(new RegExp(`^${BODY_UPLOAD_PREFIX}[0-${BODY_PHOTO_MAX - 1}]$`)),
-        alt: z.string().trim().max(200).nullable(),
-      })
-      .strict(),
-  })
-  .strict();
+const bodyImageSchema = z.strictObject({
+  type: z.literal("image"),
+  attrs: z.strictObject({
+    src: z.string().regex(new RegExp(`^${BODY_UPLOAD_PREFIX}[0-${BODY_PHOTO_MAX - 1}]$`)),
+    alt: z.string().trim().max(200).nullable(),
+  }),
+});
 
-export const postBodySchema = z
-  .object({
-    type: z.literal("doc"),
-    content: z.array(z.discriminatedUnion("type", [paragraphSchema, bulletListSchema, bodyImageSchema])).min(1).max(1_000),
-  })
-  .strict();
+export const postBodySchema = z.strictObject({
+  type: z.literal("doc"),
+  content: z.array(z.discriminatedUnion("type", [paragraphSchema, bulletListSchema, bodyImageSchema])).min(1).max(1_000),
+});
 
 export type PostBody = z.infer<typeof postBodySchema>;
 export type PostBodyBlock = PostBody["content"][number];
@@ -98,7 +91,7 @@ const bodyFieldSchema = z
   .pipe(postBodySchema);
 
 export const createPostSchema = z
-  .object({
+  .strictObject({
     // Saisi dans un textarea : retours à la ligne ramenés à un espace.
     title: z
       .string()
@@ -118,7 +111,6 @@ export const createPostSchema = z
     archetype: archetypeSlugSchema,
     tags: z.array(tagSchema).max(MAX_TAGS).default([]),
   })
-  .strict()
   // Dates AAAA-MM-JJ : l'ordre des chaînes est chronologique.
   .refine((post) => post.endDate >= post.startDate, { path: ["endDate"] })
   .refine((post) => !post.destinationCity || post.destinationState, { path: ["destinationCity"] })
@@ -137,14 +129,12 @@ export type PlaceInput = z.infer<typeof placeSchema>;
 
 export const FEED_MAX_LIMIT = 20;
 
-export const feedQuerySchema = z
-  .object({
-    archetype: archetypeSlugSchema.optional(),
-    // Borné à l'entier max de Postgres.
-    cursor: z.coerce.number().int().positive().max(2_147_483_647).optional(),
-    limit: z.coerce.number().int().min(1).max(FEED_MAX_LIMIT).optional(),
-  })
-  .strict();
+export const feedQuerySchema = z.strictObject({
+  archetype: archetypeSlugSchema.optional(),
+  // Borné à l'entier max de Postgres.
+  cursor: z.coerce.number().int().positive().max(2_147_483_647).optional(),
+  limit: z.coerce.number().int().min(1).max(FEED_MAX_LIMIT).optional(),
+});
 
 // Sans zéro initial ni autre caractère.
 export const postIdSchema = z
@@ -153,23 +143,19 @@ export const postIdSchema = z
   .transform(Number)
   .pipe(z.number().int().max(2_147_483_647));
 
-export const updatePostSchema = z
-  .object({
-    hidden: z.boolean(),
-  })
-  .strict();
+export const updatePostSchema = z.strictObject({
+  hidden: z.boolean(),
+});
 
 export const MAX_REACTION_POST_IDS = 50;
 
-export const viewerReactionsQuerySchema = z
-  .object({
-    postIds: z
-      .string()
-      .regex(/^[1-9][0-9]{0,9}(,[1-9][0-9]{0,9})*$/)
-      .transform((value) => [...new Set(value.split(",").map(Number))])
-      .pipe(z.array(z.number().int().max(2_147_483_647)).min(1).max(MAX_REACTION_POST_IDS)),
-  })
-  .strict();
+export const viewerReactionsQuerySchema = z.strictObject({
+  postIds: z
+    .string()
+    .regex(/^[1-9][0-9]{0,9}(,[1-9][0-9]{0,9})*$/)
+    .transform((value) => [...new Set(value.split(",").map(Number))])
+    .pipe(z.array(z.number().int().max(2_147_483_647)).min(1).max(MAX_REACTION_POST_IDS)),
+});
 
 export const searchQuerySchema = z
   .string()
@@ -184,13 +170,11 @@ export const postSlugSchema = z
   .refine((slug) => !/^[0-9]+$/.test(slug));
 
 // Affiché à l'admin en texte brut.
-export const reportPostSchema = z
-  .object({
-    reason: z
-      .string()
-      .trim()
-      .max(500)
-      .transform((value) => value || null)
-      .optional(),
-  })
-  .strict();
+export const reportPostSchema = z.strictObject({
+  reason: z
+    .string()
+    .trim()
+    .max(500)
+    .transform((value) => value || null)
+    .optional(),
+});

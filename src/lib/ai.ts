@@ -1,5 +1,6 @@
 import "server-only";
 import { GoogleGenAI, type Schema } from "@google/genai";
+import { getConfig } from "@/lib/config";
 
 // Gemini sur Vertex AI, authentifié par IAM : aucune clé API. Flash-Lite : le modèle le moins cher.
 const MODEL = "gemini-2.5-flash-lite";
@@ -9,11 +10,10 @@ const TIMEOUT_MS = 100_000;
 const globalForAi = globalThis as unknown as { genai?: GoogleGenAI };
 
 function getClient() {
-  const project = process.env.GCP_PROJECT_ID;
-  const location = process.env.VERTEX_LOCATION;
-  if (!project || !location) throw new Error("GCP_PROJECT_ID et VERTEX_LOCATION doivent être définies");
+  const vertex = getConfig().vertex;
+  if (!vertex) throw new Error("GCP_PROJECT_ID et VERTEX_LOCATION doivent être définies");
 
-  globalForAi.genai ??= new GoogleGenAI({ vertexai: true, project, location });
+  globalForAi.genai ??= new GoogleGenAI({ vertexai: true, project: vertex.project, location: vertex.location });
   return globalForAi.genai;
 }
 
