@@ -12,23 +12,20 @@ const description = z
   .transform((value) => value || null);
 
 // Slug calculé à partir du libellé s'il n'est pas fourni.
-export const createArchetypeSchema = z
-  .object({
-    label,
-    description: description.optional(),
-    slug: archetypeSlugSchema.optional(),
-  })
-  .strict();
+export const createArchetypeSchema = z.strictObject({
+  label,
+  description: description.optional(),
+  slug: archetypeSlugSchema.optional(),
+});
 
 // Le slug ne change jamais : il sert dans les URL du feed.
 export const updateArchetypeSchema = z
-  .object({
+  .strictObject({
     label,
     description,
     isActive: z.boolean(),
   })
   .partial()
-  .strict()
   .refine((changes) => Object.keys(changes).length > 0);
 
 export type CreateArchetypeInput = z.infer<typeof createArchetypeSchema>;

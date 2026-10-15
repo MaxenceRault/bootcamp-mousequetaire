@@ -19,22 +19,20 @@ export const AVATAR_BACKGROUND_COLORS = [
 ] as const;
 
 // Le formulaire envoie toujours tous les champs.
-export const updateProfileSchema = z
-  .object({
-    display_name: z.string().trim().min(1).max(60),
-    username: z.string().trim().toLowerCase().regex(new RegExp(USERNAME_PATTERN)),
-    location: z
-      .string()
-      .trim()
-      .max(80)
-      .transform((value) => value || null),
-    avatar_seed: z.string().regex(AVATAR_SEED_PATTERN).nullable(),
-    avatar_background_color: z.enum(AVATAR_BACKGROUND_COLORS).nullable(),
-    // Facultatifs : absents = inchangés (le formulaire du profil ne les envoie pas encore tous).
-    is_private: z.boolean().optional(),
-    show_saved: z.boolean().optional(),
-  })
-  .strict();
+export const updateProfileSchema = z.strictObject({
+  display_name: z.string().trim().min(1).max(60),
+  username: z.string().trim().toLowerCase().regex(new RegExp(USERNAME_PATTERN)),
+  location: z
+    .string()
+    .trim()
+    .max(80)
+    .transform((value) => value || null),
+  avatar_seed: z.string().regex(AVATAR_SEED_PATTERN).nullable(),
+  avatar_background_color: z.enum(AVATAR_BACKGROUND_COLORS).nullable(),
+  // Facultatifs : absents = inchangés (le formulaire du profil ne les envoie pas encore tous).
+  is_private: z.boolean().optional(),
+  show_saved: z.boolean().optional(),
+});
 
 // Pseudo dans l'URL (/api/v1/users/{pseudo}, /profile/{pseudo}) : mêmes règles que la table users.
 export const usernameParamSchema = z.string().regex(new RegExp(USERNAME_PATTERN));
@@ -44,8 +42,6 @@ export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export const PROFILE_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
 export const PROFILE_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
-export const profileImageSchema = z
-  .object({
-    image: z.file().min(1).max(PROFILE_IMAGE_MAX_BYTES).mime([...PROFILE_IMAGE_TYPES]),
-  })
-  .strict();
+export const profileImageSchema = z.strictObject({
+  image: z.file().min(1).max(PROFILE_IMAGE_MAX_BYTES).mime([...PROFILE_IMAGE_TYPES]),
+});

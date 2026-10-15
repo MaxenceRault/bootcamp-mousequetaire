@@ -27,6 +27,10 @@ const envSchema = z.object({
   // Proxys de confiance (Cloud Run : 1) : seules leurs entrées de X-Forwarded-For sont fiables.
   TRUSTED_PROXY_HOPS: z.coerce.number().int().min(1).max(5).default(1),
 
+  // Gemini sur Vertex AI (auth IAM, aucune clé). Optionnelles : sans elles, seules les fonctions IA échouent.
+  GCP_PROJECT_ID: z.string().regex(/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/).optional(),
+  VERTEX_LOCATION: z.string().regex(/^[a-z0-9-]+$/).optional(),
+
   RATE_LIMIT_LOGIN_MAX: count.default(5),
   RATE_LIMIT_LOGIN_WINDOW_SECONDS: seconds.default(15 * 60),
   // Par email, quelle que soit l'IP : contre le bruteforce réparti.
@@ -78,6 +82,8 @@ export type ServerConfig = {
   refreshTokenTtlMs: { remember: number; session: number };
   bcryptSaltRounds: number;
   trustedProxyHops: number;
+  // null : IA non configurée.
+  vertex: { project: string; location: string } | null;
   aiDailyLimitPerUser: number;
   rateLimits: Record<
     "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "admin" | "comment" | "tripAi" | "tripChat",
@@ -112,6 +118,8 @@ export function getConfig(): ServerConfig {
     },
     bcryptSaltRounds: env.BCRYPT_SALT_ROUNDS,
     trustedProxyHops: env.TRUSTED_PROXY_HOPS,
+    vertex:
+      env.GCP_PROJECT_ID && env.VERTEX_LOCATION ? { project: env.GCP_PROJECT_ID, location: env.VERTEX_LOCATION } : null,
     aiDailyLimitPerUser: env.AI_DAILY_LIMIT_PER_USER,
     rateLimits: {
       login: rateLimit(env.RATE_LIMIT_LOGIN_MAX, env.RATE_LIMIT_LOGIN_WINDOW_SECONDS),

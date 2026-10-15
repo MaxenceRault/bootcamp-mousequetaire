@@ -6,21 +6,17 @@ const email = z.string().trim().toLowerCase().max(254).pipe(z.email());
 const BCRYPT_MAX_BYTES = 72;
 const fitsBcrypt = (password: string) => new TextEncoder().encode(password).length <= BCRYPT_MAX_BYTES;
 
-export const loginSchema = z
-  .object({
-    email,
-    password: z.string().min(1).refine(fitsBcrypt),
-    remember: z.boolean(),
-  })
-  .strict();
+export const loginSchema = z.strictObject({
+  email,
+  password: z.string().min(1).refine(fitsBcrypt),
+  remember: z.boolean(),
+});
 
-export const registerSchema = z
-  .object({
-    name: z.string().trim().min(1).max(60),
-    email,
-    password: z.string().min(8).refine(fitsBcrypt),
-  })
-  .strict();
+export const registerSchema = z.strictObject({
+  name: z.string().trim().min(1).max(60),
+  email,
+  password: z.string().min(8).refine(fitsBcrypt),
+});
 
 // Valeur du cookie httpOnly du refresh token (JWT).
 export const refreshTokenSchema = z

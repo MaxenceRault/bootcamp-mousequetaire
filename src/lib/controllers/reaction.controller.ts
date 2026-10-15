@@ -3,8 +3,13 @@ import { connection } from "next/server";
 import { getConfig } from "@/lib/config";
 import { getUserIdFromRequest } from "@/lib/jwt";
 import { isRateLimited } from "@/lib/rateLimit";
-import type { ReactionKind } from "@/lib/repositories/reaction.repository";
-import { getReactions, getViewerReactions, ReactionError, setReaction } from "@/lib/services/reaction.service";
+import {
+  getReactions,
+  getViewerReactions,
+  ReactionError,
+  setReaction,
+  type ReactionKind,
+} from "@/lib/services/reaction.service";
 import { postIdSchema, viewerReactionsQuerySchema } from "@/schemas/post.schema";
 import { logError } from "@/lib/logger";
 

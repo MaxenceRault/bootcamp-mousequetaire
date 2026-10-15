@@ -53,7 +53,7 @@ src/
 │       ├── openapi.json/route.ts # GET /api/v1/openapi.json : spécification OpenAPI (dev uniquement)
 │       ├── trips/…            # Voyages : CRUD + regenerate (IA) + messages / suggestions (discussion IA) → trip.controller
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
-├── schemas/                   # DTO : schémas Zod `.strict()` + types inférés (auth.schema.ts, user.schema.ts, post.schema.ts)
+├── schemas/                   # DTO : schémas Zod stricts (`z.strictObject`) + types inférés (auth.schema.ts, user.schema.ts, post.schema.ts)
 ├── services/                  # Couche SERVICE : logique métier (ex. post.service.ts)
 ├── repositories/              # Couche REPOSITORY : accès base de données (ex. post.repository.ts)
 ├── proxy.ts                   # Middleware Next 16 : redirige (308) les anciens liens /post/{id} vers /post/{slug} ; refuse sans token valide les routes API privées (/api/v1/users/*, /api/v1/posts/* sauf GET /api/v1/posts et GET /api/v1/users/{pseudo}, /api/v1/trips/*)
@@ -123,6 +123,7 @@ scripts/
 db/                            # Scripts SQL à exécuter dans Cloud SQL Studio
 Dockerfile                     # Images multi-étapes, utilisateur non-root : « dev » (compose.yaml) et production (Cloud Run, sortie standalone)
 compose.yaml                   # Dev conteneurisé : code monté, node_modules dans un volume, identifiants gcloud de la machine en lecture seule
+.github/workflows/ci.yml       # Intégration continue : PR vers main → lint → typecheck → npm audit → migrations, doc API, .env.example → build
 .github/workflows/deploy.yml   # Déploiement continu : push sur main → lint → image Docker → Cloud Run
 ```
 
@@ -140,6 +141,7 @@ compose.yaml                   # Dev conteneurisé : code monté, node_modules d
 
 ## Déploiement (Cloud Run)
 
+- **CI sur chaque PR vers `main`** (`.github/workflows/ci.yml`, sans accès GCP) : le lint fait aussi respecter les règles du projet (couches, `getConfig()`, `z.strictObject`, textes dans `messages/fr.json`, console uniquement dans `logger.ts`) ; une migration existante ne se modifie jamais, une nouvelle commence par `set role brb_admin;` avec un horodatage unique ; toute route sous `/api/v1/` est dans `openapi.ts` ; toute variable de `config.ts` est dans `.env.example`. Actions GitHub épinglées par SHA.
 - **Automatique** : chaque push sur `main` est déployé par GitHub Actions (`.github/workflows/deploy.yml`) sur https://brb-105103278561.europe-west9.run.app. Un `main` qui ne passe pas le lint ou le build n'est pas déployé (onglet *Actions* du repo pour suivre).
 - Authentification GitHub → GCP sans clé ni secret GitHub : Workload Identity Federation (pool `github`, provider `github-repo`, limité à la branche `main` de ce repo) → compte de service `brb-deploy` (droits de déploiement uniquement).
 - L'app tourne avec le compte de service `brb-run` (Cloud SQL en `brb_app`, Vertex AI, bucket des photos, lecture des secrets). Images dans Artifact Registry `europe-west9-docker.pkg.dev/biirb-511608/brb/web`.
@@ -196,7 +198,7 @@ Seuls les must-have sont exigés : ne pas implémenter les nice-to-have (OAuth/O
 1. **Authentification & autorisation** — JWT transmis dans l'en-tête `Authorization: Bearer <token>`. Vérification du token (signature + expiration, lib éprouvée comme `jose`) dans `src/proxy.ts` (le middleware de Next 16) pour les routes privées, **et** dans chaque route handler / Server Action qui touche des données privées. Vérifier que l'utilisateur est propriétaire de la ressource qu'il modifie. Secret JWT uniquement côté serveur. Access token JWT de **1 h**, gardé **en mémoire uniquement** côté navigateur (jamais dans localStorage / sessionStorage : un script injecté ne doit pas pouvoir le lire), + **refresh token** (30 jours avec « Se souvenir de moi », 24 h sinon) dans le cookie **`brb_refresh` HttpOnly, SameSite=Strict, Secure en prod, Path=/api/v1/auth** : en base uniquement son empreinte SHA-256 (table `refresh_token`), rotation à chaque refresh, réutilisation d'un token déjà utilisé = révocation de toute la session, déconnexion = révocation côté serveur + cookie effacé. À chaque chargement de page, `session.ts` récupère un access token via `/auth/refresh` (verrou entre onglets). Le stockage du navigateur ne contient que le profil affiché (`brb_user`, non secret).
 2. **Endpoints API** — Rate limiting anti-bruteforce sur le login (et sur `/api/v1/chat`). CORS restreint à l'URL du frontend (variable d'env), jamais `*`. L'IP du client se lit **uniquement** via `clientIp()` (`src/lib/rateLimit.ts`), qui prend l'entrée de `X-Forwarded-For` ajoutée par le proxy de confiance (`TRUSTED_PROXY_HOPS`) : jamais la première entrée, que le client peut inventer. Le login est aussi limité par compte visé (email).
 3. **Données sensibles** — HTTPS/TLS en production. Mots de passe hachés avec **bcrypt**, salt rounds ≥ 10. Jamais de mot de passe en clair (ni en base, ni dans les logs, ni dans une réponse).
-4. **Validation des entrées** — Schéma **Zod** en allowlist (`.strict()`) sur toutes les entrées serveur (body, params, searchParams) : tout champ inconnu ou mal typé est rejeté immédiatement.
+4. **Validation des entrées** — Schéma **Zod** en allowlist (`z.strictObject`, imposé par le lint dans `schemas/`) sur toutes les entrées serveur (body, params, searchParams) : tout champ inconnu ou mal typé est rejeté immédiatement.
 5. **Dépendances** — `npm audit` avant mise en ligne : zéro vulnérabilité critique tolérée.
 6. **Logs & zéro fuite technique** — Logs structurés côté serveur uniquement, via `src/lib/logger.ts` (`logError` / `logInfo`, champ `severity` lu par Cloud Logging, erreurs regroupées dans Error Reporting) ; jamais `console.error` directement. Alertes Cloud Monitoring par email à l'équipe : site injoignable (vérification toutes les 5 min) et log de gravité ERROR (au plus un email par heure). Le client ne reçoit que des messages d'erreur génériques : jamais de stack trace, d'erreur SQL brute ou de détail interne. Message de login générique (« identifiants invalides »).
 7. **CSRF** — Le JWT est envoyé via l'en-tête `Authorization`, jamais via un cookie : les routes de l'API ne lisent aucun cookie. Seule exception, validée : le cookie `brb_refresh`, lu uniquement par `/auth/refresh` et `/auth/logout`, protégé par SameSite=Strict **et** une vérification de l'en-tête `Origin` (403 si absent ou différent du site). Ne pas introduire d'autre cookie sans en discuter.
