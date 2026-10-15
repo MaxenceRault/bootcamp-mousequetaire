@@ -65,7 +65,7 @@ export async function handleBuyMeACoffeeWebhook(rawBody: string, signature: stri
 
   if (status !== "succeeded") return logInfo("patron", { ignored: type, paymentId: id, reason: "not_succeeded" });
   if (currency !== "EUR" || amount < bmc.patronMinEur) {
-    return logInfo("patron", { ignored: type, paymentId: id, reason: "amount_too_low", amount, currency });
+    return logInfo("patron", { ignored: type, paymentId: id, reason: "below_minimum_eur", amount, currency });
   }
   // Pas de compte Brb avec cet email : le don reste un simple don (jamais l'email dans les logs).
   const userId = email ? await findActiveUserIdByEmail(email) : null;
