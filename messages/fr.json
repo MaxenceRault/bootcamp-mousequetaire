@@ -165,9 +165,7 @@
   },
   "Footer": {
     "brand": "Brb",
-    "rights": "© 2026 Brb. Tous droits réservés.",
-    "patron": "Devenir mécène",
-    "patronPitch": "Brb est gratuit : soutenez le projet"
+    "rights": "© 2026 Brb. Tous droits réservés."
   },
   "PasswordInput": {
     "show": "Afficher le mot de passe",
@@ -663,35 +661,5 @@
     "replySubmit": "Répondre",
     "replyPlaceholder": "Répondre à {name}…",
     "cancel": "Annuler"
-  },
-  "Patron": {
-    "metaTitle": "Devenir mécène",
-    "title": "Devenir mécène",
-    "pitch": "Brb est gratuit et sans publicité. En devenant mécène, vous soutenez l'hébergement et l'IA qui compose les itinéraires, et vous obtenez le rôle mécène sur votre compte.",
-    "loading": "Chargement…",
-    "loginRequired": "Connectez-vous pour devenir mécène : le rôle est attaché à votre compte.",
-    "login": "Se connecter",
-    "oneTime": "paiement unique",
-    "submit": "Devenir mécène pour {price}",
-    "redirecting": "Redirection vers le paiement…",
-    "secure": "Paiement sécurisé par Stripe : carte, Apple Pay, Google Pay, PayPal… Vos données bancaires ne passent jamais par Brb.",
-    "alreadyPatron": "Votre compte a déjà le rôle mécène (ou un rôle supérieur). Merci pour votre soutien !",
-    "unavailable": "Le paiement est momentanément indisponible. Réessayez plus tard.",
-    "canceled": "Paiement annulé : aucun montant n'a été débité.",
-    "thanksMetaTitle": "Merci",
-    "thanksTitle": "Merci, vous êtes mécène !",
-    "thanksText": "Votre paiement de {amount} a bien été reçu. Le rôle mécène est ajouté à votre compte (cela peut prendre quelques secondes).",
-    "pendingTitle": "Paiement en cours",
-    "pendingText": "Votre paiement de {amount} est en cours de confirmation. Le rôle mécène sera ajouté dès qu'il sera validé.",
-    "unknownTitle": "Paiement introuvable",
-    "unknownText": "Nous n'avons pas retrouvé ce paiement pour votre compte. S'il a été débité, le rôle sera bien ajouté.",
-    "toProfile": "Voir mon profil",
-    "errors": {
-      "ALREADY_PATRON": "Votre compte a déjà le rôle mécène (ou un rôle supérieur).",
-      "PAYMENT_UNAVAILABLE": "Le paiement est momentanément indisponible. Réessayez plus tard.",
-      "TOO_MANY_REQUESTS": "Trop de tentatives. Réessayez dans quelques minutes.",
-      "UNAUTHORIZED": "Votre session a expiré. Reconnectez-vous.",
-      "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
-    }
   }
 }
