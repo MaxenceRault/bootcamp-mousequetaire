@@ -30,8 +30,14 @@ export const updateProfileSchema = z
       .transform((value) => value || null),
     avatar_seed: z.string().regex(AVATAR_SEED_PATTERN).nullable(),
     avatar_background_color: z.enum(AVATAR_BACKGROUND_COLORS).nullable(),
+    // Facultatifs : absents = inchangés (le formulaire du profil ne les envoie pas encore tous).
+    is_private: z.boolean().optional(),
+    show_saved: z.boolean().optional(),
   })
   .strict();
+
+// Pseudo dans l'URL (/api/v1/users/{pseudo}, /profile/{pseudo}) : mêmes règles que la table users.
+export const usernameParamSchema = z.string().regex(new RegExp(USERNAME_PATTERN));
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 

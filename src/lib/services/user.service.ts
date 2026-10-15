@@ -11,6 +11,7 @@ import {
   deleteAvatar,
   findAvatarUrl,
   findProfileById,
+  findProfileByUsername,
   setAvatarUrl,
   updateProfile,
   uploadAvatar,
@@ -45,6 +46,56 @@ export async function getMyProfile(userId: string): Promise<MyProfile> {
   // Token valide mais compte supprimé entre-temps.
   if (!user) throw new ProfileError("NOT_FOUND");
   return { user, stories: posts, storyCount: total, saved };
+}
+
+// Identité affichée même sur un profil privé (jamais email, rôle interne ni réglages).
+export type PublicIdentity = Pick<
+  ProfileUser,
+  "id" | "username" | "display_name" | "avatar_url" | "avatar_seed" | "avatar_background_color" | "role"
+>;
+
+// Récit d'une grille publique : sans les champs internes (is_hidden, pending_review).
+export type PublicStory = Omit<PostSummary, "is_hidden" | "pending_review">;
+
+export type PublicProfile =
+  | { isPrivate: true; user: PublicIdentity }
+  | {
+      isPrivate: false;
+      user: PublicIdentity & Pick<ProfileUser, "location" | "created_at">;
+      stories: PublicStory[];
+      storyCount: number;
+      // null : l'utilisateur ne montre pas ses enregistrés.
+      saved: PostSummaryWithAuthor[] | null;
+    };
+
+// Profil vu par un visiteur (/profile/{pseudo}). Les réglages de confidentialité sont appliqués ICI :
+// ce qui est caché n'est jamais envoyé au navigateur. Jamais les itinéraires IA.
+export async function getPublicProfile(username: string): Promise<PublicProfile> {
+  const profile = await findProfileByUsername(username);
+  if (!profile) throw new ProfileError("NOT_FOUND");
+
+  const { id, display_name, avatar_url, avatar_seed, avatar_background_color, role } = profile;
+  const identity: PublicIdentity = { id, username: profile.username, display_name, avatar_url, avatar_seed, avatar_background_color, role };
+  if (profile.is_private) return { isPrivate: true, user: identity };
+
+  const [{ posts, total }, saved] = await Promise.all([
+    findPostsByAuthor(id, STORIES_LIMIT, { visibleOnly: true }),
+    profile.show_saved ? findSavedPostsByUser(id, SAVED_LIMIT) : Promise.resolve(null),
+  ]);
+
+  return {
+    isPrivate: false,
+    user: { ...identity, location: profile.location, created_at: profile.created_at },
+    stories: posts.map(toPublicStory),
+    storyCount: total,
+    saved,
+  };
+}
+
+// Allowlist des champs d'un récit envoyés à un visiteur.
+function toPublicStory(story: PostSummary): PublicStory {
+  const { id, title, slug, photo_url, photo_alt, destination_country_code, destination_state_code, destination_city, start_date, created_at } = story;
+  return { id, title, slug, photo_url, photo_alt, destination_country_code, destination_state_code, destination_city, start_date, created_at };
 }
 
 // L'id vient du token, jamais du body.
