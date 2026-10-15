@@ -9,7 +9,7 @@ import { StoryCard, StoryGrid } from "@/components/StoryCard";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { flagEmoji } from "@/lib/country";
-import { getPostsByPlace, type PlacePosts } from "@/lib/services/post.service";
+import { getPostsByPlace, type PlacePosts } from "@/server/services/post.service";
 import { placeSchema } from "@/schemas/post.schema";
 
 type SearchParams = PageProps<"/tags">["searchParams"];

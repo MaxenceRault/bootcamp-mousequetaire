@@ -5,8 +5,8 @@ import { useTranslations } from "next-intl";
 import { TravelCard } from "@/components/TravelCard";
 import { Button } from "@/components/ui/Button";
 import type { FeedPost } from "@/lib/posts";
-import { setReactionFromServer, type ReactionState } from "@/lib/reactions-store";
-import { apiFetch, getSessionSnapshot } from "@/lib/session";
+import { setReactionFromServer, type ReactionState } from "@/client/reactions-store";
+import { apiFetch, getSessionSnapshot } from "@/client/session";
 
 type FeedListProps = {
   initialPosts: FeedPost[];

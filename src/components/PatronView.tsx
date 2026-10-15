@@ -6,7 +6,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { Button, buttonClassName } from "@/components/ui/Button";
 import { FormError } from "@/components/ui/FormError";
 import { Icon } from "@/components/ui/Icon";
-import { apiFetch, getSessionSnapshot, subscribeSession } from "@/lib/session";
+import { apiFetch, getSessionSnapshot, subscribeSession } from "@/client/session";
 
 type PatronStatus = { enabled: boolean; minEur: number | null; isPatron: boolean; email: string | null; pageUrl: string | null };
 type LoadState = { status: "loading" } | { status: "error" } | { status: "ready"; data: PatronStatus };

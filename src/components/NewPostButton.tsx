@@ -5,7 +5,7 @@ import { useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { buttonClassName } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
-import { getSessionSnapshot, subscribeSession } from "@/lib/session";
+import { getSessionSnapshot, subscribeSession } from "@/client/session";
 
 export function NewPostButton() {
   const t = useTranslations("Home");

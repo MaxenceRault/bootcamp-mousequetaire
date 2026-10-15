@@ -11,7 +11,7 @@ import { StoryCard, StoryGrid } from "@/components/StoryCard";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { getPublicProfile, ProfileError, type PublicProfile } from "@/lib/services/user.service";
+import { getPublicProfile, ProfileError, type PublicProfile } from "@/server/services/user.service";
 import { usernameParamSchema } from "@/schemas/user.schema";
 
 // Onglets d'un profil public : jamais « Itinéraires IA ». « Enregistrés » seulement si l'utilisateur les partage.

@@ -10,7 +10,7 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { FormError } from "@/components/ui/FormError";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { authErrorCode, postAuth, saveSession } from "@/lib/session";
+import { authErrorCode, postAuth, saveSession } from "@/client/session";
 
 export function LoginForm() {
   const t = useTranslations("Auth");

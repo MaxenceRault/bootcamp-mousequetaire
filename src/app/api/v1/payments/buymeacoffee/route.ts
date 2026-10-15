@@ -1,3 +1,3 @@
-import { buyMeACoffeeWebhookController } from "@/lib/controllers/patron.controller";
+import { buyMeACoffeeWebhookController } from "@/server/controllers/patron.controller";
 
 export const POST = buyMeACoffeeWebhookController;

@@ -12,7 +12,7 @@ import { FormError } from "@/components/ui/FormError";
 import { Icon } from "@/components/ui/Icon";
 import { Textarea } from "@/components/ui/Textarea";
 import type { UserRole } from "@/lib/roles";
-import { apiFetch, getSessionSnapshot, parseSessionUser, subscribeSession } from "@/lib/session";
+import { apiFetch, getSessionSnapshot, parseSessionUser, subscribeSession } from "@/client/session";
 
 export type PostComment = {
   id: number;

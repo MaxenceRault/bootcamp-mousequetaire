@@ -1,3 +1,3 @@
-import { listUsersController } from "@/lib/controllers/admin.controller";
+import { listUsersController } from "@/server/controllers/admin.controller";
 
 export const GET = listUsersController;

@@ -1,4 +1,4 @@
-import { createArchetypeController, listArchetypesController } from "@/lib/controllers/admin.controller";
+import { createArchetypeController, listArchetypesController } from "@/server/controllers/admin.controller";
 
 export const GET = listArchetypesController;
 export const POST = createArchetypeController;

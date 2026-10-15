@@ -14,8 +14,8 @@ import { FIELD_CLASS_NAME, Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { countryName, flagEmoji } from "@/lib/country";
 import type { Archetype } from "@/lib/posts";
-import { apiFetch, getSessionSnapshot } from "@/lib/session";
-import { buildTripCsv, downloadFile } from "@/lib/tripExport";
+import { apiFetch, getSessionSnapshot } from "@/client/session";
+import { buildTripCsv, downloadFile } from "@/client/tripExport";
 
 const ITEM_CATEGORIES = ["transport", "lodging", "activity", "food"] as const;
 export type ItemCategory = (typeof ITEM_CATEGORIES)[number];

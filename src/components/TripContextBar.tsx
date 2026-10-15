@@ -8,7 +8,7 @@ import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { FormError } from "@/components/ui/FormError";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import type { Archetype } from "@/lib/posts";
-import { usePlaceSearch, type Place } from "@/lib/usePlaceSearch";
+import { usePlaceSearch, type Place } from "@/client/hooks/usePlaceSearch";
 
 type TripContextBarProps = {
   idPrefix: string;

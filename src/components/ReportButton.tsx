@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { FormError } from "@/components/ui/FormError";
 import { Icon } from "@/components/ui/Icon";
 import { Textarea } from "@/components/ui/Textarea";
-import { apiFetch, getSessionSnapshot, parseSessionUser, subscribeSession } from "@/lib/session";
+import { apiFetch, getSessionSnapshot, parseSessionUser, subscribeSession } from "@/client/session";
 
 type Status = "idle" | "open" | "sending" | "sent";
 

@@ -1,3 +1,3 @@
-import { dashboardController } from "@/lib/controllers/admin.controller";
+import { dashboardController } from "@/server/controllers/admin.controller";
 
 export const GET = dashboardController;

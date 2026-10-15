@@ -1,3 +1,3 @@
-import { listActionsController } from "@/lib/controllers/admin.controller";
+import { listActionsController } from "@/server/controllers/admin.controller";
 
 export const GET = listActionsController;

@@ -11,7 +11,7 @@ import { TripCard, type TripSummary } from "@/components/TripCard";
 import { TripContextBar } from "@/components/TripContextBar";
 import type { Archetype } from "@/lib/posts";
 import { TRIP_MAX_DAYS } from "@/schemas/trip.schema";
-import { apiFetch, getSessionSnapshot } from "@/lib/session";
+import { apiFetch, getSessionSnapshot } from "@/client/session";
 import { plannerError, type PlannerError } from "@/components/TripPlanner";
 
 type AiQuota = { used: number; limit: number | null };

@@ -1,3 +1,3 @@
-import { createTripTaskController } from "@/lib/controllers/trip.controller";
+import { createTripTaskController } from "@/server/controllers/trip.controller";
 
 export const POST = createTripTaskController;

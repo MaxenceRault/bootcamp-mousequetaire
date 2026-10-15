@@ -1,3 +1,3 @@
-import { loginController } from "@/lib/controllers/auth.controller";
+import { loginController } from "@/server/controllers/auth.controller";
 
 export const POST = loginController;

@@ -12,7 +12,7 @@ import { Button, buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { apiFetch, updateSessionUser } from "@/lib/session";
+import { apiFetch, updateSessionUser } from "@/client/session";
 
 type Story = {
   id: number;

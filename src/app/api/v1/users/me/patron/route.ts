@@ -1,3 +1,3 @@
-import { getPatronController } from "@/lib/controllers/patron.controller";
+import { getPatronController } from "@/server/controllers/patron.controller";
 
 export const GET = getPatronController;
