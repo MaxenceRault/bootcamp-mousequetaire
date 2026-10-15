@@ -24,5 +24,8 @@ export type FeedPost = {
   };
 };
 
+// Pays le plus raconté : destination ou tag d'un récit visible (même compte que /tags?country=).
+export type TrendingDestination = { countryCode: string; postCount: number };
+
 // nextCursor null : plus rien à charger.
 export type FeedPage = { posts: FeedPost[]; nextCursor: number | null };

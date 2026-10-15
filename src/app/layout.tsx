@@ -33,6 +33,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-canvas font-sans text-body-md text-ink">
+        {/* Fond de toutes les pages : courbes de niveau (le SVG sert de masque, la couleur vient du token ink).
+            -z-10 : derrière le contenu ; masqué à l'impression (planning en PDF). */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 -z-10 bg-ink/5 [mask-image:url(/topo.svg)] [mask-size:60rem] print:hidden"
+        />
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
         <ServiceWorkerRegister />
       </body>

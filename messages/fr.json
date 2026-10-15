@@ -42,6 +42,19 @@
     "heroBrand": "Biirb.",
     "heroTagline": "Un coup d'ailes sur un coup de cœur."
   },
+  "BackToTop": {
+    "label": "Revenir en haut de la page"
+  },
+  "HomeSidebar": {
+    "shortcutsLabel": "Raccourcis",
+    "newPost": "Nouveau récit",
+    "plan": "Planifier un voyage",
+    "trendingTitle": "Destinations tendance",
+    "postCount": "{count, plural, one {# récit} other {# récits}}",
+    "plannerTitle": "Planifiez votre prochain voyage",
+    "plannerText": "L'IA s'appuie sur les récits de la communauté pour vous proposer un planning jour par jour.",
+    "plannerCta": "Commencer"
+  },
   "Profile": {
     "metaTitle": "Mon profil",
     "loadError": "Impossible de charger votre profil. Réessayez plus tard.",
