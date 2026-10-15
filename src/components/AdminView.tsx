@@ -432,6 +432,7 @@ function ReportsTab({ call }: { call: Call }) {
 
 function TicketsTab({ call }: { call: Call }) {
   const t = useTranslations("Admin");
+  const statusLabel = useTranslations("TicketStatus");
   const format = useFormatter();
   const [query, setQuery] = useState<{ status: TicketStatus | "all"; page: number }>({ status: "open", page: 1 });
   const params = new URLSearchParams({ status: query.status, page: String(query.page) });
@@ -487,11 +488,11 @@ function TicketsTab({ call }: { call: Call }) {
                       id={`ticket-status-${ticket.id}`}
                       value={ticket.status}
                       onChange={(event) => setStatus(ticket.id, event.target.value as TicketStatus)}
-                      className={`h-9 w-44 ${FIELD_CLASS_NAME}`}
+                      className={`h-9 sm:w-44 ${FIELD_CLASS_NAME}`}
                     >
                       {TICKET_STATUSES.map((value) => (
                         <option key={value} value={value}>
-                          {t(`tickets.filter.${value}`)}
+                          {statusLabel(value)}
                         </option>
                       ))}
                     </select>
