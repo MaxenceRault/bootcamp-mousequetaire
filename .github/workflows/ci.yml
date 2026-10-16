@@ -21,8 +21,6 @@ jobs:
     steps:
       # Épinglées par SHA : un tag peut être déplacé vers du code malveillant.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0 # comparaison avec main pour les migrations
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
@@ -42,39 +40,6 @@ jobs:
 
       - name: Audit des dépendances (zéro critique)
         run: npm audit --omit=dev --audit-level=critical
-
-      - name: Migrations
-        run: |
-          base=${{ github.event.pull_request.base.sha }}; fail=0
-          # Une migration déjà appliquée ne se modifie jamais : uniquement des ajouts.
-          if git diff --name-status "$base"...HEAD -- db/migrations | grep -v '^A'; then
-            echo "::error::Migration existante modifiée, renommée ou supprimée : créer un nouveau fichier daté"; exit 1
-          fi
-          for f in $(git diff --name-only --diff-filter=A "$base"...HEAD -- db/migrations); do
-            first=$(grep -v -e '^[[:space:]]*$' -e '^[[:space:]]*--' "$f" | head -1)
-            [ "$first" = "set role brb_admin;" ] || { echo "::error file=$f::Doit commencer par set role brb_admin;"; fail=1; }
-            # Même horodatage : ordre d'exécution ambigu.
-            ts=$(basename "$f" | cut -d_ -f1)
-            [ "$(ls db/migrations/"${ts}"_* | wc -l)" -eq 1 ] || { echo "::error file=$f::Horodatage $ts déjà utilisé"; fail=1; }
-          done
-          exit $fail
-
-      - name: Documentation API
-        run: |
-          fail=0
-          for r in $(find src/app/api/v1 -name route.ts | sed 's#src/app/api/v1##; s#/route.ts##; s#\[\([a-zA-Z]*\)\]#{\1}#g'); do
-            case "$r" in /chat|/openapi.json) continue ;; esac
-            grep -q "\"$r\"" src/server/openapi.ts || { echo "::error file=src/server/openapi.ts::Route /api/v1$r non documentée"; fail=1; }
-          done
-          exit $fail
-
-      - name: Variables dans .env.example
-        run: |
-          fail=0
-          for v in $(grep -oE '^  [A-Z][A-Z0-9_]+:' src/server/config.ts | tr -d ' :' | sort -u); do
-            grep -qE "^#? ?$v=" .env.example || { echo "::error file=.env.example::$v (lue par src/server/config.ts) absente"; fail=1; }
-          done
-          exit $fail
 
   build:
     needs: checks

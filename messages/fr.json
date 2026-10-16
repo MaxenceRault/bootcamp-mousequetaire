@@ -6,9 +6,9 @@
   "Navbar": {
     "brand": "Biirb",
     "home": "Biirb, retour à l'accueil",
-    "searchLabel": "Rechercher une destination avec l'IA",
+    "searchLabel": "Rechercher une destination, un titre ou un récit",
     "searchPlaceholder": "Rechercher un lieu, un titre, un récit…",
-    "askAi": "Demander à l'IA",
+    "askAi": "Demander à Biirbou",
     "mainNav": "Navigation principale",
     "explore": "Explorer",
     "plan": "Planifier",
@@ -51,7 +51,7 @@
     "trendingTitle": "Destinations tendance",
     "postCount": "{count, plural, one {# récit} other {# récits}}",
     "plannerTitle": "Planifiez votre prochain voyage",
-    "plannerText": "L'IA s'appuie sur les récits de la communauté pour vous proposer un planning jour par jour.",
+    "plannerText": "Biirbou s'appuie sur les récits de la communauté pour vous proposer un planning jour par jour.",
     "plannerCta": "Commencer"
   },
   "Profile": {
@@ -68,7 +68,7 @@
     "tabsLabel": "Contenu du profil",
     "tabs": {
       "stories": "Récits publiés",
-      "itineraries": "Itinéraires IA",
+      "itineraries": "Itinéraires Biirbou",
       "saved": "Enregistrés"
     },
     "empty": {
@@ -156,8 +156,8 @@
     "duration": "Durée",
     "durationValue": "{days, plural, one {# jour} other {# jours}}",
     "archetype": "Type de récit",
-    "aiTitle": "Itinéraire IA",
-    "aiText": "Bientôt, Gemini pourra transformer ce récit en itinéraire personnalisé, prêt à ajouter à votre planificateur.",
+    "aiTitle": "Itinéraire Biirbou",
+    "aiText": "Bientôt, Biirbou pourra transformer ce récit en itinéraire personnalisé, prêt à ajouter à votre planificateur.",
     "openPlanner": "Ouvrir le planificateur",
     "likeCount": "{count, plural, =0 {Aucun j'aime} one {# j'aime} other {# j'aime}}",
     "bodyPhotoAlt": "Photo du récit « {title} »",
@@ -206,7 +206,7 @@
     },
     "login": {
       "title": "Content de vous revoir",
-      "subtitle": "Connectez-vous pour accéder à vos itinéraires IA, vos cartes et vos guides enregistrés.",
+      "subtitle": "Connectez-vous pour accéder à vos itinéraires Biirbou, vos cartes et vos guides enregistrés.",
       "forgot": "Mot de passe oublié ?",
       "remember": "Rester connecté sur cet appareil",
       "submit": "Se connecter",
@@ -335,16 +335,16 @@
   "Planner": {
     "metaTitle": "Planificateur",
     "heading": "Mes voyages",
-    "subheading": "Choisissez une destination, vos dates et votre style de voyage : l'IA compose un planning à partir des récits de la communauté.",
+    "subheading": "Choisissez une destination, vos dates et votre style de voyage : Biirbou compose un planning à partir des récits de la communauté.",
     "create": {
       "title": "Nouveau voyage",
-      "submit": "Générer avec l'IA",
-      "pending": "L'IA prépare votre voyage… (de 10 secondes à 1 minute selon la durée)",
-      "quota": "Requêtes IA aujourd'hui : {used}/{limit}"
+      "submit": "Planifier mon voyage avec Biirbou",
+      "reasoning": ["Biirbou déploie ses ailes", "Biirbou survole les récits de la communauté", "Biirbou vérifie la météo (et sort le parapluie)", "Biirbou négocie avec la mousson", "Biirbou plie la carte… dans le mauvais sens", "Biirbou évite les pièges à touristes", "Biirbou fait rentrer le budget dans la valise", "Biirbou réserve une place côté hublot", "Biirbou cherche le meilleur croissant du coin", "Biirbou se trompe de fuseau horaire", "Biirbou picore les meilleures adresses", "Biirbou boucle sa valise"],
+      "quota": "Requêtes Biirbou aujourd'hui : {used}/{limit}"
     },
     "list": {
       "title": "Voyages générés",
-      "empty": "Aucun voyage pour l'instant. Générez votre premier planning ci-dessus.",
+      "empty": "Aucun voyage pour l'instant. Planifiez votre premier voyage ci-dessus.",
       "activities": "{count, plural, =0 {Aucune activité} one {# activité} other {# activités}}",
       "loadError": "Impossible de charger vos voyages. Réessayez."
     },
@@ -354,15 +354,15 @@
       "titleLabel": "Titre du voyage",
       "save": "Enregistrer",
       "cancel": "Annuler",
-      "regenerate": "Re-générer avec l'IA",
-      "regenerating": "Génération en cours…",
-      "regenerateConfirm": "Re-générer remplace toutes les activités, la checklist et le budget. Continuer ?",
+      "regenerate": "Réimaginer",
+      "regenerating": "Biirbou réimagine…",
+      "regenerateConfirm": "Réimaginer remplace toutes les activités, la checklist et le budget. Continuer ?",
       "delete": "Supprimer",
       "deleteConfirm": "Supprimer définitivement ce voyage ?",
       "dates": "{start} – {end}",
       "budgetChip": "Budget : {total} €",
       "budgetChipTarget": "Budget : {total} € / {target} € prévus",
-      "aiSynced": "Généré par l'IA · {when}",
+      "aiSynced": "Imaginé par Biirbou · {when}",
       "sources": "{count, plural, =0 {Aucun récit correspondant : planning général} one {Basé sur # récit de voyageur} other {Basé sur # récits de voyageurs}}",
       "loadError": "Impossible de charger ce voyage.",
       "notFound": "Ce voyage n'existe pas ou ne vous appartient pas.",
@@ -424,13 +424,13 @@
       "saved": "Budget enregistré."
     },
     "chat": {
-      "title": "Discuter avec l'IA",
-      "hint": "Une envie, une question ? L'IA vous dit où et quand la caser, et peut réorganiser votre voyage (ajouter, déplacer, remplacer ou retirer des activités). Rien ne change sans votre accord.",
+      "title": "Discuter avec Biirbou",
+      "hint": "Une envie, une question ? Biirbou vous dit où et quand la caser dans votre voyage, à partir des récits de la communauté. Vous choisissez ensuite quoi ajouter au planning.",
       "empty": "Ex. « Je veux faire du parachute », « Un resto typique pas cher le jour 2 ? », « Que faire s'il pleut ? »",
-      "label": "Message pour l'IA",
+      "label": "Message pour Biirbou",
       "placeholder": "Votre question sur ce voyage…",
       "send": "Envoyer",
-      "pending": "L'IA réfléchit…",
+      "reasoning": ["Biirbou lisse ses plumes", "Biirbou feuillette vos récits", "Biirbou tourne sept fois son bec", "Biirbou consulte sa boussole", "Biirbou cherche un créneau entre deux musées", "Biirbou gazouille une réponse"],
       "offTopic": "Je suis là pour votre voyage ! Dites-moi une envie ou une question sur votre séjour.",
       "suggestions": "Activités proposées",
       "suggestionWhen": "Jour {number} · {date} · {time}",
@@ -458,8 +458,8 @@
     "errors": {
       "INVALID_INPUT": "Vérifiez les champs du formulaire.",
       "TRIP_TOO_LONG": "Un voyage dure 1 mois maximum : raccourcissez les dates.",
-      "TOO_MANY_REQUESTS": "Trop de demandes d'affilée. Réessayez un peu plus tard.",
-      "AI_UNAVAILABLE": "L'IA n'a pas pu générer le planning. Réessayez dans un instant.",
+      "TOO_MANY_REQUESTS": "Trop de demandes à Biirbou. Réessayez dans une heure.",
+      "AI_UNAVAILABLE": "Biirbou n'a pas pu générer le planning. Réessayez dans un instant.",
       "NOT_FOUND": "Élément introuvable.",
       "UNAUTHORIZED": "Votre session a expiré. Reconnectez-vous.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
@@ -540,7 +540,7 @@
         "viewer": "Partagé avec vous · lecteur"
       },
       "sharedBy": "Partagé par {name}",
-      "viewerChat": "En lecteur, vous pouvez lire la discussion mais pas écrire à l'IA.",
+      "viewerChat": "En lecteur, vous pouvez lire la discussion mais pas écrire à Biirbou.",
       "leave": "Quitter le voyage",
       "leaveConfirm": "Quitter ce voyage ? Vous n'y aurez plus accès, sauf nouvelle invitation.",
       "remove": "Retirer {name}",
@@ -731,7 +731,7 @@
   "Admin": {
     "metaTitle": "Administration",
     "heading": "Administration",
-    "subheading": "Modération des récits et des comptes, types de récit et réglages de l'IA.",
+    "subheading": "Modération des récits et des comptes, types de récit et réglages de Biirbou.",
     "denied": {
       "title": "Accès réservé",
       "text": "Cette page est réservée aux administrateurs.",
@@ -746,7 +746,7 @@
       "archetypes": "Types de récit",
       "bannedWords": "Mots bannis",
       "tripPasses": "Pass voyage",
-      "ai": "IA",
+      "ai": "Biirbou",
       "journal": "Journal"
     },
     "byAuthor": "par {name} (@{username})",
@@ -766,10 +766,10 @@
       "reports": "Signalements en attente",
       "trips": "Voyages générés",
       "new7d": "{count, plural, =0 {aucun cette semaine} one {+# cette semaine} other {+# cette semaine}}",
-      "aiTitle": "Requêtes IA",
+      "aiTitle": "Requêtes Biirbou",
       "aiToday": "{count} requête(s) aujourd'hui sur un plafond de {cap}",
       "aiPerUser": "Limite par utilisateur : {limit} par jour (admins illimités)",
-      "aiHistory": "Requêtes IA des 7 derniers jours",
+      "aiHistory": "Requêtes Biirbou des 7 derniers jours",
       "recentUsers": "Dernières inscriptions"
     },
     "reports": {
@@ -824,14 +824,14 @@
       "edit": "Modifier {label}"
     },
     "ai": {
-      "title": "Réglages de l'IA",
+      "title": "Réglages de Biirbou",
       "hint": "Protège la facture : chaque utilisateur a 15 requêtes par jour, et ce plafond s'applique à tout le site.",
-      "on": "IA active",
-      "off": "IA coupée",
-      "enabled": "IA activée",
+      "on": "Biirbou actif",
+      "off": "Biirbou coupé",
+      "enabled": "Biirbou activé",
       "enabledHint": "Décocher coupe immédiatement la génération de voyages et la discussion, pour tout le monde.",
       "cap": "Plafond de requêtes par jour (tout le site)",
-      "capHint": "Une fois atteint, l'IA est indisponible jusqu'à minuit (heure de Paris), admins compris.",
+      "capHint": "Une fois atteint, Biirbou est indisponible jusqu'à minuit (heure de Paris), admins compris.",
       "saved": "Réglages enregistrés.",
       "updatedAt": "Dernière modification : {date}"
     },
@@ -853,7 +853,7 @@
         "reports_dismiss": "Signalements classés",
         "archetype_create": "Type de récit créé",
         "archetype_update": "Type de récit modifié",
-        "settings_update": "Réglages de l'IA modifiés",
+        "settings_update": "Réglages de Biirbou modifiés",
         "comment_delete": "Commentaire supprimé",
         "banned_word_create": "Terme banni",
         "banned_word_delete": "Terme retiré",
@@ -887,7 +887,7 @@
     },
     "bannedWords": {
       "createTitle": "Bannir un terme",
-      "createHint": "Tout récit ou commentaire qui le contient est refusé, sans appel à l'IA. Majuscules et accents sont ignorés.",
+      "createHint": "Tout récit ou commentaire qui le contient est refusé, sans appel à Biirbou. Majuscules et accents sont ignorés.",
       "term": "Terme",
       "reason": "Motif",
       "kind": "Type",
@@ -987,7 +987,7 @@
   "Patron": {
     "metaTitle": "Devenir mécène",
     "title": "Devenir mécène",
-    "pitch": "Biirb est gratuit et sans publicité. En offrant un café sur Buy Me a Coffee, vous soutenez l'hébergement et l'IA qui compose les itinéraires, et vous obtenez le rôle mécène sur votre compte.",
+    "pitch": "Biirb est gratuit et sans publicité. En offrant un café sur Buy Me a Coffee, vous soutenez l'hébergement et Biirbou, qui compose les itinéraires, et vous obtenez le rôle mécène sur votre compte.",
     "loading": "Chargement…",
     "loginRequired": "Connectez-vous pour devenir mécène : le rôle est attaché à votre compte.",
     "login": "Se connecter",

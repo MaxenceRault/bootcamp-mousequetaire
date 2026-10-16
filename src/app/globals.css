@@ -95,6 +95,13 @@
   --text-label-sm--line-height: 14px;
   --text-label-sm--letter-spacing: 0.06em;
   --text-label-sm--font-weight: 700;
+
+  /* Reflet qui balaie un texte pendant que l'IA travaille (ui/ReasoningText). */
+  --animate-text-shimmer: text-shimmer 2.2s linear infinite;
+  @keyframes text-shimmer {
+    from { background-position: 100% center; }
+    to { background-position: 0% center; }
+  }
 }
 
 @theme inline {
