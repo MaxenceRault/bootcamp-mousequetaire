@@ -88,7 +88,7 @@ src/
 ├── i18n/
 │   └── request.ts             # Config next-intl (locale + chargement des messages)
 ├── components/
-│   ├── ui/                    # Design system : EmptyState, Button, IconButton, Input, Textarea, Autocomplete, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar, Logo, Badge
+│   ├── ui/                    # Design system : ReasoningText (l'IA travaille : phrases en cascade, avec motion), EmptyState, Button, IconButton, Input, Textarea, Autocomplete, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar, Logo, Badge
 │   ├── Navbar.tsx             # Barre du haut (version visiteur / connecté)
 │   ├── NavbarAccount.tsx      # Zone compte de la Navbar (client : lit la session du navigateur)
 │   ├── Footer.tsx
@@ -234,6 +234,7 @@ Seuls les must-have sont exigés : ne pas implémenter les nice-to-have (OAuth/O
 - Ne jamais renvoyer au client plus de données que nécessaire (pas de hash, pas de champs internes).
 - Pas de `dangerouslySetInnerHTML` sur du contenu utilisateur.
 - Chat RAG : traiter la question utilisateur et le contenu des posts comme non fiables (injection de prompt), limiter la taille des entrées.
+- **Nom de l'IA dans l'interface : « Biirbou »** (Biirb + hibou, la mascotte ; nom propre masculin sans article : « Générer avec Biirbou », « Biirbou réfléchit… »). Jamais « l'IA » ni « Gemini » dans `messages/fr.json`.
 - IA (planificateur, chat) : Gemini via Vertex AI (`src/server/infra/ai.ts`), authentifié par IAM comme la base : aucune clé API (variables `GCP_PROJECT_ID`, `VERTEX_LOCATION`). Réponse du modèle = donnée non fiable, toujours revalidée par Zod. Tout appel à l'IA passe d'abord par `consumeAiCall` (`ai-quota.service.ts`) : **15 appels par jour et par utilisateur** (`AI_DAILY_LIMIT_PER_USER`, limites horaires `RATE_LIMIT_TRIP_AI_*` et `RATE_LIMIT_TRIP_CHAT_*` dans le .env ; admins illimités, compteur en base `ai_usage`, jour de Paris), plafond global et interrupteur réglables par l'admin (`app_settings`), compte banni refusé.
 - Planificateur : départ à n'importe quelle date future, durée de 1 mois maximum **à partir du départ choisi** (`TRIP_MAX_DAYS`). La génération tient compte de la saison (mois du voyage) : météo moyenne, risques (typhons, mousson…), affluence et prix, résumés dans `trip.season_note`.
 - **Modération** (`moderation.service.ts`, `server/moderationFilter.ts`) : **texte** (récits et commentaires) vérifié sans IA par une liste de mots bannis (injures, haine, sexuel explicite, appels à voter ; leet et séparateurs décodés) ; les avis négatifs et jurons d'exclamation restent autorisés. **Photo** d'un récit vérifiée par Gemini, réduite à 384 px (coût minimal). Refus → rien n'est enregistré ; l'auteur voit seulement « ne respecte pas les règles » (motif dans les logs serveur, pour ne pas dévoiler la liste). IA coupée ou en panne → récit publié masqué en attente de validation admin (`pending_review`, non réaffichable par l'auteur).

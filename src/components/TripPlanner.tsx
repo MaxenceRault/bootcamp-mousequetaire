@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { useFormatter, useNow, useTranslations } from "next-intl";
+import { ReasoningText } from "@/components/ui/ReasoningText";
 import { Button, buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
@@ -368,6 +369,8 @@ function TripHeader({
           )}
         </div>
       </div>
+
+      {regenerating && <ReasoningText phrases={t.raw("create.reasoning") as string[]} />}
 
       <ul className="flex flex-wrap gap-2">
         <Chip icon="calendar">
@@ -911,9 +914,9 @@ function TripChat({ basePath, trip, mutate, canEdit }: { basePath: string; trip:
             <p className="max-w-[85%] self-end rounded-lg bg-ink px-3 py-2 text-body-sm whitespace-pre-line text-surface">
               {draft.trim()}
             </p>
-            <p role="status" className="animate-pulse self-start rounded-lg bg-surface-muted px-3 py-2 text-body-sm text-ink-soft">
-              {t("chat.pending")}
-            </p>
+            <div className="self-start rounded-lg bg-surface-muted px-3 py-2">
+              <ReasoningText phrases={t.raw("chat.reasoning") as string[]} />
+            </div>
           </>
         )}
       </div>
