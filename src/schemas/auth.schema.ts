@@ -18,10 +18,9 @@ const newPassword = z.string().min(8).refine(fitsBcrypt);
 export const registerSchema = z.strictObject({
   name: z.string().trim().min(1).max(60),
   email,
-  password: z.string().min(8).refine(fitsBcrypt),
+  password: newPassword,
   // Case des CGU cochée : sans elle, pas de compte.
   acceptTerms: z.literal(true),
-  password: newPassword,
 });
 
 export const forgotPasswordSchema = z.strictObject({ email });

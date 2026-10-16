@@ -110,7 +110,7 @@ export type ServerConfig = {
   aiDailyLimitPerUser: number;
   aiDailyLimitTripPass: number;
   rateLimits: Record<
-    "login" | "loginEmail" | "refresh" | "register" | "forgotPassword" | "forgotPasswordEmail" | "resetPassword" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "ticket" | "admin" | "comment" | "tripAi" | "tripChat" | "tripShare" | "tripExpense",
+    "login" | "loginEmail" | "refresh" | "register" | "forgotPassword" | "forgotPasswordEmail" | "resetPassword" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "ticket" | "admin" | "comment" | "tripAi" | "tripChat" | "tripShare" | "tripExpense" | "tripExport",
     RateLimit
   >;
 };
@@ -242,6 +242,8 @@ function readTripPassConfig(): TripPassConfig | null {
 function logInvalid(label: string, error: z.ZodError) {
   const names = error.issues.map((issue) => issue.path.join(".")).join(", ");
   logError("config", `invalid ${label} env (payment disabled): ${names}`);
+}
+
 // Envoi d'emails (Gmail en SMTP) : validé à part, une valeur invalide coupe seulement les emails, jamais toute l'API.
 const mailSchema = z.object({
   SMTP_USER: z.string().trim().toLowerCase().max(254).pipe(z.email()),
