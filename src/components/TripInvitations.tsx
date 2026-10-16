@@ -13,7 +13,7 @@ import { apiFetch } from "@/client/session";
 type PendingInvitation = {
   id: number;
   role: "editor" | "viewer";
-  trip: { id: number; title: string; destination_country_code: string; destination_city: string | null; start_date: string; end_date: string };
+  trip: { id: string; title: string; destination_country_code: string; destination_city: string | null; start_date: string; end_date: string };
   invited_by: string | null;
 };
 

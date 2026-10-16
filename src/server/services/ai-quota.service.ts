@@ -38,8 +38,9 @@ export async function consumeAiCall(userId: string, { tripPass = false }: { trip
   if (!(await incrementAiUsage(userId, limit))) throw new AiQuotaError("DAILY_LIMIT_REACHED");
 }
 
-// limit null : illimité (admin).
-export async function getAiQuota(userId: string): Promise<{ used: number; limit: number | null }> {
+// limit null : illimité (admin). tripPass : plafond d'un voyage qui a le pass (même règle que consumeAiCall).
+export async function getAiQuota(userId: string, { tripPass = false }: { tripPass?: boolean } = {}): Promise<{ used: number; limit: number | null }> {
   const [access, used] = await Promise.all([findUserAccess(userId), countUserAiCallsToday(userId)]);
-  return { used, limit: access?.role === "admin" ? null : aiDailyLimitPerUser() };
+  if (access?.role === "admin") return { used, limit: null };
+  return { used, limit: tripPass ? Math.max(getConfig().aiDailyLimitTripPass, aiDailyLimitPerUser()) : aiDailyLimitPerUser() };
 }

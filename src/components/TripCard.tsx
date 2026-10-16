@@ -7,7 +7,8 @@ import { countryName, flagEmoji } from "@/lib/country";
 import type { Archetype } from "@/lib/posts";
 
 export type TripSummary = {
-  id: number;
+  // Identifiant public (UUID).
+  id: string;
   title: string;
   destination_country_code: string;
   destination_city: string | null;

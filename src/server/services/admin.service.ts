@@ -42,7 +42,7 @@ import { clearBannedTermsCache } from "@/server/services/banned-word.service";
 import { findTicketsForAdmin, updateTicketStatus } from "@/server/repositories/ticket.repository";
 import type { TicketStatus } from "@/schemas/ticket.schema";
 import { getBuyMeACoffeeConfig } from "@/server/config";
-import { findTripById } from "@/server/repositories/trip.repository";
+import { findTripInternalId } from "@/server/repositories/trip.repository";
 import {
   assignTripPass,
   findActiveTripPasses,
@@ -317,13 +317,14 @@ export async function listTripPasses() {
 
 // passId : rattache un achat payé, seulement si l'email déclaré par l'acheteur est bien celui du paiement
 // (personne ne peut se faire attribuer le paiement d'un autre). Sans passId : pass offert.
-export async function grantTripPass(adminId: string, { tripId, passId, payerEmail }: AdminGrantTripPassInput) {
-  if (!(await findTripById(tripId))) throw new AdminError("TRIP_NOT_FOUND");
+export async function grantTripPass(adminId: string, { tripId: publicId, passId, payerEmail }: AdminGrantTripPassInput) {
+  const tripId = await findTripInternalId(publicId);
+  if (tripId === null) throw new AdminError("TRIP_NOT_FOUND");
   if (await hasActiveTripPass(tripId)) throw new AdminError("PASS_ALREADY_ACTIVE");
 
   if (passId === undefined) {
     const id = await insertGiftTripPass(tripId, adminId);
-    await log(adminId, "trip_pass.gift", "trip", tripId, { passId: id });
+    await log(adminId, "trip_pass.gift", "trip", publicId, { passId: id });
     return;
   }
 
@@ -334,11 +335,11 @@ export async function grantTripPass(adminId: string, { tripId, passId, payerEmai
     throw new AdminError("EMAIL_MISMATCH");
   }
   if (!(await assignTripPass(passId, tripId, adminId))) throw new AdminError("NOT_FOUND");
-  await log(adminId, "trip_pass.assign", "trip", tripId, { passId });
+  await log(adminId, "trip_pass.assign", "trip", publicId, { passId });
 }
 
 export async function removeTripPass(adminId: string, passId: number) {
   const revoked = await revokeTripPass(passId);
   if (!revoked) throw new AdminError("NOT_FOUND");
-  await log(adminId, "trip_pass.revoke", "trip", revoked.trip_id, { passId });
+  await log(adminId, "trip_pass.revoke", "trip", revoked.trip_public_id, { passId });
 }

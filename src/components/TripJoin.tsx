@@ -39,7 +39,7 @@ export function TripJoin() {
       ? Promise.resolve("invalid")
       : !getSessionSnapshot()
         ? Promise.resolve("login")
-        : apiFetch<{ tripId: number }>("/api/v1/trips/join", { method: "POST", body: { code } }).then((result) => {
+        : apiFetch<{ tripId: string }>("/api/v1/trips/join", { method: "POST", body: { code } }).then((result) => {
             if ("data" in result) {
               sessionStorage.removeItem(CODE_KEY);
               router.replace(`/planner/${result.data.tripId}`);

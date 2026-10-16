@@ -18,7 +18,8 @@ export function buildTripCalendar({
   location,
   events,
 }: {
-  tripId: number;
+  // Identifiant public du voyage (UID des événements).
+  tripId: string;
   name: string;
   location: string;
   events: TripCalendarEvent[];

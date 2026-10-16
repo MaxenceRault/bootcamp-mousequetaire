@@ -71,7 +71,7 @@ const CATEGORY_ICONS: Record<Category, IconName> = {
 // Formulaire ouvert : nouvelle dépense, modification, ou règlement d'une ligne « à payer ».
 type Draft = { expense?: Expense; task?: PaymentTask };
 
-export function TripExpenses({ tripId }: { tripId: number }) {
+export function TripExpenses({ tripId }: { tripId: string }) {
   const t = useTranslations("Planner.expenses");
   const router = useRouter();
   const basePath = `/api/v1/trips/${tripId}`;

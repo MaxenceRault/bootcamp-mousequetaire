@@ -117,7 +117,8 @@ export async function findUnassignedTripPasses(): Promise<UnassignedTripPassRow[
 
 export type TripPassRow = {
   id: number;
-  trip: { id: number; title: string; owner: string };
+  // id : identifiant public (UUID) du voyage.
+  trip: { id: string; title: string; owner: string };
   gift: boolean;
   assigned_at: string;
 };
@@ -125,7 +126,7 @@ export type TripPassRow = {
 export async function findActiveTripPasses(limit: number): Promise<TripPassRow[]> {
   const db = await getDb();
   const { rows } = await db.query<TripPassRow>(
-    `select p.id, json_build_object('id', t.id, 'title', t.title, 'owner', o.username) as trip,
+    `select p.id, json_build_object('id', t.public_id, 'title', t.title, 'owner', o.username) as trip,
        p.bmc_payment_id is null as gift, p.assigned_at
      from trip_pass p join trip t on t.id = p.trip_id join users o on o.id = t.user_id
      where p.refunded_at is null and p.revoked_at is null
@@ -166,11 +167,12 @@ export async function insertGiftTripPass(tripId: number, adminId: string): Promi
   return rows[0].id;
 }
 
-// null : pass introuvable ou déjà inactif.
-export async function revokeTripPass(id: number): Promise<{ trip_id: number | null } | null> {
+// null : pass introuvable ou déjà inactif. trip_public_id : pour le journal (null : achat jamais rattaché).
+export async function revokeTripPass(id: number): Promise<{ trip_public_id: string | null } | null> {
   const db = await getDb();
-  const { rows } = await db.query<{ trip_id: number | null }>(
-    `update trip_pass set revoked_at = now() where id = $1 and ${ACTIVE} returning trip_id`,
+  const { rows } = await db.query<{ trip_public_id: string | null }>(
+    `update trip_pass p set revoked_at = now() where p.id = $1 and p.refunded_at is null and p.revoked_at is null
+     returning (select t.public_id from trip t where t.id = p.trip_id) as trip_public_id`,
     [id],
   );
   return rows[0] ?? null;

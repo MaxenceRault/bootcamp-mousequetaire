@@ -216,6 +216,11 @@ const tripDetail = {
       properties: { active: { type: "boolean" }, available: { type: "boolean" }, priceEur: { type: "number", nullable: true } },
     },
     chatLimit: { type: "integer", description: "Messages possibles dans la discussion IA (50, 200 avec le pass)" },
+    aiQuota: {
+      type: "object",
+      description: "Requêtes IA du jour de l'utilisateur sur ce voyage (limit null : illimité, admin ; plafond plus haut avec le pass)",
+      properties: { used: { type: "integer" }, limit: { type: "integer", nullable: true } },
+    },
     mapsUrls: { type: "object", nullable: true, description: "Pass voyage : lien Google Maps de l'itinéraire de chaque jour (clé AAAA-MM-JJ)" },
   },
 };
@@ -248,6 +253,7 @@ const tripMessages = {
 const aiUnavailable = error("L'IA n'a pas répondu ou a renvoyé un format invalide", ["AI_UNAVAILABLE"]);
 const aiRateLimited = error("Trop d'appels à l'IA : 20 maximum par utilisateur et par heure", ["TOO_MANY_REQUESTS"]);
 const idParam = (name: string) => ({ name, in: "path", required: true, schema: { type: "integer", minimum: 1 } });
+const tripIdParam = { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" }, description: "Identifiant public du voyage" };
 const uuidParam = (name: string) => ({ name, in: "path", required: true, schema: { type: "string", format: "uuid" } });
 const tripSharing = json("Membres et invitations", { type: "object", properties: { role: { type: "string", enum: ["owner", "editor", "viewer"] }, members: { type: "array", items: { type: "object" } }, invitations: { type: "array", items: { type: "object" } } } });
 const tripLedger = json("Registre des dépenses à jour", {
@@ -268,7 +274,8 @@ function tripRoute(summary: string, options: { params?: string[]; body?: z.ZodTy
     summary,
     ...(options.description ? { description: options.description } : {}),
     security: [{ bearerAuth: [] }],
-    parameters: (options.params ?? ["id"]).map(idParam),
+    // {id} d'un voyage : son identifiant public (UUID) ; les autres ids (activité, invitation…) sont des entiers.
+    parameters: (options.params ?? ["id"]).map((name) => (name === "id" ? tripIdParam : idParam(name))),
     ...(options.body ? { requestBody: requestBody(options.body) } : {}),
     responses: {
       400: invalidInput,
@@ -602,7 +609,7 @@ export function buildOpenApiDocument() {
             description: "Remplace les activités de ce jour seulement, sans doublon avec les autres jours. Éditeur ou propriétaire.",
             ok: { 200: json("Voyage à jour", tripDetail), 402: passRequired, 403: error("Lecteur : action interdite", ["FORBIDDEN"]) },
           }),
-          parameters: [idParam("id"), { name: "day", in: "path", required: true, schema: { type: "string", format: "date" } }],
+          parameters: [tripIdParam, { name: "day", in: "path", required: true, schema: { type: "string", format: "date" } }],
         },
       },
       "/trips/{id}/export/pdf": {
@@ -668,10 +675,10 @@ export function buildOpenApiDocument() {
         }),
       },
       "/trips/{id}/members/{userId}": {
-        patch: { ...tripRoute("Changer le rôle d'un membre (propriétaire)", { body: updateMemberSchema, ok: { 200: tripSharing } }), parameters: [idParam("id"), uuidParam("userId")] },
+        patch: { ...tripRoute("Changer le rôle d'un membre (propriétaire)", { body: updateMemberSchema, ok: { 200: tripSharing } }), parameters: [tripIdParam, uuidParam("userId")] },
         delete: {
           ...tripRoute("Retirer un membre (propriétaire) ou quitter le voyage (son propre id)", { ok: { 204: { description: "Retiré" } } }),
-          parameters: [idParam("id"), uuidParam("userId")],
+          parameters: [tripIdParam, uuidParam("userId")],
         },
       },
       "/trips/{id}/invitations": {

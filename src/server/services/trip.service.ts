@@ -105,13 +105,16 @@ export async function getTrip(userId: string, tripId: number) {
     tasks,
     role,
     pass,
+    // Requêtes IA du jour de l'utilisateur sur ce voyage : le chat propose le pass avant d'atteindre l'erreur.
+    aiQuota: await getAiQuota(userId, { tripPass: pass.active }),
     chatLimit: pass.active ? CHAT_MAX_USER_MESSAGES_PASS : CHAT_MAX_USER_MESSAGES,
     mapsUrls: pass.active ? dayMapsUrls(trip, items) : null,
   };
 }
 
 // Rien n'est enregistré si l'IA échoue.
-export async function createTrip(userId: string, input: CreateTripInput): Promise<{ id: number }> {
+// Renvoie l'identifiant public (UUID) du voyage créé.
+export async function createTrip(userId: string, input: CreateTripInput): Promise<{ id: string }> {
   const place = { country: input.destinationCountry, state: input.destinationState, city: input.destinationCity };
   if (!placeExists(place)) throw new TripError("INVALID_INPUT");
   if (tripLength(input.startDate, input.endDate) > TRIP_MAX_DAYS) throw new TripError("TRIP_TOO_LONG");
@@ -129,7 +132,7 @@ export async function createTrip(userId: string, input: CreateTripInput): Promis
     posts,
   });
 
-  const tripId = await insertTrip({
+  const { id: tripId, publicId } = await insertTrip({
     user_id: userId,
     title: generated.title,
     destination_country_code: place.country,
@@ -146,7 +149,7 @@ export async function createTrip(userId: string, input: CreateTripInput): Promis
     await deleteTripRow(tripId).catch(() => {});
     throw error;
   }
-  return { id: tripId };
+  return { id: publicId };
 }
 
 // Remplace activités, tâches et budget.
@@ -185,7 +188,7 @@ export async function exportTripCalendar(userId: string, tripId: number) {
   await requireTripPass(tripId);
   const items = await findTripItems(tripId);
   const content = buildTripCalendar({
-    tripId,
+    tripId: trip.id,
     name: trip.title,
     location: placeLabel(tripPlace(trip)),
     events: items.map((item) => ({ id: item.id, day: item.day, startTime: item.start_time, title: item.title, description: item.description })),

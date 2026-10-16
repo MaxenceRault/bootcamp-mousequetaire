@@ -137,7 +137,7 @@ export async function findPendingInvitations(userId: string): Promise<PendingInv
   const db = await getDb();
   const { rows } = await db.query<PendingInvitationRow>(
     `select i.id, i.role, i.expires_at,
-       json_build_object('id', t.id, 'title', t.title, 'destination_country_code', t.destination_country_code,
+       json_build_object('id', t.public_id, 'title', t.title, 'destination_country_code', t.destination_country_code,
          'destination_city', t.destination_city, 'start_date', to_char(t.start_date, 'YYYY-MM-DD'),
          'end_date', to_char(t.end_date, 'YYYY-MM-DD')) as trip,
        inviter.display_name as invited_by
@@ -157,21 +157,24 @@ export async function answerUserInvitation(
   invitationId: number,
   userId: string,
   accepted: boolean,
-): Promise<{ tripId: number; full: boolean } | null> {
+): Promise<{ tripId: string; full: boolean } | null> {
   const client = await (await getDb()).connect();
   try {
     await client.query("begin");
-    const { rows } = await client.query<{ trip_id: number; role: TripMemberRole }>(
-      `delete from trip_invitation where id = $1 and invitee_id = $2 and expires_at > now() returning trip_id, role`,
+    // tripId renvoyé : identifiant public (UUID) ; trip_id : clé interne.
+    const { rows } = await client.query<{ trip_id: number; public_id: string; role: TripMemberRole }>(
+      `delete from trip_invitation i using trip t
+       where i.id = $1 and i.invitee_id = $2 and i.expires_at > now() and t.id = i.trip_id
+       returning i.trip_id, t.public_id, i.role`,
       [invitationId, userId],
     );
     const invitation = rows[0];
     if (invitation && accepted && !(await addMember(client, invitation.trip_id, userId, invitation.role))) {
       await client.query("rollback");
-      return { tripId: invitation.trip_id, full: true };
+      return { tripId: invitation.public_id, full: true };
     }
     await client.query("commit");
-    return invitation ? { tripId: invitation.trip_id, full: false } : null;
+    return invitation ? { tripId: invitation.public_id, full: false } : null;
   } catch (error) {
     await client.query("rollback");
     throw error;
@@ -181,12 +184,12 @@ export async function answerUserInvitation(
 }
 
 // Lien d'invitation : réutilisable jusqu'à expiration. Le propriétaire et les membres existants gardent leur rôle.
-export async function joinWithLink(tokenHash: string, userId: string): Promise<{ tripId: number; full: boolean } | null> {
+export async function joinWithLink(tokenHash: string, userId: string): Promise<{ tripId: string; full: boolean } | null> {
   const client = await (await getDb()).connect();
   try {
     await client.query("begin");
-    const { rows } = await client.query<{ trip_id: number; role: TripMemberRole; owner_id: string }>(
-      `select i.trip_id, i.role, t.user_id as owner_id
+    const { rows } = await client.query<{ trip_id: number; public_id: string; role: TripMemberRole; owner_id: string }>(
+      `select i.trip_id, t.public_id, i.role, t.user_id as owner_id
        from trip_invitation i join trip t on t.id = i.trip_id
        where i.token_hash = $1 and i.expires_at > now()`,
       [tokenHash],
@@ -194,10 +197,10 @@ export async function joinWithLink(tokenHash: string, userId: string): Promise<{
     const invitation = rows[0];
     if (invitation && invitation.owner_id !== userId && !(await addMember(client, invitation.trip_id, userId, invitation.role))) {
       await client.query("rollback");
-      return { tripId: invitation.trip_id, full: true };
+      return { tripId: invitation.public_id, full: true };
     }
     await client.query("commit");
-    return invitation ? { tripId: invitation.trip_id, full: false } : null;
+    return invitation ? { tripId: invitation.public_id, full: false } : null;
   } catch (error) {
     await client.query("rollback");
     throw error;

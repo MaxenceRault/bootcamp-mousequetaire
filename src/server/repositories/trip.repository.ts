@@ -5,7 +5,8 @@ import type { TripItemCategory, TripItemColor, TripSuggestionAction } from "@/sc
 import type { TripAccessRole } from "@/schemas/trip-share.schema";
 
 export type TripSummary = {
-  id: number;
+  // Identifiant public (UUID) : la clé interne ne sort jamais du serveur.
+  id: string;
   title: string;
   destination_country_code: string;
   destination_state_code: string | null;
@@ -119,20 +120,21 @@ const TRIP_COLUMNS = ["title", "budget_target", "budget_lodging", "budget_transi
 const ITEM_COLUMNS = ["day", "start_time", "title", "description", "category", "color"] as const;
 const TASK_COLUMNS = ["label", "done"] as const;
 
-const TRIP_SUMMARY_COLUMNS = `t.id, t.title, t.destination_country_code, t.destination_state_code, t.destination_city,
+const TRIP_SUMMARY_COLUMNS = `t.public_id as id, t.title, t.destination_country_code, t.destination_state_code, t.destination_city,
   t.start_date, t.end_date, json_build_object('slug', a.slug, 'label', a.label) as archetype, t.created_at`;
 
 // Postgres renvoie « HH:MM:SS ».
 const ITEM_COLUMNS_SELECT = `i.id, i.day, to_char(i.start_time, 'HH24:MI') as start_time, i.title, i.description, i.category, i.color,
   case when p.id is null then null else json_build_object('id', p.id, 'title', p.title, 'slug', p.slug) end as source_post`;
 
-export async function insertTrip(trip: NewTrip): Promise<number> {
+// Clé interne (suite du traitement) et identifiant public (renvoyé au client).
+export async function insertTrip(trip: NewTrip): Promise<{ id: number; publicId: string }> {
   const db = await getDb();
-  const { rows } = await db.query<{ id: number }>(
+  const { rows } = await db.query<{ id: number; public_id: string }>(
     `insert into trip (user_id, title, destination_country_code, destination_state_code, destination_city,
        start_date, end_date, archetype_id)
      values ($1, $2, $3, $4, $5, $6, $7, $8)
-     returning id`,
+     returning id, public_id`,
     [
       trip.user_id,
       trip.title,
@@ -144,7 +146,14 @@ export async function insertTrip(trip: NewTrip): Promise<number> {
       trip.archetype_id,
     ],
   );
-  return rows[0].id;
+  return { id: rows[0].id, publicId: rows[0].public_id };
+}
+
+// null : aucun voyage avec cet identifiant public.
+export async function findTripInternalId(publicId: string): Promise<number | null> {
+  const db = await getDb();
+  const { rows } = await db.query<{ id: number }>("select id from trip where public_id = $1", [publicId]);
+  return rows[0]?.id ?? null;
 }
 
 // Voyages créés par l'utilisateur et voyages dont il est membre.
