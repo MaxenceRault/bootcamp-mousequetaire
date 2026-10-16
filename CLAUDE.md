@@ -141,7 +141,7 @@ scripts/
 db/                            # Scripts SQL à exécuter dans Cloud SQL Studio
 Dockerfile                     # Images multi-étapes, utilisateur non-root : « dev » (compose.yaml) et production (Cloud Run, sortie standalone)
 compose.yaml                   # Dev conteneurisé : code monté, node_modules dans un volume, identifiants gcloud de la machine en lecture seule
-.github/workflows/ci.yml       # Intégration continue : PR vers main → lint → typecheck → npm audit → migrations, doc API, .env.example → build
+.github/workflows/ci.yml       # Intégration continue : PR vers main → lint → typecheck → npm audit → build
 .github/workflows/deploy.yml   # Déploiement continu : push sur main → lint → image Docker → Cloud Run
 ```
 
@@ -161,7 +161,7 @@ compose.yaml                   # Dev conteneurisé : code monté, node_modules d
 
 ## Déploiement (Cloud Run)
 
-- **CI sur chaque PR vers `main`** (`.github/workflows/ci.yml`, sans accès GCP) : le lint fait aussi respecter les règles du projet (couches, `getConfig()`, `z.strictObject`, textes dans `messages/fr.json`, console uniquement dans `logger.ts`) ; une migration existante ne se modifie jamais, une nouvelle commence par `set role brb_admin;` avec un horodatage unique ; toute route sous `/api/v1/` est dans `openapi.ts` ; toute variable de `config.ts` est dans `.env.example`. Actions GitHub épinglées par SHA.
+- **CI sur chaque PR vers `main`** (`.github/workflows/ci.yml`, sans accès GCP) : le lint fait aussi respecter les règles du projet (couches, `getConfig()`, `z.strictObject`, textes dans `messages/fr.json`, console uniquement dans `logger.ts`), puis typecheck, `npm audit` et build. Les règles des migrations (jamais modifiées, `set role brb_admin;`, horodatage unique), de `openapi.ts` et de `.env.example` ne sont plus vérifiées par la CI : à contrôler en revue de PR. Actions GitHub épinglées par SHA.
 - **Automatique** : chaque push sur `main` est déployé par GitHub Actions (`.github/workflows/deploy.yml`) sur https://brb-105103278561.europe-west9.run.app. Un `main` qui ne passe pas le lint ou le build n'est pas déployé (onglet *Actions* du repo pour suivre).
 - Authentification GitHub → GCP sans clé ni secret GitHub : Workload Identity Federation (pool `github`, provider `github-repo`, limité à la branche `main` de ce repo) → compte de service `brb-deploy` (droits de déploiement uniquement).
 - L'app tourne avec le compte de service `brb-run` (Cloud SQL en `brb_app`, Vertex AI, bucket des photos, lecture des secrets). Images dans Artifact Registry `europe-west9-docker.pkg.dev/biirb-511608/brb/web`.
