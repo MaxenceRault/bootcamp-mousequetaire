@@ -339,8 +339,21 @@
     "create": {
       "title": "Nouveau voyage",
       "submit": "Planifier mon voyage avec Biirbou",
-      "reasoning": ["Biirbou déploie ses ailes", "Biirbou survole les récits de la communauté", "Biirbou vérifie la météo (et sort le parapluie)", "Biirbou négocie avec la mousson", "Biirbou plie la carte… dans le mauvais sens", "Biirbou évite les pièges à touristes", "Biirbou fait rentrer le budget dans la valise", "Biirbou réserve une place côté hublot", "Biirbou cherche le meilleur croissant du coin", "Biirbou se trompe de fuseau horaire", "Biirbou picore les meilleures adresses", "Biirbou boucle sa valise"],
-      "quota": "Requêtes Biirbou aujourd'hui : {used}/{limit}"
+      "reasoning": [
+        "Biirbou déploie ses ailes",
+        "Biirbou survole les récits de la communauté",
+        "Biirbou vérifie la météo (et sort le parapluie)",
+        "Biirbou négocie avec la mousson",
+        "Biirbou plie la carte… dans le mauvais sens",
+        "Biirbou évite les pièges à touristes",
+        "Biirbou fait rentrer le budget dans la valise",
+        "Biirbou réserve une place côté hublot",
+        "Biirbou cherche le meilleur croissant du coin",
+        "Biirbou se trompe de fuseau horaire",
+        "Biirbou picore les meilleures adresses",
+        "Biirbou boucle sa valise"
+      ],
+      "quota": "{count, plural, =0 {Biirbou a fini sa journée : il revient demain !} one {Biirbou peut encore vous aider # fois aujourd'hui.} other {Biirbou peut encore vous aider # fois aujourd'hui.}}"
     },
     "list": {
       "title": "Voyages générés",
@@ -367,7 +380,10 @@
       "loadError": "Impossible de charger ce voyage.",
       "notFound": "Ce voyage n'existe pas ou ne vous appartient pas.",
       "back": "Retour à mes voyages",
-      "seasonTitle": "À cette période"
+      "seasonTitle": "À cette période",
+      "idLabel": "ID du voyage :",
+      "copyId": "Copier",
+      "idCopied": "Copié !"
     },
     "days": {
       "title": "Planning",
@@ -425,12 +441,19 @@
     },
     "chat": {
       "title": "Discuter avec Biirbou",
-      "hint": "Une envie, une question ? Biirbou vous dit où et quand la caser dans votre voyage, à partir des récits de la communauté. Vous choisissez ensuite quoi ajouter au planning.",
+      "hint": "Une envie, une question ? Biirbou vous dit où et quand la caser, à partir des récits de la communauté, et peut réorganiser votre voyage (ajouter, déplacer, remplacer ou retirer des activités). Rien ne change sans votre accord.",
       "empty": "Ex. « Je veux faire du parachute », « Un resto typique pas cher le jour 2 ? », « Que faire s'il pleut ? »",
       "label": "Message pour Biirbou",
       "placeholder": "Votre question sur ce voyage…",
       "send": "Envoyer",
-      "reasoning": ["Biirbou lisse ses plumes", "Biirbou feuillette vos récits", "Biirbou tourne sept fois son bec", "Biirbou consulte sa boussole", "Biirbou cherche un créneau entre deux musées", "Biirbou gazouille une réponse"],
+      "reasoning": [
+        "Biirbou lisse ses plumes",
+        "Biirbou feuillette vos récits",
+        "Biirbou tourne sept fois son bec",
+        "Biirbou consulte sa boussole",
+        "Biirbou cherche un créneau entre deux musées",
+        "Biirbou gazouille une réponse"
+      ],
       "offTopic": "Je suis là pour votre voyage ! Dites-moi une envie ou une question sur votre séjour.",
       "suggestions": "Activités proposées",
       "suggestionWhen": "Jour {number} · {date} · {time}",
@@ -453,7 +476,11 @@
         "update": "Modification appliquée",
         "delete": "Retirée du planning"
       },
-      "before": "Avant : {date} · {time} · {title}"
+      "before": "Avant : {date} · {time} · {title}",
+      "quotaReached": "Biirbou a fini sa journée : il revient demain. Avec le pass voyage, il peut vous aider plus souvent sur ce voyage.",
+      "quotaReachedPass": "Biirbou a fini sa journée : il revient demain !",
+      "upgrade": "Pass voyage",
+      "left": "{count, plural, =0 {Biirbou a fini sa journée : il revient demain.} one {Biirbou peut encore vous aider <strong># fois</strong> aujourd'hui.} other {Biirbou peut encore vous aider <strong># fois</strong> aujourd'hui.}}"
     },
     "errors": {
       "INVALID_INPUT": "Vérifiez les champs du formulaire.",
@@ -464,8 +491,8 @@
       "UNAUTHORIZED": "Votre session a expiré. Reconnectez-vous.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
       "CHAT_LIMIT_REACHED": "Vous avez atteint la limite de messages pour ce voyage.",
-      "DAILY_LIMIT_REACHED": "Vous avez utilisé vos 15 requêtes IA du jour. Revenez demain !",
-      "AI_DISABLED": "L'IA est momentanément indisponible. Réessayez plus tard.",
+      "DAILY_LIMIT_REACHED": "Biirbou a fini sa journée : il pourra vous aider de nouveau demain !",
+      "AI_DISABLED": "Biirbou fait une pause pour le moment. Réessayez un peu plus tard.",
       "FORBIDDEN": "Vous n'avez pas les droits pour cette action.",
       "PASS_REQUIRED": "Cette fonction fait partie du pass voyage.",
       "PASS_ALREADY_ACTIVE": "Ce voyage a déjà le pass voyage.",
@@ -476,7 +503,7 @@
       "title": "Pass voyage",
       "hint": "Débloquez les outils premium de ce voyage, pour tous ses membres. Un seul paiement, valable pour toujours sur ce voyage.",
       "benefits": {
-        "ai": "Plus de requêtes IA par jour sur ce voyage et une discussion 4 fois plus longue",
+        "ai": "Biirbou vous aide bien plus souvent chaque jour sur ce voyage, et la discussion est 4 fois plus longue",
         "day": "Re-générer un seul jour sans toucher au reste du planning",
         "exports": "Export PDF, calendrier (.ics) et itinéraire Google Maps de chaque jour"
       },
@@ -689,6 +716,17 @@
         "rose": "Rose",
         "slate": "Ardoise"
       }
+    },
+    "passDialog": {
+      "close": "Fermer",
+      "reasons": {
+        "pdf": "L'export PDF (3 modèles : classique, tableau, livret) fait partie du pass voyage.",
+        "calendar": "L'export du calendrier (.ics) fait partie du pass voyage.",
+        "day": "Re-générer un seul jour fait partie du pass voyage.",
+        "maps": "L'itinéraire Google Maps de chaque jour fait partie du pass voyage.",
+        "ai": "Biirbou a fini sa journée. Avec le pass voyage, il peut vous aider bien plus souvent chaque jour sur ce voyage.",
+        "chat": "Vous avez atteint la limite de messages de ce voyage. Le pass voyage la multiplie par 4."
+      }
     }
   },
   "DateRangePicker": {
@@ -704,7 +742,12 @@
     "selected": "{count, plural, one {# jour} other {# jours}}",
     "required": "Choisissez une date de départ et une date de retour.",
     "clear": "Effacer",
-    "done": "Valider"
+    "done": "Valider",
+    "typedPlaceholder": "JJ/MM/AAAA",
+    "typedInvalid": "Cette date n'existe pas : vérifiez le jour et le mois (JJ/MM/AAAA).",
+    "typedPast": "Choisissez une date à partir d'aujourd'hui.",
+    "typedStartFirst": "Saisissez d'abord la date de départ.",
+    "typedBeforeStart": "Le retour doit être le même jour que le départ ou après."
   },
   "StoryCard": {
     "hidden": "Masqué",
@@ -923,7 +966,7 @@
     },
     "tripPasses": {
       "unassignedTitle": "Achats à rattacher",
-      "unassignedHint": "Payés avec une adresse sans compte Brb, ou sans voyage choisi dans les 24 h. Demandez à l'acheteur (ticket de support) l'ID de son voyage (le nombre dans l'adresse /planner/…) et l'email utilisé pour payer : il est vérifié avant le rattachement.",
+      "unassignedHint": "Payés avec une adresse sans compte Brb, ou sans voyage choisi dans les 24 h. Demandez à l'acheteur (ticket de support) l'ID de son voyage (affiché sous le titre, sur la page du voyage, avec un bouton « Copier ») et l'email utilisé pour payer : il est vérifié avant le rattachement.",
       "unassignedEmpty": "Aucun achat à rattacher.",
       "payer": "Payé par {hint}",
       "payerUnknown": "Email du paiement inconnu",
@@ -934,19 +977,19 @@
       "giftTitle": "Offrir un pass",
       "giftHint": "Geste commercial ou souci de paiement : le pass est offert, sans paiement. Inscrit au journal.",
       "gift": "Offrir le pass",
-      "giftConfirm": "Offrir le pass voyage au voyage n° {id} ?",
+      "giftConfirm": "Offrir le pass voyage au voyage {id} ?",
       "activeTitle": "Pass actifs",
       "activeEmpty": "Aucun pass actif.",
       "gifted": "Offert",
       "paid": "Payé",
       "revoke": "Retirer",
       "revokeConfirm": "Retirer le pass du voyage « {title} » ? Un éventuel remboursement se fait sur Buy Me a Coffee.",
-      "trip": "{title} · @{owner} · n° {id}",
-      "done": "Pass attribué."
+      "trip": "{title} · @{owner} · {id}",
+      "done": "Pass attribué.",
+      "tripIdPlaceholder": "ex. 3f2b…-…"
     }
   },
   "TripExport": {
-    "metaTitle": "Planning à imprimer",
     "brand": "Biirb.",
     "documentTitle": "Planning de voyage",
     "exportedOn": "Exporté le {date}",
@@ -954,10 +997,8 @@
     "euros": "{amount} €",
     "total": "Total",
     "footer": "Planning généré avec Biirb, à partir des récits de la communauté",
-    "hint": "Choisissez « Enregistrer au format PDF » dans la fenêtre d'impression.",
-    "print": "Imprimer / PDF",
-    "loading": "Préparation du document…",
-    "error": "Impossible de charger ce voyage."
+    "notes": "Notes",
+    "page": "Page {page}/{total}"
   },
   "Comments": {
     "title": "{count, plural, =0 {Questions et commentaires} one {# commentaire} other {# commentaires}}",
@@ -1305,5 +1346,9 @@
         }
       ]
     }
+  },
+  "PasswordResetEmail": {
+    "subject": "Biirb : réinitialiser votre mot de passe",
+    "body": "Bonjour {name},\n\nVous avez demandé à changer le mot de passe de votre compte Biirb. Ouvrez ce lien pour en choisir un nouveau (valable {minutes} minutes, une seule fois) :\n\n{link}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email : votre mot de passe ne change pas.\n\nL'équipe Biirb"
   }
 }

@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/Icon";
+import { Input } from "@/components/ui/Input";
 
 type DateRangePickerProps = {
   startName: string;
@@ -37,6 +38,27 @@ function monthStart(year: number, month: number, offset = 0) {
   return new Date(Date.UTC(year, month + offset, 1));
 }
 
+// Saisie au clavier : « 05/11/2026 » ⇄ « 2026-11-05 ».
+function toTyped(day: string | null) {
+  return day ? `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}` : "";
+}
+
+// Chiffres seulement, barres ajoutées au fil de la frappe (JJ/MM/AAAA).
+function maskTyped(text: string) {
+  const digits = text.replace(/\D/g, "").slice(0, 8);
+  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)].filter(Boolean).join("/");
+}
+
+// null : date incomplète ou inexistante (ex. 31/02).
+function parseTyped(text: string) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text);
+  if (!match) return null;
+  const [, day, month, year] = match.map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const valid = year >= 1900 && year <= 2100 && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  return valid ? toDay(date) : null;
+}
+
 // Semaines commençant le lundi.
 function monthCells(month: Date) {
   const year = month.getUTCFullYear();
@@ -62,6 +84,9 @@ export function DateRangePicker({ startName, endName, disablePast = false, maxDa
   // Calculés à l'ouverture, côté navigateur (pas au pré-rendu serveur).
   const [view, setView] = useState<Date | null>(null);
   const [today, setToday] = useState<string | null>(null);
+  // Champs à taper (en plus du calendrier) et erreur de saisie.
+  const [typed, setTyped] = useState({ start: "", end: "" });
+  const [typedError, setTypedError] = useState<string | null>(null);
 
   const minDay = disablePast ? today : null;
   const maxDay = start && !end && maxDays ? addDays(start, maxDays - 1) : null;
@@ -104,18 +129,54 @@ export function DateRangePicker({ startName, endName, disablePast = false, maxDa
 
   function select(day: string) {
     if (isDisabled(day)) return;
+    setTypedError(null);
     if (!start || end || day < start) {
       setStart(day);
       setEnd(null);
+      setTyped({ start: toTyped(day), end: "" });
       return;
     }
     setEnd(day);
+    setTyped({ start: toTyped(start), end: toTyped(day) });
     setOpen(false);
   }
 
   function clear() {
     setStart(null);
     setEnd(null);
+    setTyped({ start: "", end: "" });
+    setTypedError(null);
+  }
+
+  // Même règles qu'au clic : date réelle, pas dans le passé si interdit, retour après le départ, durée maximale.
+  function type(field: "start" | "end", text: string) {
+    const value = maskTyped(text);
+    setTyped((current) => ({ ...current, [field]: value }));
+    setTypedError(null);
+    if (value.length < 10) return;
+
+    const day = parseTyped(value);
+    if (!day) return setTypedError(t("typedInvalid"));
+    const now = today ?? todayDay();
+    if (disablePast && day < now) return setTypedError(t("typedPast"));
+
+    if (field === "start") {
+      setStart(day);
+      // Retour déjà saisi mais devenu incohérent : effacé plutôt que gardé faux.
+      const keepEnd = end && end >= day && (!maxDays || daysBetween(day, end) < maxDays);
+      if (!keepEnd) {
+        setEnd(null);
+        setTyped({ start: value, end: "" });
+      }
+    } else {
+      if (!start) return setTypedError(t("typedStartFirst"));
+      if (day < start) return setTypedError(t("typedBeforeStart"));
+      if (maxDays && daysBetween(start, day) >= maxDays) {
+        return setTypedError(t("tooLong", { max: maxDays, last: shortDate(addDays(start, maxDays - 1)) }));
+      }
+      setEnd(day);
+    }
+    setView(monthStart(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1));
   }
 
   const previewEnd = end ?? (start && hovered && hovered >= start && !isDisabled(hovered) ? hovered : null);
@@ -168,6 +229,31 @@ export function DateRangePicker({ startName, endName, disablePast = false, maxDa
           aria-label={t("dialog")}
           className="absolute top-full left-0 z-50 mt-3 w-[min(92vw,640px)] rounded-lg border border-line bg-surface p-4 shadow-lg"
         >
+          <div className="mb-3 grid grid-cols-2 gap-3">
+            {(["start", "end"] as const).map((field) => (
+              <label key={field} className="flex flex-col gap-1">
+                <span className="font-display text-label-sm text-ink-soft">{t(field)}</span>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder={t("typedPlaceholder")}
+                  value={typed[field]}
+                  onChange={(event) => type(field, event.currentTarget.value)}
+                  maxLength={10}
+                  aria-invalid={typedError !== null}
+                  aria-describedby={typedError ? `${popoverId}-error` : undefined}
+                  className="tabular-nums"
+                />
+              </label>
+            ))}
+            {typedError && (
+              <p id={`${popoverId}-error`} role="alert" className="col-span-2 text-body-sm text-error">
+                {typedError}
+              </p>
+            )}
+          </div>
+
           <div className="mb-2 flex items-center justify-between">
             <button
               type="button"

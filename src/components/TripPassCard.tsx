@@ -6,6 +6,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { Button, buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
+import { Dialog } from "@/components/ui/Dialog";
 import { FormError } from "@/components/ui/FormError";
 import { Icon } from "@/components/ui/Icon";
 import { apiFetch } from "@/client/session";
@@ -17,18 +18,61 @@ export const TRIP_PASS_CARD_ID = "trip-pass";
 
 const BENEFITS = ["ai", "day", "exports"] as const;
 
-// Offre du pass voyage (voyage sans pass). Le pass est activé par le webhook Buy Me a Coffee, jamais par le navigateur.
-export function TripPassCard({
-  tripId,
-  pass,
-  role,
-  onRefresh,
-}: {
-  tripId: number;
-  pass: TripPass;
-  role: TripRole;
-  onRefresh: () => Promise<boolean>;
-}) {
+// Fonction du pass que l'utilisateur a voulu utiliser (titre de la fenêtre).
+export type TripPassFeature = "pdf" | "calendar" | "day" | "maps" | "ai" | "chat";
+
+type OfferProps = { tripId: string; pass: TripPass; role: TripRole; onRefresh: () => Promise<boolean> };
+
+// Carte de la colonne de droite (voyage sans pass).
+export function TripPassCard(props: OfferProps) {
+  const t = useTranslations("Planner");
+  return (
+    <Card id={TRIP_PASS_CARD_ID} className="flex scroll-mt-24 flex-col gap-4 p-6">
+      <div className="flex flex-col gap-1">
+        <h2 className="flex items-center gap-2 font-display text-headline-sm text-ink">
+          <Icon name="sparkles" className="size-5 text-accent" />
+          {t("pass.title")}
+        </h2>
+        <p className="text-body-sm text-ink-soft">{t("pass.hint")}</p>
+      </div>
+      <TripPassOffer {...props} />
+    </Card>
+  );
+}
+
+// Fenêtre ouverte quand l'utilisateur touche une fonction du pass (ou atteint sa limite IA).
+export function TripPassDialog({ feature, onClose, ...props }: OfferProps & { feature: TripPassFeature | null; onClose: () => void }) {
+  const t = useTranslations("Planner");
+
+  // Pass activé après le paiement : la fenêtre se ferme.
+  async function refreshAndClose() {
+    const active = await props.onRefresh();
+    if (active) onClose();
+    return active;
+  }
+
+  return (
+    <Dialog
+      open={feature !== null}
+      onClose={onClose}
+      closeLabel={t("passDialog.close")}
+      title={
+        <span className="flex items-center gap-2">
+          <Icon name="sparkles" className="size-5 text-accent" />
+          {t("pass.title")}
+        </span>
+      }
+    >
+      {feature && <p className="rounded-lg bg-surface-muted p-3 text-body-sm text-ink">{t(`passDialog.reasons.${feature}`)}</p>}
+      <p className="text-body-sm text-ink-soft">{t("pass.hint")}</p>
+      {/* key : repart d'un formulaire vierge à chaque ouverture. */}
+      {feature && <TripPassOffer key={feature} {...props} onRefresh={refreshAndClose} />}
+    </Dialog>
+  );
+}
+
+// Avantages + parcours d'achat. Le pass est activé par le webhook Buy Me a Coffee, jamais par le navigateur.
+function TripPassOffer({ tripId, pass, role, onRefresh }: OfferProps) {
   const t = useTranslations("Planner");
   const format = useFormatter();
   const [checkout, setCheckout] = useState<{ url: string; email: string | null } | null>(null);
@@ -60,15 +104,7 @@ export function TripPassCard({
   }
 
   return (
-    <Card id={TRIP_PASS_CARD_ID} className="flex scroll-mt-24 flex-col gap-4 p-6">
-      <div className="flex flex-col gap-1">
-        <h2 className="flex items-center gap-2 font-display text-headline-sm text-ink">
-          <Icon name="sparkles" className="size-5 text-accent" />
-          {t("pass.title")}
-        </h2>
-        <p className="text-body-sm text-ink-soft">{t("pass.hint")}</p>
-      </div>
-
+    <div className="flex flex-col gap-4">
       <ul className="flex flex-col gap-2">
         {BENEFITS.map((benefit) => (
           <li key={benefit} className="flex gap-2 text-body-sm text-ink">
@@ -129,6 +165,6 @@ export function TripPassCard({
       )}
 
       {error && <FormError>{t(`errors.${error as "INTERNAL_ERROR"}`)}</FormError>}
-    </Card>
+    </div>
   );
 }

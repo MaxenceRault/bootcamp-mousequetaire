@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { getUserIdFromRequest } from "@/server/jwt";
 import { getConfig } from "@/server/config";
 import { isRateLimited } from "@/server/rateLimit";
-import { TripAccessError } from "@/server/services/trip-access.service";
+import { resolveTripId, TripAccessError } from "@/server/services/trip-access.service";
 import {
   answerInvitation,
   changeMemberRole,
@@ -16,7 +16,7 @@ import {
   revokeInvitation,
   TripShareError,
 } from "@/server/services/trip-share.service";
-import { answerTripSuggestionSchema, idParamSchema } from "@/schemas/trip.schema";
+import { answerTripSuggestionSchema, idParamSchema, tripIdParamSchema } from "@/schemas/trip.schema";
 import {
   createInviteLinkSchema,
   inviteMemberSchema,
@@ -128,9 +128,10 @@ async function withTrip(
 ) {
   return withUser(request, async (userId) => {
     const routeParams = await params;
-    const tripId = idParamSchema.safeParse(routeParams.id);
+    const tripId = tripIdParamSchema.safeParse(routeParams.id);
     if (!tripId.success) return errorResponse(400, "INVALID_INPUT");
-    return handler(userId, tripId.data, routeParams);
+    // UUID de l'URL → clé interne (404 si inconnu).
+    return handler(userId, await resolveTripId(tripId.data), routeParams);
   });
 }
 

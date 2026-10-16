@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { getUserIdFromRequest } from "@/server/jwt";
 import { getConfig } from "@/server/config";
 import { isRateLimited } from "@/server/rateLimit";
-import { TripAccessError } from "@/server/services/trip-access.service";
+import { resolveTripId, TripAccessError } from "@/server/services/trip-access.service";
 import {
   addExpense,
   addGuest,
@@ -19,7 +19,7 @@ import {
   updateExpense,
   updatePaymentTask,
 } from "@/server/services/trip-expense.service";
-import { idParamSchema } from "@/schemas/trip.schema";
+import { idParamSchema, tripIdParamSchema } from "@/schemas/trip.schema";
 import {
   expenseSchema,
   participantSchema,
@@ -118,7 +118,7 @@ function route(
     }
 
     const routeParams = await params;
-    const tripId = idParamSchema.safeParse(routeParams.id);
+    const tripId = tripIdParamSchema.safeParse(routeParams.id);
     if (!tripId.success) return errorResponse(400, "INVALID_INPUT");
 
     let body: unknown;
@@ -129,7 +129,8 @@ function route(
     }
 
     try {
-      return Response.json(await handler(userId, tripId.data, routeParams, body), { status: options.status ?? 200 });
+      // UUID de l'URL → clé interne (404 si inconnu).
+      return Response.json(await handler(userId, await resolveTripId(tripId.data), routeParams, body), { status: options.status ?? 200 });
     } catch (error) {
       return handleError(error);
     }

@@ -19,6 +19,8 @@ const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const euros = z.number().int().min(0).max(1_000_000);
 
 export const idParamSchema = z.coerce.number().int().positive().max(2_147_483_647);
+// Voyage dans l'URL et l'API : son identifiant public (UUID), jamais la clé interne.
+export const tripIdParamSchema = z.uuid();
 // Jour d'un voyage dans l'URL (AAAA-MM-JJ).
 export const dayParamSchema = isoDate;
 

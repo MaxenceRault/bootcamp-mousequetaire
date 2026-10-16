@@ -100,6 +100,9 @@ type AdminAction = {
   admin: { id: string; username: string } | null;
 };
 
+// Identifiant public d'un voyage (affiché sur sa page) : validé aussi par le serveur.
+const UUID_PATTERN = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
+
 type UnassignedTripPass = {
   id: number;
   amount: string;
@@ -109,7 +112,7 @@ type UnassignedTripPass = {
   payer: { username: string } | null;
 };
 
-type ActiveTripPass = { id: number; trip: { id: number; title: string; owner: string }; gift: boolean; assigned_at: string };
+type ActiveTripPass = { id: number; trip: { id: string; title: string; owner: string }; gift: boolean; assigned_at: string };
 
 type Paged<K extends string, T> = Record<K, T[]> & { total: number; page: number; pageSize: number };
 
@@ -531,7 +534,7 @@ function TripPassesTab({ call }: { call: Call }) {
   const { data, reload } = useResource<{ unassigned: UnassignedTripPass[]; active: ActiveTripPass[] }>(call, "/trip-passes");
   const [done, setDone] = useState(false);
 
-  async function grant(body: { tripId: number; passId?: number; payerEmail?: string }) {
+  async function grant(body: { tripId: string; passId?: number; payerEmail?: string }) {
     setDone(false);
     const result = await call("/trip-passes", { method: "POST", body });
     if (result === null) return false;
@@ -544,14 +547,14 @@ function TripPassesTab({ call }: { call: Call }) {
     event.preventDefault();
     const form = event.currentTarget;
     const values = new FormData(form);
-    const ok = await grant({ passId, tripId: Number(values.get("tripId")), payerEmail: String(values.get("payerEmail") ?? "") });
+    const ok = await grant({ passId, tripId: String(values.get("tripId") ?? "").trim(), payerEmail: String(values.get("payerEmail") ?? "") });
     if (ok) form.reset();
   }
 
   async function handleGift(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
-    const tripId = Number(new FormData(form).get("tripId"));
+    const tripId = String(new FormData(form).get("tripId") ?? "").trim();
     if (!window.confirm(t("tripPasses.giftConfirm", { id: tripId }))) return;
     if (await grant({ tripId })) form.reset();
   }
@@ -592,7 +595,7 @@ function TripPassesTab({ call }: { call: Call }) {
                   </p>
                   <form onSubmit={(event) => void handleAssign(event, pass.id)} className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)_auto] sm:items-end">
                     <Field id={`pass-trip-${pass.id}`} label={t("tripPasses.tripId")}>
-                      <Input id={`pass-trip-${pass.id}`} name="tripId" type="number" min={1} step={1} required />
+                      <Input id={`pass-trip-${pass.id}`} name="tripId" pattern={UUID_PATTERN} placeholder={t("tripPasses.tripIdPlaceholder")} spellCheck={false} required />
                     </Field>
                     <Field id={`pass-email-${pass.id}`} label={t("tripPasses.payerEmail")}>
                       <Input id={`pass-email-${pass.id}`} name="payerEmail" type="email" maxLength={254} required />
@@ -639,7 +642,7 @@ function TripPassesTab({ call }: { call: Call }) {
         </div>
         <form onSubmit={(event) => void handleGift(event)} className="flex flex-col gap-3">
           <Field id="pass-gift-trip" label={t("tripPasses.tripId")}>
-            <Input id="pass-gift-trip" name="tripId" type="number" min={1} step={1} required />
+            <Input id="pass-gift-trip" name="tripId" pattern={UUID_PATTERN} placeholder={t("tripPasses.tripIdPlaceholder")} spellCheck={false} required />
           </Field>
           <Button type="submit" className="gap-2">
             <Icon name="sparkles" className="size-4" />

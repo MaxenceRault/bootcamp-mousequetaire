@@ -61,7 +61,7 @@ export function PlannerHome({ archetypes }: { archetypes: readonly Archetype[] }
 
     setPending(true);
     setError(null);
-    const result = await apiFetch<{ id: number }>("/api/v1/trips", { method: "POST", body });
+    const result = await apiFetch<{ id: string }>("/api/v1/trips", { method: "POST", body });
     if ("data" in result) return router.push(`/planner/${result.data.id}`);
 
     setPending(false);
@@ -86,7 +86,7 @@ export function PlannerHome({ archetypes }: { archetypes: readonly Archetype[] }
             <FormError>{error && t(`errors.${error}`)}</FormError>
             {list.status === "ready" && list.aiQuota.limit !== null && (
               <p className="text-body-sm text-ink-soft">
-                {t("create.quota", { used: list.aiQuota.used, limit: list.aiQuota.limit })}
+                {t("create.quota", { count: Math.max(0, list.aiQuota.limit - list.aiQuota.used) })}
               </p>
             )}
             {pending && <ReasoningText phrases={t.raw("create.reasoning") as string[]} />}

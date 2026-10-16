@@ -39,7 +39,7 @@ const SHARE_ERRORS = ["INVALID_INPUT", "USER_NOT_FOUND", "ALREADY_MEMBER", "TRIP
 type ShareError = (typeof SHARE_ERRORS)[number];
 
 // Membres et invitations d'un voyage. Seul le propriétaire invite, change les rôles et retire des membres.
-export function TripSharePanel({ tripId }: { tripId: number }) {
+export function TripSharePanel({ tripId }: { tripId: string }) {
   const t = useTranslations("Planner.share");
   const format = useFormatter();
   const router = useRouter();

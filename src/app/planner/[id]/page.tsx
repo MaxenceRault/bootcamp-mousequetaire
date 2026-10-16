@@ -5,7 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { TripPlanner } from "@/components/TripPlanner";
-import { idParamSchema } from "@/schemas/trip.schema";
+import { tripIdParamSchema } from "@/schemas/trip.schema";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Planner");
@@ -31,7 +31,7 @@ export default function TripPage({ params }: PageProps<"/planner/[id]">) {
 
 // Voyage chargé côté client (token dans le navigateur) : ici, seul l'id est validé.
 async function TripContent({ params }: Pick<PageProps<"/planner/[id]">, "params">) {
-  const id = idParamSchema.safeParse((await params).id);
+  const id = tripIdParamSchema.safeParse((await params).id);
   if (!id.success) notFound();
 
   return <TripPlanner tripId={id.data} />;

@@ -22,7 +22,7 @@ import { TripExpenses } from "@/components/TripExpenses";
 import { useOnline } from "@/client/hooks/useOnline";
 import { TripSharePanel, type TripRole } from "@/components/TripSharePanel";
 import { buildTripCsv, downloadFile } from "@/client/tripExport";
-import { TRIP_PASS_CARD_ID, TripPassCard, type TripPass } from "@/components/TripPassCard";
+import { TripPassCard, TripPassDialog, type TripPass, type TripPassFeature } from "@/components/TripPassCard";
 import { exportFileName } from "@/lib/fileName";
 import { TripTableView } from "@/components/TripTableView";
 import { TRIP_PDF_TEMPLATES, type TripItemColor, type TripPdfTemplate } from "@/schemas/trip.schema";
@@ -32,7 +32,8 @@ const ITEM_CATEGORIES = ["transport", "lodging", "activity", "food"] as const;
 export type ItemCategory = (typeof ITEM_CATEGORIES)[number];
 
 export type Trip = {
-  id: number;
+  // Identifiant public (UUID).
+  id: string;
   title: string;
   destination_country_code: string;
   destination_city: string | null;
@@ -64,6 +65,9 @@ export type TripItem = {
 
 export type TripTask = { id: number; label: string; detail: string | null; done: boolean };
 
+// Bouton d'une fonction du pass sur un voyage sans pass : grisé, mais cliquable (ouvre la fenêtre du pass).
+const LOCKED_BUTTON = "text-ink-soft opacity-60 hover:opacity-90";
+
 export type TripDetail = {
   trip: Trip;
   items: TripItem[];
@@ -74,6 +78,8 @@ export type TripDetail = {
   chatLimit: number;
   // Pass voyage : lien Google Maps de chaque jour (AAAA-MM-JJ).
   mapsUrls: Record<string, string> | null;
+  // Requêtes IA du jour de l'utilisateur (limit null : illimité).
+  aiQuota: { used: number; limit: number | null };
 };
 
 type TripSuggestion = Omit<TripItem, "id" | "color"> & {
@@ -156,7 +162,7 @@ type Mutate = (path: string, method: string, body?: unknown) => Promise<boolean>
 
 type LoadState = { status: "loading" } | { status: "error"; error: PlannerError } | { status: "ready"; data: TripDetail };
 
-export function TripPlanner({ tripId }: { tripId: number }) {
+export function TripPlanner({ tripId }: { tripId: string }) {
   const t = useTranslations("Planner");
   const router = useRouter();
   const [state, setState] = useState<LoadState>({ status: "loading" });
@@ -164,6 +170,7 @@ export function TripPlanner({ tripId }: { tripId: number }) {
   const [regenerating, setRegenerating] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [view, setView] = useState<"plan" | "table" | "expenses">("plan");
+  const [passFeature, setPassFeature] = useState<TripPassFeature | null>(null);
   const online = useOnline();
   const basePath = `/api/v1/trips/${tripId}`;
 
@@ -185,10 +192,6 @@ export function TripPlanner({ tripId }: { tripId: number }) {
     return result.data.pass.active;
   }
 
-  function showPass() {
-    document.getElementById(TRIP_PASS_CARD_ID)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   const mutate: Mutate = async (path, method, body) => {
     setError(null);
     const result = await apiFetch<TripDetail>(`${basePath}${path}`, { method, body });
@@ -197,9 +200,19 @@ export function TripPlanner({ tripId }: { tripId: number }) {
       return true;
     }
     if (result.error === "UNAUTHORIZED") router.replace("/login");
-    setError(plannerError(result.error));
+    // Limite atteinte sur un voyage sans pass : on propose le pass plutôt qu'un simple message d'erreur.
+    const upsell = upsellFor(result.error);
+    if (upsell) setPassFeature(upsell);
+    else setError(plannerError(result.error));
     return false;
   };
+
+  function upsellFor(code: string): TripPassFeature | null {
+    if (state.status !== "ready" || state.data.pass.active) return null;
+    if (code === "DAILY_LIMIT_REACHED") return "ai";
+    if (code === "CHAT_LIMIT_REACHED") return "chat";
+    return null;
+  }
 
   async function regenerate() {
     if (!window.confirm(t("trip.regenerateConfirm"))) return;
@@ -228,7 +241,7 @@ export function TripPlanner({ tripId }: { tripId: number }) {
     );
   }
 
-  const { trip, items, tasks, role, pass, chatLimit, mapsUrls } = state.data;
+  const { trip, items, tasks, role, pass, chatLimit, mapsUrls, aiQuota } = state.data;
   // Lecteur : consultation seule (l'API refuse de toute façon les modifications).
   const canEdit = role !== "viewer";
 
@@ -241,7 +254,7 @@ export function TripPlanner({ tripId }: { tripId: number }) {
         passActive={pass.active}
         mutate={mutate}
         onError={setError}
-        onLocked={showPass}
+        onLocked={setPassFeature}
         regenerating={regenerating}
         sharing={sharing}
         onToggleSharing={() => setSharing((open) => !open)}
@@ -300,15 +313,28 @@ export function TripPlanner({ tripId }: { tripId: number }) {
             canEdit={canEdit}
             passActive={pass.active}
             mapsUrls={mapsUrls}
-            onLocked={showPass}
+            onLocked={setPassFeature}
           />
           <aside className="flex flex-col gap-6">
             {!pass.active && <TripPassCard tripId={tripId} pass={pass} role={role} onRefresh={reloadPass} />}
             <TaskChecklist tasks={tasks} mutate={mutate} canEdit={canEdit} />
             <BudgetCard trip={trip} mutate={mutate} canEdit={canEdit} />
-            <TripChat basePath={basePath} trip={trip} mutate={mutate} canEdit={canEdit} chatLimit={chatLimit} />
+            <TripChat
+              basePath={basePath}
+              trip={trip}
+              mutate={mutate}
+              canEdit={canEdit}
+              chatLimit={chatLimit}
+              aiQuota={aiQuota}
+              passActive={pass.active}
+              onUpsell={setPassFeature}
+            />
           </aside>
         </div>
+      )}
+
+      {!pass.active && (
+        <TripPassDialog feature={passFeature} onClose={() => setPassFeature(null)} tripId={tripId} pass={pass} role={role} onRefresh={reloadPass} />
       )}
     </div>
   );
@@ -334,7 +360,7 @@ function TripHeader({
   passActive: boolean;
   mutate: Mutate;
   onError: (error: PlannerError) => void;
-  onLocked: () => void;
+  onLocked: (feature: TripPassFeature) => void;
   regenerating: boolean;
   sharing: boolean;
   onToggleSharing: () => void;
@@ -345,6 +371,18 @@ function TripHeader({
   const format = useFormatter();
   const now = useNow({ updateInterval: 60_000 });
   const [editing, setEditing] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // ID à donner au support ou à un admin (pass voyage, problème de paiement…).
+  async function copyId() {
+    try {
+      await navigator.clipboard.writeText(trip.id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   function exportCsv() {
     const days = tripDays(trip.start_date, trip.end_date);
@@ -363,7 +401,7 @@ function TripHeader({
 
   // Pass voyage : fichier généré par le serveur, qui vérifie lui-même le pass.
   async function download(kind: "pdf" | "calendar", template?: TripPdfTemplate) {
-    if (!passActive) return onLocked();
+    if (!passActive) return onLocked(kind);
     setPdfMenu(false);
     setDownloading(kind);
     const query = template ? `?${new URLSearchParams({ template })}` : "";
@@ -437,11 +475,11 @@ function TripHeader({
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => (passActive ? setPdfMenu((open) => !open) : onLocked())}
+              onClick={() => (passActive ? setPdfMenu((open) => !open) : onLocked("pdf"))}
               disabled={downloading !== null}
               aria-expanded={passActive ? pdfMenu : undefined}
               title={passActive ? undefined : t("pass.locked", { feature: t("export.pdf") })}
-              className="gap-1.5"
+              className={`gap-1.5 ${passActive ? "" : LOCKED_BUTTON}`}
             >
               <Icon name={passActive ? "download" : "lock"} className="size-4" />
               {t("export.pdf")}
@@ -473,7 +511,7 @@ function TripHeader({
             onClick={() => void download("calendar")}
             disabled={downloading !== null}
             title={passActive ? undefined : t("pass.locked", { feature: t("export.calendar") })}
-            className="gap-1.5"
+            className={`gap-1.5 ${passActive ? "" : LOCKED_BUTTON}`}
           >
             <Icon name={passActive ? "calendar" : "lock"} className="size-4" />
             {t("export.calendar")}
@@ -519,6 +557,18 @@ function TripHeader({
         {role !== "owner" && <Chip icon="share">{t(`share.yourRole.${role}`)}</Chip>}
       </ul>
 
+      <p className="flex flex-wrap items-center gap-2 text-label-sm text-ink-soft">
+        {t("trip.idLabel")}
+        <code className="rounded bg-surface-muted px-1.5 py-0.5 font-mono text-ink select-all">{trip.id}</code>
+        <button
+          type="button"
+          onClick={() => void copyId()}
+          className="rounded-lg px-1.5 py-0.5 font-medium text-accent hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-accent/25 focus-visible:outline-none"
+        >
+          <span aria-live="polite">{copied ? t("trip.idCopied") : t("trip.copyId")}</span>
+        </button>
+      </p>
+
       {trip.season_note && (
         <div className="flex gap-3 rounded-lg bg-surface-muted p-4">
           <Icon name="calendar" className="mt-0.5 size-5 shrink-0 text-accent" />
@@ -556,7 +606,7 @@ function DayPlanner({
   canEdit: boolean;
   passActive: boolean;
   mapsUrls: Record<string, string> | null;
-  onLocked: () => void;
+  onLocked: (feature: TripPassFeature) => void;
 }) {
   const t = useTranslations("Planner");
   const format = useFormatter();
@@ -571,7 +621,7 @@ function DayPlanner({
   const mapsUrl = mapsUrls?.[day];
 
   async function regenerateDay() {
-    if (!passActive) return onLocked();
+    if (!passActive) return onLocked("day");
     if (!window.confirm(t("days.regenerateConfirm"))) return;
     setRegeneratingDay(true);
     await mutate(`/days/${day}/regenerate`, "POST");
@@ -629,7 +679,7 @@ function DayPlanner({
               onClick={() => void regenerateDay()}
               disabled={regeneratingDay}
               title={passActive ? undefined : t("pass.locked", { feature: t("days.regenerate") })}
-              className="gap-1.5"
+              className={`gap-1.5 ${passActive ? "" : LOCKED_BUTTON}`}
             >
               <Icon name={passActive ? "refresh" : "lock"} className="size-4" />
               {regeneratingDay ? t("days.regenerating") : t("days.regenerate")}
@@ -650,9 +700,9 @@ function DayPlanner({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={onLocked}
+                onClick={() => onLocked("maps")}
                 title={t("pass.locked", { feature: t("days.maps") })}
-                className="gap-1.5"
+                className={`gap-1.5 ${LOCKED_BUTTON}`}
               >
                 <Icon name="lock" className="size-4" />
                 {t("days.maps")}
@@ -982,12 +1032,18 @@ function TripChat({
   mutate,
   canEdit,
   chatLimit,
+  aiQuota,
+  passActive,
+  onUpsell,
 }: {
   basePath: string;
   trip: Trip;
   mutate: Mutate;
   canEdit: boolean;
   chatLimit: number;
+  aiQuota: TripDetail["aiQuota"];
+  passActive: boolean;
+  onUpsell: (feature: TripPassFeature) => void;
 }) {
   const t = useTranslations("Planner");
   const me = parseSessionUser(getSessionSnapshot());
@@ -999,6 +1055,10 @@ function TripChat({
   const scroller = useRef<HTMLDivElement>(null);
   const days = tripDays(trip.start_date, trip.end_date);
   const remaining = chatLimit - (messages ?? []).filter((message) => message.role === "user").length;
+  // Requêtes envoyées depuis le dernier chargement du voyage : remises à zéro quand le serveur renvoie un nouveau compteur.
+  const [counter, setCounter] = useState({ base: aiQuota.used, sent: 0 });
+  const used = aiQuota.used + (counter.base === aiQuota.used ? counter.sent : 0);
+  const quotaReached = aiQuota.limit !== null && used >= aiQuota.limit;
 
   const loadMessages = useCallback(
     () =>
@@ -1021,6 +1081,7 @@ function TripChat({
   async function send() {
     const content = draft.trim();
     if (content.length < 2 || sending) return;
+    if (quotaReached) return passActive ? undefined : onUpsell("ai");
 
     setSending(true);
     setError(null);
@@ -1033,9 +1094,15 @@ function TripChat({
     if ("data" in result) {
       setMessages(result.data.messages);
       setDraft("");
+      setCounter({ base: aiQuota.used, sent: used - aiQuota.used + 1 });
       return;
     }
     if (result.error === "UNAUTHORIZED") return router.replace("/login");
+    if (result.error === "DAILY_LIMIT_REACHED" && aiQuota.limit !== null) setCounter({ base: aiQuota.used, sent: aiQuota.limit - aiQuota.used });
+    // Sans pass : le pass est proposé à la place du message d'erreur.
+    if (!passActive && (result.error === "DAILY_LIMIT_REACHED" || result.error === "CHAT_LIMIT_REACHED")) {
+      return onUpsell(result.error === "DAILY_LIMIT_REACHED" ? "ai" : "chat");
+    }
     setError(plannerError(result.error));
   }
 
@@ -1071,6 +1138,16 @@ function TripChat({
           {t("chat.title")}
         </h2>
         <p className="text-body-sm text-ink-soft">{t("chat.hint")}</p>
+        {/* Combien de fois Biirbou peut encore aider aujourd'hui (rien pour un compte sans limite). */}
+        {canEdit && aiQuota.limit !== null && !quotaReached && (
+          <p aria-live="polite" className="mt-1 inline-flex items-center gap-1.5 self-start rounded-lg bg-surface-muted px-2.5 py-1 text-label-sm text-ink-soft">
+            <Icon name="sparkles" className="size-3.5 text-accent" />
+            {t.rich("chat.left", {
+              count: Math.max(0, aiQuota.limit - used),
+              strong: (chunks) => <strong className="font-semibold text-ink">{chunks}</strong>,
+            })}
+          </p>
+        )}
       </div>
 
       <div ref={scroller} className="flex max-h-[32rem] flex-col gap-3 overflow-y-auto" aria-live="polite">
@@ -1145,14 +1222,35 @@ function TripChat({
               required
               className="max-h-40"
             />
-            <Button type="submit" disabled={sending || messages === null} aria-label={t("chat.send")} className="shrink-0 px-3">
-              <Icon name="send" className="size-5" />
-            </Button>
+            {quotaReached && !passActive ? (
+              <Button onClick={() => onUpsell("ai")} className="shrink-0 gap-1.5">
+                <Icon name="sparkles" className="size-4.5" />
+                {t("chat.upgrade")}
+              </Button>
+            ) : (
+              <Button type="submit" disabled={sending || messages === null || quotaReached} aria-label={t("chat.send")} className="shrink-0 px-3">
+                <Icon name="send" className="size-5" />
+              </Button>
+            )}
           </div>
-          {remaining <= 10 && <p className="text-label-sm text-ink-soft">{t("chat.remaining", { count: remaining })}</p>}
+          {quotaReached ? (
+            <p className="text-label-sm text-ink-soft">
+              {t(passActive ? "chat.quotaReachedPass" : "chat.quotaReached")}
+            </p>
+          ) : (
+            remaining <= 10 && <p className="text-label-sm text-ink-soft">{t("chat.remaining", { count: remaining })}</p>
+          )}
         </form>
       ) : (
-        <p className="text-body-sm text-ink-soft">{t("errors.CHAT_LIMIT_REACHED")}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-body-sm text-ink-soft">{t("errors.CHAT_LIMIT_REACHED")}</p>
+          {!passActive && (
+            <Button size="sm" onClick={() => onUpsell("chat")} className="gap-1.5">
+              <Icon name="sparkles" className="size-4" />
+              {t("chat.upgrade")}
+            </Button>
+          )}
+        </div>
       )}
     </Card>
   );

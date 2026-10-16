@@ -24,7 +24,7 @@ import {
   updateTripItem,
   updateTripTask,
 } from "@/server/services/trip.service";
-import { TripAccessError } from "@/server/services/trip-access.service";
+import { resolveTripId, TripAccessError } from "@/server/services/trip-access.service";
 import { startTripPassCheckout, TripPassError } from "@/server/services/trip-pass.service";
 import {
   answerTripSuggestionSchema,
@@ -33,6 +33,7 @@ import {
   createTripTaskSchema,
   dayParamSchema,
   idParamSchema,
+  tripIdParamSchema,
   sendTripMessageSchema,
   tripPassCheckoutSchema,
   tripPdfQuerySchema,
@@ -235,9 +236,10 @@ async function withTrip(
 ) {
   return withUser(request, async (userId) => {
     const routeParams = await params;
-    const tripId = idParamSchema.safeParse(routeParams.id);
+    const tripId = tripIdParamSchema.safeParse(routeParams.id);
     if (!tripId.success) return errorResponse(400, "INVALID_INPUT");
-    return handler(userId, tripId.data, routeParams);
+    // UUID de l'URL → clé interne (404 si inconnu), utilisée ensuite par les services.
+    return handler(userId, await resolveTripId(tripId.data), routeParams);
   });
 }
 
