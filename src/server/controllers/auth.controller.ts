@@ -2,7 +2,14 @@ import "server-only";
 import { getConfig } from "@/server/config";
 import { clientIp, isRateLimited } from "@/server/rateLimit";
 import { AuthError, login, logout, refreshSession, register, type AuthResult } from "@/server/services/auth.service";
-import { loginSchema, refreshTokenSchema, registerSchema } from "@/schemas/auth.schema";
+import { PasswordResetError, requestPasswordReset, resetPassword } from "@/server/services/password-reset.service";
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  refreshTokenSchema,
+  registerSchema,
+  resetPasswordSchema,
+} from "@/schemas/auth.schema";
 import { logError } from "@/server/logger";
 
 const MAX_BODY_BYTES = 4 * 1024;
@@ -50,6 +57,59 @@ export async function registerController(request: Request) {
   try {
     return sessionResponse(await register(body.data.name, body.data.email, body.data.password), 201);
   } catch (error) {
+    return handleError(error);
+  }
+}
+
+// Durée minimale de réponse : un compte existant (envoi du mail) ne répond pas plus lentement qu'un email inconnu.
+const FORGOT_MIN_RESPONSE_MS = 2000;
+
+// POST /api/v1/auth/forgot-password { email } → 202, que le compte existe ou non.
+export async function forgotPasswordController(request: Request) {
+  const { max, windowMs } = getConfig().rateLimits.forgotPassword;
+  if (isRateLimited(`forgot:${clientIp(request)}`, max, windowMs)) return errorResponse(429, "TOO_MANY_REQUESTS");
+
+  const sizeError = checkBodySize(request);
+  if (sizeError) return sizeError;
+
+  const body = forgotPasswordSchema.safeParse(await readJson(request));
+  if (!body.success) return errorResponse(400, "INVALID_INPUT");
+
+  // Même réponse que la limite par IP : ne révèle pas si le compte existe.
+  const emailLimit = getConfig().rateLimits.forgotPasswordEmail;
+  if (isRateLimited(`forgot:email:${body.data.email}`, emailLimit.max, emailLimit.windowMs)) {
+    return errorResponse(429, "TOO_MANY_REQUESTS");
+  }
+
+  const startedAt = Date.now();
+  // Hors production seulement : en ligne, le lien est toujours construit avec APP_URL (jamais l'en-tête Host).
+  const devOrigin = process.env.NODE_ENV === "production" ? null : new URL(request.url).origin;
+  try {
+    await requestPasswordReset(body.data.email, devOrigin);
+  } catch (error) {
+    if (error instanceof PasswordResetError) return errorResponse(503, "MAIL_UNAVAILABLE");
+    return handleError(error);
+  }
+  await new Promise((resolve) => setTimeout(resolve, Math.max(0, FORGOT_MIN_RESPONSE_MS - (Date.now() - startedAt))));
+  return new Response(null, { status: 202 });
+}
+
+// POST /api/v1/auth/reset-password { token, password } → 204 ; toutes les sessions du compte sont révoquées.
+export async function resetPasswordController(request: Request) {
+  const { max, windowMs } = getConfig().rateLimits.resetPassword;
+  if (isRateLimited(`reset:${clientIp(request)}`, max, windowMs)) return errorResponse(429, "TOO_MANY_REQUESTS");
+
+  const sizeError = checkBodySize(request);
+  if (sizeError) return sizeError;
+
+  const body = resetPasswordSchema.safeParse(await readJson(request));
+  if (!body.success) return errorResponse(400, "INVALID_INPUT");
+
+  try {
+    await resetPassword(body.data.token, body.data.password);
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    if (error instanceof PasswordResetError) return errorResponse(400, "INVALID_RESET_TOKEN");
     return handleError(error);
   }
 }

@@ -12,10 +12,21 @@ export const loginSchema = z.strictObject({
   remember: z.boolean(),
 });
 
+// Nouveau mot de passe : inscription et réinitialisation.
+const newPassword = z.string().min(8).refine(fitsBcrypt);
+
 export const registerSchema = z.strictObject({
   name: z.string().trim().min(1).max(60),
   email,
-  password: z.string().min(8).refine(fitsBcrypt),
+  password: newPassword,
+});
+
+export const forgotPasswordSchema = z.strictObject({ email });
+
+// Code du lien : 32 octets aléatoires en base64url.
+export const resetPasswordSchema = z.strictObject({
+  token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  password: newPassword,
 });
 
 // Valeur du cookie httpOnly du refresh token (JWT).

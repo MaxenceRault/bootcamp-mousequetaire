@@ -218,7 +218,15 @@
       "subtitle": "Saisissez votre email : nous vous enverrons un lien pour réinitialiser votre mot de passe.",
       "submit": "Envoyer le lien",
       "switchPrompt": "Vous vous en souvenez ?",
-      "switchLink": "Retour à la connexion"
+      "switchLink": "Retour à la connexion",
+      "sending": "Envoi…",
+      "sent": "Si un compte existe avec cette adresse, un email vient de partir avec un lien pour choisir un nouveau mot de passe. Pensez à vérifier vos spams.",
+      "errors": {
+        "INVALID_INPUT": "Adresse email invalide.",
+        "TOO_MANY_REQUESTS": "Trop de demandes. Réessayez plus tard.",
+        "MAIL_UNAVAILABLE": "L'envoi d'emails est momentanément indisponible. Réessayez plus tard.",
+        "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+      }
     },
     "errors": {
       "INVALID_CREDENTIALS": "Identifiants invalides.",
@@ -228,6 +236,25 @@
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
       "PASSWORD_MISMATCH": "Les mots de passe ne correspondent pas.",
       "ACCOUNT_BANNED": "Ce compte a été suspendu par la modération."
+    },
+    "reset": {
+      "title": "Nouveau mot de passe",
+      "subtitle": "Choisissez un nouveau mot de passe pour votre compte.",
+      "newPassword": "Nouveau mot de passe",
+      "submit": "Enregistrer",
+      "saving": "Enregistrement…",
+      "success": "Mot de passe modifié. Vous avez été déconnecté de tous vos appareils : connectez-vous avec le nouveau mot de passe.",
+      "toLogin": "Se connecter",
+      "invalidLink": "Ce lien est incomplet. Ouvrez le lien reçu par email, ou demandez-en un nouveau.",
+      "newLink": "Demander un nouveau lien",
+      "switchPrompt": "Vous vous en souvenez ?",
+      "switchLink": "Retour à la connexion",
+      "errors": {
+        "INVALID_INPUT": "Le mot de passe doit faire au moins 8 caractères.",
+        "INVALID_RESET_TOKEN": "Ce lien a expiré ou a déjà servi. Demandez-en un nouveau.",
+        "TOO_MANY_REQUESTS": "Trop de tentatives. Réessayez dans quelques minutes.",
+        "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+      }
     }
   },
   "PostEditor": {
@@ -885,5 +912,9 @@
       "FORBIDDEN": "Votre compte ne peut pas ouvrir de ticket.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
     }
+  },
+  "PasswordResetEmail": {
+    "subject": "Brb : réinitialiser votre mot de passe",
+    "body": "Bonjour {name},\n\nVous avez demandé à changer le mot de passe de votre compte Brb. Ouvrez ce lien pour en choisir un nouveau (valable {minutes} minutes, une seule fois) :\n\n{link}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email : votre mot de passe ne change pas.\n\nL'équipe Brb"
   }
 }
