@@ -90,7 +90,7 @@ src/
 ├── i18n/
 │   └── request.ts             # Config next-intl (locale + chargement des messages)
 ├── components/
-│   ├── ui/                    # Design system : EmptyState, Button, IconButton, Input, Textarea, Autocomplete, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar, Logo, Badge
+│   ├── ui/                    # Design system : ReasoningText (l'IA travaille : phrases en cascade, avec motion), EmptyState, Button, IconButton, Input, Textarea, Autocomplete, PasswordInput, Label, Field, Checkbox, Card, Icon, Avatar, Logo, Badge
 │   ├── Navbar.tsx             # Barre du haut (version visiteur / connecté)
 │   ├── NavbarAccount.tsx      # Zone compte de la Navbar (client : lit la session du navigateur)
 │   ├── Footer.tsx
@@ -141,7 +141,7 @@ scripts/
 db/                            # Scripts SQL à exécuter dans Cloud SQL Studio
 Dockerfile                     # Images multi-étapes, utilisateur non-root : « dev » (compose.yaml) et production (Cloud Run, sortie standalone)
 compose.yaml                   # Dev conteneurisé : code monté, node_modules dans un volume, identifiants gcloud de la machine en lecture seule
-.github/workflows/ci.yml       # Intégration continue : PR vers main → lint → typecheck → npm audit → migrations, doc API, .env.example → build
+.github/workflows/ci.yml       # Intégration continue : PR vers main → lint → typecheck → npm audit → build
 .github/workflows/deploy.yml   # Déploiement continu : push sur main → lint → image Docker → Cloud Run
 ```
 
@@ -161,7 +161,7 @@ compose.yaml                   # Dev conteneurisé : code monté, node_modules d
 
 ## Déploiement (Cloud Run)
 
-- **CI sur chaque PR vers `main`** (`.github/workflows/ci.yml`, sans accès GCP) : le lint fait aussi respecter les règles du projet (couches, `getConfig()`, `z.strictObject`, textes dans `messages/fr.json`, console uniquement dans `logger.ts`) ; une migration existante ne se modifie jamais, une nouvelle commence par `set role brb_admin;` avec un horodatage unique ; toute route sous `/api/v1/` est dans `openapi.ts` ; toute variable de `config.ts` est dans `.env.example`. Actions GitHub épinglées par SHA.
+- **CI sur chaque PR vers `main`** (`.github/workflows/ci.yml`, sans accès GCP) : le lint fait aussi respecter les règles du projet (couches, `getConfig()`, `z.strictObject`, textes dans `messages/fr.json`, console uniquement dans `logger.ts`), puis typecheck, `npm audit` et build. Les règles des migrations (jamais modifiées, `set role brb_admin;`, horodatage unique), de `openapi.ts` et de `.env.example` ne sont plus vérifiées par la CI : à contrôler en revue de PR. Actions GitHub épinglées par SHA.
 - **Automatique** : chaque push sur `main` est déployé par GitHub Actions (`.github/workflows/deploy.yml`) sur https://brb-105103278561.europe-west9.run.app. Un `main` qui ne passe pas le lint ou le build n'est pas déployé (onglet *Actions* du repo pour suivre).
 - Authentification GitHub → GCP sans clé ni secret GitHub : Workload Identity Federation (pool `github`, provider `github-repo`, limité à la branche `main` de ce repo) → compte de service `brb-deploy` (droits de déploiement uniquement).
 - L'app tourne avec le compte de service `brb-run` (Cloud SQL en `brb_app`, Vertex AI, bucket des photos, lecture des secrets). Images dans Artifact Registry `europe-west9-docker.pkg.dev/biirb-511608/brb/web`.
@@ -236,6 +236,7 @@ Seuls les must-have sont exigés : ne pas implémenter les nice-to-have (OAuth/O
 - Ne jamais renvoyer au client plus de données que nécessaire (pas de hash, pas de champs internes).
 - Pas de `dangerouslySetInnerHTML` sur du contenu utilisateur.
 - Chat RAG : traiter la question utilisateur et le contenu des posts comme non fiables (injection de prompt), limiter la taille des entrées.
+- **Nom de l'IA dans l'interface : « Biirbou »** (Biirb + hibou, la mascotte ; nom propre masculin sans article : « Générer avec Biirbou », « Biirbou réfléchit… »). Jamais « l'IA » ni « Gemini » dans `messages/fr.json`.
 - IA (planificateur, chat) : Gemini via Vertex AI (`src/server/infra/ai.ts`), authentifié par IAM comme la base : aucune clé API (variables `GCP_PROJECT_ID`, `VERTEX_LOCATION`). Réponse du modèle = donnée non fiable, toujours revalidée par Zod. Tout appel à l'IA passe d'abord par `consumeAiCall` (`ai-quota.service.ts`) : **15 appels par jour et par utilisateur** (`AI_DAILY_LIMIT_PER_USER`, limites horaires `RATE_LIMIT_TRIP_AI_*` et `RATE_LIMIT_TRIP_CHAT_*` dans le .env ; admins illimités, compteur en base `ai_usage`, jour de Paris), plafond global et interrupteur réglables par l'admin (`app_settings`), compte banni refusé.
 - Planificateur : départ à n'importe quelle date future, durée de 1 mois maximum **à partir du départ choisi** (`TRIP_MAX_DAYS`). La génération tient compte de la saison (mois du voyage) : météo moyenne, risques (typhons, mousson…), affluence et prix, résumés dans `trip.season_note`.
 - **Modération** (`moderation.service.ts`, `server/moderationFilter.ts`) : **texte** (récits et commentaires) vérifié sans IA par une liste de mots bannis (injures, haine, sexuel explicite, appels à voter ; leet et séparateurs décodés) ; les avis négatifs et jurons d'exclamation restent autorisés. **Photo** d'un récit vérifiée par Gemini, réduite à 384 px (coût minimal). Refus → rien n'est enregistré ; l'auteur voit seulement « ne respecte pas les règles » (motif dans les logs serveur, pour ne pas dévoiler la liste). IA coupée ou en panne → récit publié masqué en attente de validation admin (`pending_review`, non réaffichable par l'auteur).
