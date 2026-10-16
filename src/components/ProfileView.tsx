@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { apiFetch, updateSessionUser } from "@/client/session";
+import { ProfileBadgePicker } from "@/components/ProfileBadgePicker";
 
 type Story = {
   id: number;
@@ -173,6 +174,8 @@ function Profile({
           </ProfileStat>
         </ProfileStats>
       </ProfileHeader>
+
+      <ProfileBadgePicker onChange={(badge) => applyUser({ ...user, badge })} />
 
       {saved && (
         <p role="status" className="-mt-6 text-body-md text-ink-soft">

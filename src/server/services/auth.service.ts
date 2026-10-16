@@ -42,8 +42,8 @@ export async function login(email: string, password: string, remember: boolean):
   // Après le mot de passe : seul le titulaire apprend le bannissement.
   if (user.banned_at) throw new AuthError("ACCOUNT_BANNED");
 
-  const { id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role } = user;
-  return createSession({ id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role }, remember);
+  const { id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role, badge } = user;
+  return createSession({ id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role, badge }, remember);
 }
 
 export async function register(name: string, email: string, password: string): Promise<AuthResult> {
@@ -83,14 +83,14 @@ export async function refreshSession(refreshToken: string): Promise<AuthResult> 
     throw new AuthError("INVALID_REFRESH_TOKEN");
   }
 
-  const { id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role } = profile;
+  const { id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role, badge } = profile;
   const expiresAt = new Date(stored.expires_at);
   const next = await issueRefreshToken(id, stored.family_id, expiresAt);
   return {
     token: await signToken(id),
     refreshToken: next,
     refreshExpiresAt: expiresAt,
-    user: { id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role },
+    user: { id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role, badge },
   };
 }
 

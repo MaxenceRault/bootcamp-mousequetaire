@@ -149,9 +149,10 @@ const SUMMARY_COLUMNS = [
 
 const prefixed = (alias: string, columns: string[]) => columns.map((column) => `${alias}.${column}`).join(", ");
 
+// role : badge affiché par l'auteur (choisi, sinon celui de son rôle) ; affichage seulement, jamais pour des droits.
 const AUTHOR_JSON = `json_build_object('id', u.id, 'username', u.username, 'display_name', u.display_name,
   'avatar_url', u.avatar_url, 'avatar_seed', u.avatar_seed,
-  'avatar_background_color', u.avatar_background_color, 'role', u.role)`;
+  'avatar_background_color', u.avatar_background_color, 'role', coalesce(u.displayed_badge, u.role))`;
 
 // visibleOnly : profil vu par un visiteur (sans les récits masqués ni ceux en attente de modération).
 export async function findPostsByAuthor(

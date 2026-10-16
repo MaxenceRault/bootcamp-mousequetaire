@@ -29,6 +29,8 @@ export type EditableProfile = {
   location: string | null;
   created_at: string;
   role: UserRole;
+  // Badge affiché (choisi dans « Mon badge »).
+  badge: UserRole;
   // Confidentialité du profil public (/profile/{pseudo}).
   is_private: boolean;
   show_saved: boolean;

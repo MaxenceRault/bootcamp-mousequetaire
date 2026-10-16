@@ -124,7 +124,15 @@
       "LENGTH_REQUIRED": "Envoi impossible. Réessayez.",
       "PENDING_REVIEW": "Ce récit est en attente de vérification par la modération."
     },
-    "itinerariesError": "Impossible de charger vos itinéraires. Réessayez plus tard."
+    "itinerariesError": "Impossible de charger vos itinéraires. Réessayez plus tard.",
+    "badges": {
+      "title": "Mon badge",
+      "hint": "Choisissez le badge affiché à côté de votre nom : sur votre profil, vos récits et vos commentaires. Publiez des récits ou aimez ceux des autres pour en débloquer.",
+      "progressPosts": "{count}/{total} récits publiés",
+      "progressLikes": "{count}/{total} récits aimés",
+      "locked": "Pas encore débloqué",
+      "error": "Impossible de changer de badge. Réessayez."
+    }
   },
   "PublicProfile": {
     "metaTitle": "{name} (@{username})",

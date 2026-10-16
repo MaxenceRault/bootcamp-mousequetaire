@@ -10,18 +10,21 @@ import {
 import {
   deleteAvatar,
   findAvatarUrl,
+  findBadgeState,
   findProfileById,
   findProfileByUsername,
   setAvatarUrl,
+  updateDisplayedBadge,
   updateProfile,
   uploadAvatar,
   UsernameTakenError,
   type ProfileUser,
 } from "@/server/repositories/user.repository";
 import type { UpdateProfileInput } from "@/schemas/user.schema";
+import { BADGE_THRESHOLDS, USER_ROLES, type UserRole } from "@/lib/roles";
 
 export class ProfileError extends Error {
-  constructor(public readonly code: "NOT_FOUND" | "USERNAME_TAKEN" | "INVALID_INPUT") {
+  constructor(public readonly code: "NOT_FOUND" | "USERNAME_TAKEN" | "INVALID_INPUT" | "BADGE_LOCKED") {
     super(code);
   }
 }
@@ -74,8 +77,9 @@ export async function getPublicProfile(username: string): Promise<PublicProfile>
   const profile = await findProfileByUsername(username);
   if (!profile) throw new ProfileError("NOT_FOUND");
 
-  const { id, display_name, avatar_url, avatar_seed, avatar_background_color, role } = profile;
-  const identity: PublicIdentity = { id, username: profile.username, display_name, avatar_url, avatar_seed, avatar_background_color, role };
+  const { id, display_name, avatar_url, avatar_seed, avatar_background_color, badge } = profile;
+  // role : le badge affiché, jamais le vrai rôle (un visiteur n'a pas à savoir qui est admin).
+  const identity: PublicIdentity = { id, username: profile.username, display_name, avatar_url, avatar_seed, avatar_background_color, role: badge };
   if (profile.is_private) return { isPrivate: true, user: identity };
 
   const [{ posts, total }, saved] = await Promise.all([
@@ -134,4 +138,43 @@ export async function setMyAvatar(userId: string, image: File | null): Promise<P
 
   if (previous && previous !== url) await deleteAvatar(userId, previous).catch(() => {});
   return user;
+}
+
+export type MyBadges = {
+  // Dans l'ordre d'affichage ; unlocked : choisissable.
+  badges: { badge: UserRole; unlocked: boolean }[];
+  displayed: UserRole;
+  progress: { posts: number; likes: number };
+  thresholds: typeof BADGE_THRESHOLDS;
+};
+
+// Débloqués : voyageur toujours ; globe-trotteur / rêveur par les seuils ou attribués par un admin ; mécène et admin par le rôle.
+function unlockedBadges(state: { role: UserRole; post_count: number; like_count: number }): Set<UserRole> {
+  const unlocked = new Set<UserRole>(["traveler", state.role]);
+  if (state.post_count >= BADGE_THRESHOLDS.globetrotter) unlocked.add("globetrotter");
+  if (state.like_count >= BADGE_THRESHOLDS.dreamer) unlocked.add("dreamer");
+  return unlocked;
+}
+
+export async function getMyBadges(userId: string): Promise<MyBadges> {
+  const state = await findBadgeState(userId);
+  if (!state) throw new ProfileError("NOT_FOUND");
+  const unlocked = unlockedBadges(state);
+  // Admin et mécène ne s'affichent dans la liste que pour qui les a (rien à « débloquer » pour les autres).
+  const listed = USER_ROLES.filter((badge) => (badge === "admin" || badge === "patron" ? unlocked.has(badge) : true));
+  return {
+    badges: listed.map((badge) => ({ badge, unlocked: unlocked.has(badge) })),
+    displayed: state.displayed_badge && unlocked.has(state.displayed_badge) ? state.displayed_badge : state.role,
+    progress: { posts: state.post_count, likes: state.like_count },
+    thresholds: BADGE_THRESHOLDS,
+  };
+}
+
+// null : badge du rôle. Un badge non débloqué est refusé (vérifié ici, jamais seulement dans l'interface).
+export async function setMyBadge(userId: string, badge: UserRole | null): Promise<MyBadges> {
+  const state = await findBadgeState(userId);
+  if (!state) throw new ProfileError("NOT_FOUND");
+  if (badge !== null && !unlockedBadges(state).has(badge)) throw new ProfileError("BADGE_LOCKED");
+  await updateDisplayedBadge(userId, badge === state.role ? null : badge);
+  return getMyBadges(userId);
 }

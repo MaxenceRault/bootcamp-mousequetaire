@@ -14,6 +14,8 @@ export type ProfileHeaderUser = {
   avatar_seed: string | null;
   avatar_background_color: string | null;
   role: UserRole;
+  // Badge choisi par l'utilisateur (profil du compte connecté) ; sinon role (déjà le badge affiché pour un visiteur).
+  badge?: UserRole;
   // Absent (undefined) : non partagé (profil privé) → la ville n'est pas affichée.
   location?: string | null;
 };
@@ -39,7 +41,7 @@ export function ProfileHeader({ user, action, children }: { user: ProfileHeaderU
           <div className="pb-1">
             <h1 className="flex flex-wrap items-center gap-2 font-display text-headline-md text-ink">
               {user.display_name}
-              <RoleBadge role={user.role} showDefault />
+              <RoleBadge role={user.badge ?? user.role} showDefault />
             </h1>
             <p className="mt-0.5 flex flex-wrap items-center gap-2 text-body-sm text-ink-soft/70">
               <span className="font-medium text-ink-soft">@{user.username}</span>
