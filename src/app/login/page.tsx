@@ -5,10 +5,11 @@ import { getTranslations } from "next-intl/server";
 import { ForgotPasswordForm } from "@/components/ForgotPasswordForm";
 import { LoginForm } from "@/components/LoginForm";
 import { RegisterForm } from "@/components/RegisterForm";
+import { ResetPasswordForm } from "@/components/ResetPasswordForm";
 import { Card } from "@/components/ui/Card";
 
 // Toute autre valeur de ?view= retombe sur la connexion.
-const VIEWS = ["login", "register", "forgot"] as const;
+const VIEWS = ["login", "register", "forgot", "reset"] as const;
 type AuthView = (typeof VIEWS)[number];
 
 function parseView(value: string | string[] | undefined): AuthView {
@@ -19,12 +20,15 @@ const SWITCH_HREF: Record<AuthView, string> = {
   login: "/login?view=register",
   register: "/login",
   forgot: "/login",
+  reset: "/login",
 };
 
 const FORMS: Record<AuthView, ComponentType> = {
   login: LoginForm,
   register: RegisterForm,
   forgot: ForgotPasswordForm,
+  // Lien reçu par email : /login?view=reset#token=…
+  reset: ResetPasswordForm,
 };
 
 export async function generateMetadata(): Promise<Metadata> {
