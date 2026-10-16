@@ -336,10 +336,10 @@ export function buildOpenApiDocument() {
   return {
     openapi: "3.0.3",
     info: {
-      title: "Brb API",
+      title: "Biirb API",
       version: "1.0.0",
       description:
-        "API de Brb (BeRightBack). Pour les routes protégées : se connecter via /auth/login, " +
+        "API de Biirb. Pour les routes protégées : se connecter via /auth/login, " +
         "copier le token, puis cliquer sur « Authorize ».",
     },
     servers: [{ url: "/api/v1" }],

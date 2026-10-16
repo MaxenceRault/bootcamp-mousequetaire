@@ -1,6 +1,6 @@
 # TripPlanner IA
 
-Projet fil rouge : blog et planificateur de voyage basé sur les posts et avis des voyageurs. Nom de l'app : **Brb** (BeRightBack). Next.js (App Router) + TypeScript strict + Tailwind CSS v4, gestionnaire de paquets **npm**.
+Projet fil rouge : blog et planificateur de voyage basé sur les posts et avis des voyageurs. Nom de l'app : **Biirb**. Next.js (App Router) + TypeScript strict + Tailwind CSS v4, gestionnaire de paquets **npm**.
 
 ## Commandes
 
@@ -98,6 +98,7 @@ src/
 │   ├── TripContextBar.tsx     # Barre destination · dates · type de récit (éditeur de récit + planificateur)
 │   ├── HomeHero.tsx           # Bannière de l'accueil : couvertures de récits en fondu + slogan
 │   ├── HomeSidebar.tsx        # Colonnes latérales de l'accueil (grand écran) : types de récit, destinations tendance, invitation au planificateur
+│   ├── FeedFilterLink.tsx     # Lien de filtre du feed (type de récit, client) : ne remonte pas en haut de la page, revient au début du feed s'il est hors écran
 │   ├── BackToTop.tsx          # Bouton « Revenir en haut » de l'accueil (desktop, client : apparaît après défilement)
 │   ├── HomeShortcuts.tsx      # Raccourcis de la colonne de gauche : nouveau récit, planifier (client, connectés uniquement)
 │   ├── NavbarLinks.tsx        # Liens principaux (page active), en ligne ou dans le menu mobile
