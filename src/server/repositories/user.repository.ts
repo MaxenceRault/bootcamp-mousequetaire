@@ -156,6 +156,21 @@ export async function findUserAccess(id: string): Promise<UserAccess | null> {
   return rows[0] ?? null;
 }
 
+// Destinataires des alertes internes (ex. demande de pass voyage) : jamais renvoyé au client.
+export async function findActiveAdminEmails(): Promise<string[]> {
+  const db = await getDb();
+  const { rows } = await db.query<{ email: string }>(
+    "select email from users where role = 'admin' and banned_at is null and email is not null",
+  );
+  return rows.map((row) => row.email);
+}
+
+export async function findUsername(id: string): Promise<string | null> {
+  const db = await getDb();
+  const { rows } = await db.query<{ username: string }>("select username from users where id = $1", [id]);
+  return rows[0]?.username ?? null;
+}
+
 // Jamais d'email ni de hash : inutiles pour modérer.
 export type AdminUserRow = PublicUser & { banned_at: string | null; created_at: string; post_count: number };
 

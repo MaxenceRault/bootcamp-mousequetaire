@@ -1012,7 +1012,9 @@ export function buildOpenApiDocument() {
         post: {
           tags: ["Support"],
           summary: "Ouvrir un ticket",
-          description: "État initial « open ». L'avancement (open → in_progress → resolved) est changé par un admin.",
+          description:
+            "État initial « open ». L'avancement (open → in_progress → resolved) est changé par un admin. category : trip_pass, bug, report, " +
+            "account ou other ; trip_pass prévient tous les admins par email (texte fixe : numéro du ticket et pseudo, jamais le message).",
           security: [{ bearerAuth: [] }],
           requestBody: requestBody(createTicketSchema),
           responses: {

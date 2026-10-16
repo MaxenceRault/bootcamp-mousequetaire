@@ -1,12 +1,13 @@
 import "server-only";
 import { getDb } from "@/server/infra/db";
-import type { TicketStatus } from "@/schemas/ticket.schema";
+import type { TicketCategory, TicketStatus } from "@/schemas/ticket.schema";
 
 export type TicketRow = {
   id: number;
   subject: string;
   message: string;
   status: TicketStatus;
+  category: TicketCategory;
   created_at: string;
   updated_at: string;
 };
@@ -14,13 +15,13 @@ export type TicketRow = {
 // Jamais d'email : le pseudo suffit à retrouver le compte depuis l'admin.
 export type AdminTicketRow = TicketRow & { author: { id: string; username: string; display_name: string } };
 
-const COLUMNS = "t.id, t.subject, t.message, t.status, t.created_at, t.updated_at";
+const COLUMNS = "t.id, t.subject, t.message, t.status, t.category, t.created_at, t.updated_at";
 
-export async function insertTicket(userId: string, subject: string, message: string): Promise<TicketRow> {
+export async function insertTicket(userId: string, subject: string, message: string, category: TicketCategory): Promise<TicketRow> {
   const db = await getDb();
   const { rows } = await db.query<TicketRow>(
-    `insert into support_ticket as t (user_id, subject, message) values ($1, $2, $3) returning ${COLUMNS}`,
-    [userId, subject, message],
+    `insert into support_ticket as t (user_id, subject, message, category) values ($1, $2, $3, $4) returning ${COLUMNS}`,
+    [userId, subject, message, category],
   );
   return rows[0];
 }

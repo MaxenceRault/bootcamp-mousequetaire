@@ -507,22 +507,26 @@
         "day": "Re-générer un seul jour sans toucher au reste du planning",
         "exports": "Export PDF, calendrier (.ics) et itinéraire Google Maps de chaque jour"
       },
-      "buy": "Débloquer pour {price}",
       "opening": "Ouverture du paiement…",
-      "email": "Payez avec l'adresse de votre compte Brb : {email}. C'est elle qui relie le paiement à ce voyage.",
-      "emailUnknown": "Payez avec l'adresse de votre compte Brb : c'est elle qui relie le paiement à ce voyage.",
-      "openPayment": "Ouvrir la page de paiement",
       "refresh": "J'ai payé : actualiser",
       "notYet": "Pas encore actif : le paiement peut prendre quelques minutes. Réessayez un peu plus tard.",
       "ownerOnly": "Seul le propriétaire du voyage peut acheter le pass. Il profite ensuite à tous les membres.",
       "unavailable": "Le pass voyage sera bientôt disponible.",
       "active": "Pass voyage",
       "locked": "{feature} : inclus dans le pass voyage",
-      "confirmEmail": "Je paierai avec cette adresse",
-      "otherEmail": "Une autre adresse ? Le pass ne s'activera pas tout seul : contactez le support avec l'ID de ce voyage ({id}) et l'adresse utilisée pour payer.",
+      "otherEmail": "Vous utilisez une adresse mail différente ? Le pass ne s'activera pas tout seul : contactez le support avec l'ID de ce voyage ({id}) et l'adresse utilisée pour payer, le support se chargera d'activer le pass au plus vite.",
       "support": "Contacter le support",
       "acceptSales": "J'accepte les <sales>conditions générales de vente</sales> du pass voyage.",
-      "waiveWithdrawal": "Je demande l'activation immédiate du pass après le paiement et je reconnais perdre mon droit de rétractation de 14 jours dès son activation."
+      "waiveWithdrawal": "Je demande l'activation immédiate du pass après le paiement et je reconnais perdre mon droit de rétractation de 14 jours dès son activation.",
+      "teaser": "Biirbou vous aide plus souvent, exports PDF et calendrier, itinéraires Maps… pour tous les membres de ce voyage.",
+      "discover": "Découvrir le pass voyage",
+      "discoverPrice": "Découvrir le pass voyage · {price}",
+      "emailNotice": "Au paiement, utilisez l'adresse email de votre compte Biirb : c'est elle qui active le pass sur ce voyage.",
+      "pay": "Payer {price} sur Buy Me a Coffee",
+      "paying": "La page de paiement s'est ouverte dans un nouvel onglet. Payez avec {email} : le pass s'active quelques instants après.",
+      "payingUnknown": "La page de paiement s'est ouverte dans un nouvel onglet. Payez avec l'adresse de votre compte Biirb : le pass s'active quelques instants après.",
+      "reopenPayment": "Rouvrir la page de paiement",
+      "soon": "Bientôt disponible"
     },
     "export": {
       "csv": "CSV",
@@ -962,6 +966,13 @@
         "open": "Ouverts",
         "in_progress": "En cours",
         "resolved": "Résolus"
+      },
+      "categories": {
+        "trip_pass": "Pass voyage",
+        "bug": "Bug",
+        "report": "Signalement",
+        "account": "Compte",
+        "other": "Autre"
       }
     },
     "tripPasses": {
@@ -1073,7 +1084,19 @@
       "TOO_MANY_REQUESTS": "Trop de tickets d'affilée. Réessayez dans une heure.",
       "FORBIDDEN": "Votre compte ne peut pas ouvrir de ticket.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
-    }
+    },
+    "category": "Sujet de la demande",
+    "categories": {
+      "trip_pass": "Pass voyage (paiement, activation)",
+      "bug": "Bug ou problème technique",
+      "report": "Signalement (contenu, utilisateur)",
+      "account": "Compte et connexion",
+      "other": "Autre"
+    },
+    "passPrefillSubject": "Activation de mon pass voyage",
+    "passPrefillMessage": "ID du voyage : {id}\nEmail utilisé pour le paiement : \n\n",
+    "passHint": "Indiquez l'adresse email utilisée pour payer : l'équipe vérifie le paiement puis active le pass au plus vite.",
+    "categoryPlaceholder": "Choisissez une catégorie…"
   },
   "Legal": {
     "nav": "Documents légaux",
@@ -1350,5 +1373,10 @@
   "PasswordResetEmail": {
     "subject": "Biirb : réinitialiser votre mot de passe",
     "body": "Bonjour {name},\n\nVous avez demandé à changer le mot de passe de votre compte Biirb. Ouvrez ce lien pour en choisir un nouveau (valable {minutes} minutes, une seule fois) :\n\n{link}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email : votre mot de passe ne change pas.\n\nL'équipe Biirb"
+  },
+  "TripPassRequestEmail": {
+    "subject": "Biirb : demande de pass voyage à traiter (ticket #{id})",
+    "body": "Bonjour,\n\n@{username} a ouvert le ticket #{id} au sujet du pass voyage (paiement ou activation).\n\nÀ faire au plus vite :\n1. Lire le ticket : Administration → Tickets.\n2. Rattacher l'achat ou activer le pass : Administration → Pass voyage.\n\n{adminUrl}\n\nCet email est envoyé à tous les administrateurs de Biirb.",
+    "adminPath": "Administration (/admin)"
   }
 }

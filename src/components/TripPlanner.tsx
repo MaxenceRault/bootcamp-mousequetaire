@@ -316,7 +316,7 @@ export function TripPlanner({ tripId }: { tripId: string }) {
             onLocked={setPassFeature}
           />
           <aside className="flex flex-col gap-6">
-            {!pass.active && <TripPassCard tripId={tripId} pass={pass} role={role} onRefresh={reloadPass} />}
+            {!pass.active && <TripPassCard pass={pass} onOpen={() => setPassFeature("info")} />}
             <TaskChecklist tasks={tasks} mutate={mutate} canEdit={canEdit} />
             <BudgetCard trip={trip} mutate={mutate} canEdit={canEdit} />
             <TripChat
