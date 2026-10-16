@@ -14,13 +14,16 @@ import {
   editArchetype,
   getDashboard,
   getSettings,
+  grantTripPass,
   listActions,
   listArchetypes,
   listBannedWords,
   listOpenReports,
   listPosts,
+  listTripPasses,
   listUsers,
   removeBannedWord,
+  removeTripPass,
   requireAdmin,
   listTickets,
   setPostHidden,
@@ -31,6 +34,7 @@ import {
 import {
   adminCloseReportsSchema,
   adminCreateBannedWordSchema,
+  adminGrantTripPassSchema,
   adminPostsQuerySchema,
   adminUpdatePostSchema,
   adminUpdateSettingsSchema,
@@ -138,6 +142,31 @@ export function updateTicketController(request: Request, { params }: Context) {
     const body = await parseBody(request, adminUpdateTicketSchema);
     if (!id.success || !body) return errorResponse(400, "INVALID_INPUT");
     await setTicketStatus(adminId, id.data, body.status);
+    return new Response(null, { status: 204 });
+  });
+}
+
+// GET /api/v1/admin/trip-passes
+export function listTripPassesController(request: Request) {
+  return withAdmin(request, async () => json(await listTripPasses()));
+}
+
+// POST /api/v1/admin/trip-passes { tripId, passId?, payerEmail? }
+export function grantTripPassController(request: Request) {
+  return withAdmin(request, async (adminId) => {
+    const body = await parseBody(request, adminGrantTripPassSchema);
+    if (!body) return errorResponse(400, "INVALID_INPUT");
+    await grantTripPass(adminId, body);
+    return new Response(null, { status: 204 });
+  });
+}
+
+// DELETE /api/v1/admin/trip-passes/[id]
+export function revokeTripPassController(request: Request, { params }: Context) {
+  return withAdmin(request, async (adminId) => {
+    const id = postIdSchema.safeParse((await params).id);
+    if (!id.success) return errorResponse(400, "INVALID_INPUT");
+    await removeTripPass(adminId, id.data);
     return new Response(null, { status: 204 });
   });
 }
@@ -253,6 +282,9 @@ const ADMIN_ERROR_STATUS: Record<AdminError["code"], number> = {
   TARGET_IS_ADMIN: 409,
   ARCHETYPE_TAKEN: 409,
   BANNED_WORD_TAKEN: 409,
+  TRIP_NOT_FOUND: 404,
+  PASS_ALREADY_ACTIVE: 409,
+  EMAIL_MISMATCH: 409,
 };
 
 function handleError(error: unknown) {

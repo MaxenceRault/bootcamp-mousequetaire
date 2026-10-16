@@ -25,6 +25,7 @@ src/
 │   ├── layout.tsx             # Layout global (Navbar + Footer + Fonts) + fond de toutes les pages : courbes de niveau (public/topo.svg)
 │   ├── page.tsx               # Homepage : feed, ou résultats de recherche si /?q= (lieux, puis titres, puis textes)
 │   ├── post/[slug]/page.tsx   # Détail d'un récit : /post/<slug> (ancien lien /post/<id> → redirection 308)
+│   ├── legal/[page]/page.tsx  # CGU, CGV, mentions légales, confidentialité (textes dans messages/fr.json → Legal)
 │   ├── patron/page.tsx        # Devenir mécène : don sur Buy Me a Coffee (rôle donné au compte de même email)
 │   ├── support/page.tsx       # Support : ouvrir un ticket et suivre son état (connecté)
 │   ├── tags/page.tsx          # Récits d'un lieu : /tags?country=FR[&state=IDF&city=Montesson] (destination ou tag)
@@ -33,7 +34,6 @@ src/
 │   ├── profile/[username]/page.tsx # Profil public d'un autre utilisateur (lien depuis l'auteur dans le fil) : récits, enregistrés si partagés, ou « profil privé »
 │   ├── admin/page.tsx         # Administration (rôle admin) : modération, rôles, types de récit, réglages IA, journal
 │   ├── planner/page.tsx       # Planificateur : mes voyages + génération par l'IA
-│   ├── planner/[id]/print/page.tsx # Planning imprimable (export PDF via l'impression du navigateur)
 │   ├── planner/[id]/page.tsx  # Voyage : onglets Planning (jours, activités, checklist, budget, discussion IA) et Dépenses (Tricount)
 │   ├── planner/join/page.tsx  # Rejoindre un voyage par lien d'invitation : /planner/join#<code> (code jamais envoyé dans l'URL)
 │   ├── manifest.ts            # Manifest PWA (installation, icônes dans public/icons/)
@@ -56,9 +56,10 @@ src/
 │       ├── users/me/avatar/route.ts    # PUT (multipart « image ») / DELETE : photo de profil (Bearer) → user.controller
 │       ├── users/me/patron/route.ts    # GET : état du rôle mécène + lien Buy Me a Coffee (Bearer) → patron.controller
 │       ├── payments/buymeacoffee/route.ts # POST : webhook Buy Me a Coffee (signature HMAC vérifiée) → rôle mécène → patron.controller
+│       ├── admin/trip-passes/…    # Admin : achats à rattacher, pass actifs, rattacher (email vérifié) / offrir / retirer → admin.controller
 │       ├── tickets/route.ts       # GET : mes tickets / POST : ouvrir un ticket (Bearer) → ticket.controller ; admin/tickets : liste + changement d'état → admin.controller
 │       ├── openapi.json/route.ts # GET /api/v1/openapi.json : spécification OpenAPI (dev uniquement)
-│       ├── trips/…            # Voyages : CRUD + regenerate (IA) + messages / suggestions (discussion IA) → trip.controller
+│       ├── trips/…            # Voyages : CRUD + regenerate (IA) + messages / suggestions (discussion IA) → trip.controller ; pass voyage : pass (commande), days/[day]/regenerate, export/pdf, export/calendar
 │       └── chat/route.ts      # API RAG : recherche vectorielle + appel Gemini
 ├── schemas/                   # DTO : schémas Zod stricts (`z.strictObject`) + types inférés (auth.schema.ts, user.schema.ts, post.schema.ts) — partagés
 ├── server/                    # SERVEUR UNIQUEMENT (secrets, base) : jamais importé par un composant ni par src/client (règle ESLint)
@@ -71,6 +72,8 @@ src/
 │   ├── rateLimit.ts           # Rate limit en mémoire + IP du client (clientIp)
 │   ├── logger.ts              # Logs structurés pour Cloud Logging / Error Reporting (logError, logInfo)
 │   ├── openapi.ts             # Spécification OpenAPI de l'API (corps de requête générés depuis schemas/)
+│   ├── tripPdf.ts             # PDF du planning (pdf-lib, polices standard), 3 modèles : classic, table (A4 paysage), booklet (A5, un jour par page) : pass voyage
+│   ├── tripCalendar.ts        # Calendrier .ics du planning (RFC 5545, texte échappé) : pass voyage
 │   ├── images.ts              # Type réel d'une image (octets de signature) : photos de récits et images de profil
 │   └── moderationFilter.ts    # Filtre des mots bannis (modération du texte)
 ├── client/                    # NAVIGATEUR : jamais importé par src/server ni src/lib (règle ESLint)
@@ -81,7 +84,9 @@ src/
 ├── lib/                       # PARTAGÉ (serveur et navigateur) : ni secret ni API du navigateur ; n'importe ni src/server ni src/client
 │   ├── posts.ts               # Types du feed (FeedPost, FeedPage) et type de récit (Archetype : slug + libellé)
 │   ├── roles.ts               # Rôles des utilisateurs (USER_ROLES) : traveler, globetrotter, dreamer, patron (badges) et admin
-│   └── country.ts             # Drapeau emoji et nom du pays à partir du code pays
+│   ├── country.ts             # Drapeau emoji et nom du pays à partir du code pays
+│   ├── fileName.ts            # Nom de fichier ASCII d'un export (CSV, PDF, .ics)
+│   └── legal.ts               # Versions des CGU / CGV (preuve des consentements), liste des pages légales
 ├── proxy.ts                   # Middleware Next 16 : redirige (308) les anciens liens /post/{id} vers /post/{slug} ; refuse sans token valide les routes API privées (/api/v1/users/*, /api/v1/posts/* sauf GET /api/v1/posts et GET /api/v1/users/{pseudo}, /api/v1/trips/*)
 ├── types/
 │   └── swagger-ui-dist.d.ts   # Types du bundle navigateur de Swagger UI
@@ -102,7 +107,8 @@ src/
 │   ├── HomeShortcuts.tsx      # Raccourcis de la colonne de gauche : nouveau récit, planifier (client, connectés uniquement)
 │   ├── NavbarLinks.tsx        # Liens principaux (page active), en ligne ou dans le menu mobile
 │   ├── NavbarMobileMenu.tsx   # Menu burger (< md) : recherche + liens
-│   ├── TripPrint.tsx          # Document imprimable du planning (export PDF)
+│   ├── TripTableView.tsx      # Vue Tableau d'un voyage (jours × heures) : lecture seule, sauf la couleur des cases (éditeurs)
+│   ├── TripPassCard.tsx       # Offre du pass voyage d'un voyage (avantages, achat sur Buy Me a Coffee par le propriétaire)
 │   ├── PlannerHome.tsx        # Liste des voyages + formulaire de génération (client)
 │   ├── AdminView.tsx          # Page d'administration (client, onglets) → /api/v1/admin/*
 │   ├── ReportButton.tsx       # « Signaler » un récit (page détail)
@@ -240,7 +246,9 @@ Seuls les must-have sont exigés : ne pas implémenter les nice-to-have (OAuth/O
 - **Commentaires** (`post_comment`) : lecture publique (exception GET dans `proxy.ts`), écriture réservée aux connectés non bannis, filtrés par la liste de mots bannis. Fils à un seul niveau (`parent_id` : on répond à un commentaire principal, pas à une réponse). Suppression par l'auteur ou un admin (journal).
 - **Administration** : seul le rôle `admin` donne des droits ; les autres rôles sont des badges. Le rôle est **relu en base à chaque requête** (`requireAdmin`), jamais lu dans le JWT ni dans la session du navigateur (le lien « Administration » de la Navbar n'est qu'un affichage). Un admin ne peut ni se rétrograder, ni se bannir, ni se supprimer, ni bannir / supprimer un autre admin sans l'avoir rétrogradé. Toute action admin modifiante est inscrite au journal `admin_action`. La liste des utilisateurs de l'admin n'expose jamais d'email ni de hash.
 - **Bannissement** : connexion refusée (`ACCOUNT_BANNED`, révélé seulement après un mot de passe correct), refresh refusé, sessions révoquées ; l'access token en cours reste valide au plus 1 h, mais l'IA, les signalements et l'admin relisent le compte en base.
-- Discussion IA d'un voyage (`/trips/[id]/messages`) : enthousiaste pour toute envie liée au voyage (l'IA cherche où et quand la caser), impassible sur le reste. Trois barrières contre l'injection (`trip.service.ts`) : 1) filtre d'entrée déterministe (`ATTACK_PATTERNS` : « ignore tes instructions », jailbreak, balises / champs du prompt…) → refus sans appeler l'IA ; 2) consignes du modèle (contenu utilisateur = données, règles confidentielles, illégal refusé) ; 3) filtre de sortie (`INSTRUCTION_MARKERS`) → une réponse qui laisse fuiter les consignes est bloquée. Tout changement du prompt se vérifie avec une batterie d'attaques (injection directe, via un récit, jailbreak, fuite, données d'autres utilisateurs). Hors sujet non renvoyé dans l'historique, message ≤ 500 caractères, historique court, 30 messages/heure/utilisateur et 50 par voyage. Les activités proposées par l'IA ne rejoignent le planning qu'après un « oui » de l'utilisateur.
-- **Voyages partagés** : le propriétaire (`trip.user_id`) invite par pseudo exact (acceptation requise) ou par lien (`/planner/join#<code>`, 7 jours, réutilisable, révocable ; seule l'empreinte SHA-256 du code est stockée). Rôles : `owner` (tout, dont supprimer le voyage et gérer les membres), `editor` (planning, dépenses, discussion IA, sur son propre quota), `viewer` (consultation ; ne saisit et ne modifie que ses propres dépenses). Droits vérifiés par `requireTripRole` (`trip-access.service.ts`) dans chaque service : pas d'accès → 404, accès insuffisant → 403.
+- Discussion IA d'un voyage (`/trips/[id]/messages`) : enthousiaste pour toute envie liée au voyage (l'IA cherche où et quand la caser), impassible sur le reste. Trois barrières contre l'injection (`trip.service.ts`) : 1) filtre d'entrée déterministe (`ATTACK_PATTERNS` : « ignore tes instructions », jailbreak, balises / champs du prompt…) → refus sans appeler l'IA ; 2) consignes du modèle (contenu utilisateur = données, règles confidentielles, illégal refusé) ; 3) filtre de sortie (`INSTRUCTION_MARKERS`) → une réponse qui laisse fuiter les consignes est bloquée. Tout changement du prompt se vérifie avec une batterie d'attaques (injection directe, via un récit, jailbreak, fuite, données d'autres utilisateurs). Hors sujet non renvoyé dans l'historique, message ≤ 500 caractères, historique court, 30 messages/heure/utilisateur et 50 par voyage. L'IA peut proposer d'ajouter, de modifier ou de supprimer une activité (`trip_suggestion.action`, `target_item_id` : id lu dans le planning du prompt, revérifié comme appartenant au voyage) ; rien ne change sans un « oui » de l'utilisateur, proposition par proposition (activité disparue entre-temps → 409 `SUGGESTION_OUTDATED`).
+- **Voyages partagés** : le propriétaire (`trip.user_id`) invite par pseudo exact (acceptation requise) ou par lien (`/planner/join#<code>`, 7 jours, réutilisable, révocable ; seule l'empreinte SHA-256 du code est stockée). **10 voyageurs maximum** par voyage (`TRIP_MAX_TRAVELERS` : propriétaire + membres + participants sans compte), vérifié dans la même transaction que l'ajout (verrou sur le voyage), 409 `TRIP_FULL`. Rôles : `owner` (tout, dont supprimer le voyage et gérer les membres), `editor` (planning, dépenses, discussion IA, sur son propre quota), `viewer` (consultation ; ne saisit et ne modifie que ses propres dépenses). Droits vérifiés par `requireTripRole` (`trip-access.service.ts`) dans chaque service : pas d'accès → 404, accès insuffisant → 403.
 - **Dépenses (Tricount)** : participants = comptes du voyage + invités sans compte. Montants en unités mineures de leur devise (0 décimale : JPY, KRW, ISK) ; conversion dans la devise du voyage au taux BCE du jour de la dépense (`server/infra/exchangeRates.ts`, API Frankfurter, sans clé), **taux figé** à la saisie. Parts calculées au centime (plus forts restes, somme exacte). Équilibrage = minimum de virements ; « marquer comme remboursé » crée une dépense de remboursement. Devise du voyage modifiable tant qu'aucune dépense n'existe.
+- **Consentements** (`src/lib/legal.ts`, pages `/legal/{terms,sales,notice,privacy}`, textes dans `messages/fr.json` → `Legal`) : CGU à l'inscription (`users.terms_version` / `terms_accepted_at`), CGV + renonciation au droit de rétractation avant le lien de paiement du pass (commande, puis copiés dans `trip_pass`). Cases jamais pré-cochées, exigées par le schéma Zod côté serveur. Changer un texte = changer sa version dans `LEGAL_VERSIONS`. `LEGAL_DRAFT` affiche un bandeau tant que les textes ne sont pas validés.
+- **Pass voyage** (9,99 € par défaut, `BMC_TRIP_PASS_*`) : article « Extra » Buy Me a Coffee, **par voyage**, profite à tous ses membres. Le propriétaire commande (`trip_pass_order`, 24 h, une par compte) puis paie avec l'email de son compte ; le webhook signé `extra_purchase.created` (bon article, montant ≥ prix, en euros) crée le `trip_pass` ; `extra_purchase.refunded` le retire. Le lien de paiement n'apparaît qu'après avoir confirmé payer avec l'email du compte. Achat sans compte ou sans commande : gardé « à rattacher » (`trip_id` null, jamais perdu) ; email du paiement jamais en clair (empreinte HMAC + aperçu masqué). L'admin (onglet Pass voyage) rattache un achat seulement si l'email déclaré par l'acheteur correspond à l'empreinte, offre ou retire un pass (journal). Débloque : quota IA plus haut sur ce voyage (`AI_DAILY_LIMIT_TRIP_PASS`) et discussion de 200 messages, re-générer un jour, export PDF et .ics, liens Google Maps par jour. Le pass est **toujours vérifié côté serveur** (`requireTripPass`, 402 `PASS_REQUIRED`) : l'interface ne fait qu'afficher. Le rôle mécène reste réservé aux dons.
 - **Hors ligne (PWA)** : `public/sw.js` (production uniquement) met en cache les pages `/planner*`, les GET `/api/v1/trips*` et les fichiers `/_next/static` ; consultation seule. Le cache des données est vidé à la déconnexion et au changement de compte (`session.ts`).

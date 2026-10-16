@@ -1,4 +1,5 @@
 import "server-only";
+import { LEGAL_VERSIONS } from "@/lib/legal";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { getConfig } from "@/server/config";
@@ -53,6 +54,8 @@ export async function register(name: string, email: string, password: string): P
     username: makeUsername(name),
     display_name: name,
     password_hash: await bcrypt.hash(password, getConfig().bcryptSaltRounds),
+    // Le schéma exige la case cochée : on enregistre la version en vigueur.
+    terms_version: LEGAL_VERSIONS.terms,
   });
 
   return createSession(user, false);

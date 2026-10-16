@@ -198,6 +198,25 @@ export async function apiFetch<T>(path: string, init: { method?: string; body?: 
   return readResponse<T>(response);
 }
 
+// Fichier généré par l'API (PDF, calendrier) : même authentification qu'apiFetch, corps lu en binaire.
+export async function apiDownload(path: string): Promise<{ data: Blob } | { error: string }> {
+  const token = await getFreshToken();
+  if (!token) return { error: "UNAUTHORIZED" };
+
+  let response = await sendWithToken(path, {}, token);
+  if (response?.status === 401) {
+    const renewed = await refreshAccessToken();
+    if (!renewed) return { error: "UNAUTHORIZED" };
+    response = await sendWithToken(path, {}, renewed);
+    if (response?.status === 401) clearSession();
+  }
+  if (!response?.ok) {
+    const data = await response?.json().catch(() => null);
+    return { error: String(data?.error ?? "INTERNAL_ERROR") };
+  }
+  return { data: await response.blob() };
+}
+
 async function readResponse<T>(response: Response | null): Promise<ApiResult<T>> {
   const data = await response?.json().catch(() => null);
   if (!response?.ok) return { error: String(data?.error ?? "INTERNAL_ERROR") };

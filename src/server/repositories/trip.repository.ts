@@ -1,6 +1,7 @@
 import "server-only";
+import type { PoolClient } from "pg";
 import { getDb } from "@/server/infra/db";
-import type { TripItemCategory } from "@/schemas/trip.schema";
+import type { TripItemCategory, TripItemColor, TripSuggestionAction } from "@/schemas/trip.schema";
 import type { TripAccessRole } from "@/schemas/trip-share.schema";
 
 export type TripSummary = {
@@ -39,6 +40,8 @@ export type TripItemRow = {
   title: string;
   description: string | null;
   category: TripItemCategory;
+  // null : couleur de la catégorie.
+  color: TripItemColor | null;
   source_post: { id: number; title: string; slug: string } | null;
 };
 
@@ -80,11 +83,18 @@ export type TripItemFields = {
   category: TripItemCategory;
 };
 
+export type TripItemChanges = Partial<TripItemFields & { color: TripItemColor | null }>;
+
 export type TripTaskChanges = Partial<{ label: string; done: boolean }>;
 
 export type TripSuggestionStatus = "pending" | "accepted" | "rejected";
 
-export type TripSuggestionRow = TripItemRow & { status: TripSuggestionStatus };
+// update / delete : target = activité visée telle qu'elle est maintenant (null si supprimée entre-temps).
+export type TripSuggestionRow = Omit<TripItemRow, "color"> & {
+  status: TripSuggestionStatus;
+  action: TripSuggestionAction;
+  target: { id: number; day: string; start_time: string; title: string } | null;
+};
 
 export type TripMessageRow = {
   id: number;
@@ -101,19 +111,19 @@ export type NewTripExchange = {
   user_content: string;
   assistant_content: string;
   off_topic: boolean;
-  suggestions: (TripItemFields & { source_post_id: number | null })[];
+  suggestions: (TripItemFields & { source_post_id: number | null; action: TripSuggestionAction; target_item_id: number | null })[];
 };
 
 // Noms de colonnes issus de cette liste, jamais de l'entrée utilisateur.
 const TRIP_COLUMNS = ["title", "budget_target", "budget_lodging", "budget_transit", "budget_dining", "budget_activities"] as const;
-const ITEM_COLUMNS = ["day", "start_time", "title", "description", "category"] as const;
+const ITEM_COLUMNS = ["day", "start_time", "title", "description", "category", "color"] as const;
 const TASK_COLUMNS = ["label", "done"] as const;
 
 const TRIP_SUMMARY_COLUMNS = `t.id, t.title, t.destination_country_code, t.destination_state_code, t.destination_city,
   t.start_date, t.end_date, json_build_object('slug', a.slug, 'label', a.label) as archetype, t.created_at`;
 
 // Postgres renvoie « HH:MM:SS ».
-const ITEM_COLUMNS_SELECT = `i.id, i.day, to_char(i.start_time, 'HH24:MI') as start_time, i.title, i.description, i.category,
+const ITEM_COLUMNS_SELECT = `i.id, i.day, to_char(i.start_time, 'HH24:MI') as start_time, i.title, i.description, i.category, i.color,
   case when p.id is null then null else json_build_object('id', p.id, 'title', p.title, 'slug', p.slug) end as source_post`;
 
 export async function insertTrip(trip: NewTrip): Promise<number> {
@@ -250,6 +260,36 @@ export async function replaceTripPlan(tripId: number, plan: TripPlan) {
   }
 }
 
+// Une transaction : le jour n'est jamais vidé si l'insertion échoue. Les autres jours ne bougent pas.
+export async function replaceTripDayItems(tripId: number, day: string, items: TripPlan["items"]) {
+  const client = await (await getDb()).connect();
+  try {
+    await client.query("begin");
+    await client.query("delete from trip_item where trip_id = $1 and day = $2", [tripId, day]);
+    if (items.length > 0) {
+      await client.query(
+        `insert into trip_item (trip_id, day, start_time, title, description, category, source_post_id)
+         select $1, * from unnest($2::date[], $3::time[], $4::varchar[], $5::varchar[], $6::trip_item_category[], $7::int[])`,
+        [
+          tripId,
+          items.map((item) => item.day),
+          items.map((item) => item.start_time),
+          items.map((item) => item.title),
+          items.map((item) => item.description),
+          items.map((item) => item.category),
+          items.map((item) => item.source_post_id),
+        ],
+      );
+    }
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function insertTripItem(tripId: number, item: TripItemFields): Promise<number> {
   const db = await getDb();
   const { rows } = await db.query<{ id: number }>(
@@ -261,7 +301,7 @@ export async function insertTripItem(tripId: number, item: TripItemFields): Prom
   return rows[0].id;
 }
 
-export async function updateTripItem(tripId: number, itemId: number, changes: Partial<TripItemFields>): Promise<boolean> {
+export async function updateTripItem(tripId: number, itemId: number, changes: TripItemChanges): Promise<boolean> {
   const entries = ITEM_COLUMNS.filter((column) => changes[column] !== undefined).map((column) => [column, changes[column]] as const);
   if (entries.length === 0) return true;
 
@@ -316,10 +356,14 @@ export async function findTripMessages(tripId: number): Promise<TripMessageRow[]
        coalesce(
          (select json_agg(json_build_object(
              'id', s.id, 'day', to_char(s.day, 'YYYY-MM-DD'), 'start_time', to_char(s.start_time, 'HH24:MI'),
-             'title', s.title, 'description', s.description, 'category', s.category, 'status', s.status,
-             'source_post', case when p.id is null then null else json_build_object('id', p.id, 'title', p.title, 'slug', p.slug) end
+             'title', s.title, 'description', s.description, 'category', s.category, 'status', s.status, 'action', s.action,
+             'source_post', case when p.id is null then null else json_build_object('id', p.id, 'title', p.title, 'slug', p.slug) end,
+             'target', case when t.id is null then null else json_build_object(
+               'id', t.id, 'day', to_char(t.day, 'YYYY-MM-DD'), 'start_time', to_char(t.start_time, 'HH24:MI'), 'title', t.title) end
            ) order by s.day, s.start_time, s.id)
-          from trip_suggestion s left join post p on p.id = s.source_post_id
+          from trip_suggestion s
+          left join post p on p.id = s.source_post_id
+          left join trip_item t on t.id = s.target_item_id
           where s.message_id = m.id),
          '[]'
        ) as suggestions
@@ -357,8 +401,9 @@ export async function insertTripExchange(tripId: number, authorId: string, excha
     const { suggestions } = exchange;
     if (suggestions.length > 0) {
       await client.query(
-        `insert into trip_suggestion (trip_id, message_id, day, start_time, title, description, category, source_post_id)
-         select $1, $2, * from unnest($3::date[], $4::time[], $5::varchar[], $6::varchar[], $7::trip_item_category[], $8::int[])`,
+        `insert into trip_suggestion (trip_id, message_id, day, start_time, title, description, category, source_post_id, action, target_item_id)
+         select $1, $2, * from unnest($3::date[], $4::time[], $5::varchar[], $6::varchar[], $7::trip_item_category[], $8::int[],
+           $9::trip_suggestion_action[], $10::int[])`,
         [
           tripId,
           rows[0].id,
@@ -368,6 +413,8 @@ export async function insertTripExchange(tripId: number, authorId: string, excha
           suggestions.map((item) => item.description),
           suggestions.map((item) => item.category),
           suggestions.map((item) => item.source_post_id),
+          suggestions.map((item) => item.action),
+          suggestions.map((item) => item.target_item_id),
         ],
       );
     }
@@ -380,27 +427,30 @@ export async function insertTripExchange(tripId: number, authorId: string, excha
   }
 }
 
-// Acceptée, la proposition est copiée dans le planning. false si déjà traitée ou d'un autre voyage.
-export async function answerTripSuggestion(tripId: number, suggestionId: number, accepted: boolean): Promise<boolean> {
+// Acceptée, la proposition est appliquée au planning (ajout, modification ou suppression).
+// "outdated" : l'activité visée n'existe plus, la proposition est classée refusée. false : déjà traitée ou d'un autre voyage.
+export async function answerTripSuggestion(tripId: number, suggestionId: number, accepted: boolean): Promise<boolean | "outdated"> {
   const client = await (await getDb()).connect();
   try {
     await client.query("begin");
-    const { rowCount } = await client.query(
-      `update trip_suggestion set status = $3 where id = $1 and trip_id = $2 and status = 'pending'`,
+    const { rows } = await client.query<{ action: TripSuggestionAction; target_item_id: number | null }>(
+      `update trip_suggestion set status = $3 where id = $1 and trip_id = $2 and status = 'pending'
+       returning action, target_item_id`,
       [suggestionId, tripId, accepted ? "accepted" : "rejected"],
     );
-    if (rowCount !== 1) {
+    const suggestion = rows[0];
+    if (!suggestion) {
       await client.query("rollback");
       return false;
     }
 
     if (accepted) {
-      await client.query(
-        `insert into trip_item (trip_id, day, start_time, title, description, category, source_post_id)
-         select trip_id, day, start_time, title, description, category, source_post_id
-         from trip_suggestion where id = $1`,
-        [suggestionId],
-      );
+      const applied = await applySuggestion(client, tripId, suggestionId, suggestion);
+      if (!applied) {
+        await client.query("update trip_suggestion set status = 'rejected' where id = $1", [suggestionId]);
+        await client.query("commit");
+        return "outdated";
+      }
     }
     await client.query("commit");
     return true;
@@ -410,4 +460,36 @@ export async function answerTripSuggestion(tripId: number, suggestionId: number,
   } finally {
     client.release();
   }
+}
+
+// L'activité visée doit appartenir au même voyage (la proposition vient de l'IA : jamais d'id d'un autre voyage).
+async function applySuggestion(
+  client: PoolClient,
+  tripId: number,
+  suggestionId: number,
+  { action, target_item_id: targetId }: { action: TripSuggestionAction; target_item_id: number | null },
+): Promise<boolean> {
+  if (action === "add") {
+    await client.query(
+      `insert into trip_item (trip_id, day, start_time, title, description, category, source_post_id)
+       select trip_id, day, start_time, title, description, category, source_post_id
+       from trip_suggestion where id = $1`,
+      [suggestionId],
+    );
+    return true;
+  }
+  if (targetId === null) return false;
+  if (action === "delete") {
+    const { rowCount } = await client.query("delete from trip_item where id = $1 and trip_id = $2", [targetId, tripId]);
+    return rowCount === 1;
+  }
+  const { rowCount } = await client.query(
+    `update trip_item i
+     set day = s.day, start_time = s.start_time, title = s.title, description = s.description, category = s.category,
+       source_post_id = s.source_post_id
+     from trip_suggestion s
+     where s.id = $1 and i.id = $2 and i.trip_id = $3`,
+    [suggestionId, targetId, tripId],
+  );
+  return rowCount === 1;
 }

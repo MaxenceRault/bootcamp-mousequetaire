@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { FormError } from "@/components/ui/FormError";
@@ -30,6 +32,7 @@ export function RegisterForm() {
       name: form.get("name"),
       email: form.get("email"),
       password: form.get("password"),
+      acceptTerms: form.get("acceptTerms") === "on",
     });
     setPending(false);
 
@@ -84,6 +87,22 @@ export function RegisterForm() {
           required
         />
       </Field>
+
+      {/* Non pré-cochée : le consentement doit être un geste de l'utilisateur. Revérifiée par l'API. */}
+      <Checkbox name="acceptTerms" required className="items-start">
+        {t.rich("register.acceptTerms", {
+          terms: (chunks) => (
+            <Link href="/legal/terms" target="_blank" className="font-medium text-accent hover:underline">
+              {chunks}
+            </Link>
+          ),
+          privacy: (chunks) => (
+            <Link href="/legal/privacy" target="_blank" className="font-medium text-accent hover:underline">
+              {chunks}
+            </Link>
+          ),
+        })}
+      </Checkbox>
 
       <FormError>{error}</FormError>
 

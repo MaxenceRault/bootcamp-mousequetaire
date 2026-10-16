@@ -100,6 +100,17 @@ type AdminAction = {
   admin: { id: string; username: string } | null;
 };
 
+type UnassignedTripPass = {
+  id: number;
+  amount: string;
+  currency: string;
+  payer_email_hint: string | null;
+  created_at: string;
+  payer: { username: string } | null;
+};
+
+type ActiveTripPass = { id: number; trip: { id: number; title: string; owner: string }; gift: boolean; assigned_at: string };
+
 type Paged<K extends string, T> = Record<K, T[]> & { total: number; page: number; pageSize: number };
 
 const ADMIN_ERRORS = [
@@ -110,6 +121,9 @@ const ADMIN_ERRORS = [
   "TARGET_IS_ADMIN",
   "ARCHETYPE_TAKEN",
   "BANNED_WORD_TAKEN",
+  "TRIP_NOT_FOUND",
+  "PASS_ALREADY_ACTIVE",
+  "EMAIL_MISMATCH",
   "TOO_MANY_REQUESTS",
   "INTERNAL_ERROR",
 ] as const;
@@ -119,7 +133,7 @@ function adminError(code: string): AdminErrorCode {
   return (ADMIN_ERRORS as readonly string[]).find((known) => known === code) as AdminErrorCode ?? "INTERNAL_ERROR";
 }
 
-const TABS = ["dashboard", "reports", "tickets", "posts", "users", "archetypes", "bannedWords", "ai", "journal"] as const;
+const TABS = ["dashboard", "reports", "tickets", "posts", "users", "tripPasses", "archetypes", "bannedWords", "ai", "journal"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_ICONS: Record<Tab, IconName> = {
@@ -128,6 +142,7 @@ const TAB_ICONS: Record<Tab, IconName> = {
   tickets: "help",
   posts: "book",
   users: "settings",
+  tripPasses: "lock",
   archetypes: "explore",
   bannedWords: "block",
   ai: "sparkles",
@@ -233,6 +248,7 @@ export function AdminView() {
         {tab === "tickets" && <TicketsTab call={call} />}
         {tab === "posts" && <PostsTab call={call} />}
         {tab === "users" && <UsersTab call={call} currentUserId={currentUserId} />}
+        {tab === "tripPasses" && <TripPassesTab call={call} />}
         {tab === "archetypes" && <ArchetypesTab call={call} />}
         {tab === "bannedWords" && <BannedWordsTab call={call} />}
         {tab === "ai" && <AiTab call={call} />}
@@ -504,6 +520,133 @@ function TicketsTab({ call }: { call: Call }) {
           <Pagination total={data.total} page={data.page} pageSize={data.pageSize} onPage={(page) => setQuery((current) => ({ ...current, page }))} />
         </>
       )}
+    </div>
+  );
+}
+
+// Achats payés avec un autre email ou sans commande : rattachés après vérification de l'email déclaré par l'acheteur.
+function TripPassesTab({ call }: { call: Call }) {
+  const t = useTranslations("Admin");
+  const format = useFormatter();
+  const { data, reload } = useResource<{ unassigned: UnassignedTripPass[]; active: ActiveTripPass[] }>(call, "/trip-passes");
+  const [done, setDone] = useState(false);
+
+  async function grant(body: { tripId: number; passId?: number; payerEmail?: string }) {
+    setDone(false);
+    const result = await call("/trip-passes", { method: "POST", body });
+    if (result === null) return false;
+    setDone(true);
+    reload();
+    return true;
+  }
+
+  async function handleAssign(event: FormEvent<HTMLFormElement>, passId: number) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    const ok = await grant({ passId, tripId: Number(values.get("tripId")), payerEmail: String(values.get("payerEmail") ?? "") });
+    if (ok) form.reset();
+  }
+
+  async function handleGift(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const tripId = Number(new FormData(form).get("tripId"));
+    if (!window.confirm(t("tripPasses.giftConfirm", { id: tripId }))) return;
+    if (await grant({ tripId })) form.reset();
+  }
+
+  async function revoke(pass: ActiveTripPass) {
+    if (!window.confirm(t("tripPasses.revokeConfirm", { title: pass.trip.title }))) return;
+    if ((await call(`/trip-passes/${pass.id}`, { method: "DELETE" })) !== null) reload();
+  }
+
+  if (!data) return <Skeleton />;
+
+  return (
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="flex flex-col gap-6">
+        <Card className="flex flex-col gap-4 p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-display text-headline-sm text-ink">{t("tripPasses.unassignedTitle")}</h2>
+            <p className="text-body-sm text-ink-soft">{t("tripPasses.unassignedHint")}</p>
+          </div>
+          {done && (
+            <p role="status" className="text-body-sm text-accent">
+              {t("tripPasses.done")}
+            </p>
+          )}
+          {data.unassigned.length === 0 ? (
+            <p className="text-body-sm text-ink-soft">{t("tripPasses.unassignedEmpty")}</p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {data.unassigned.map((pass) => (
+                <li key={pass.id} className="flex flex-col gap-3 rounded-lg bg-surface-muted p-4">
+                  <p className="text-body-sm text-ink">
+                    <span className="font-display text-label-lg">
+                      {format.number(Number(pass.amount), { style: "currency", currency: pass.currency })}
+                    </span>{" "}
+                    · {pass.payer_email_hint ? t("tripPasses.payer", { hint: pass.payer_email_hint }) : t("tripPasses.payerUnknown")}
+                    {pass.payer && ` (${t("tripPasses.payerAccount", { username: pass.payer.username })})`} ·{" "}
+                    {format.dateTime(new Date(pass.created_at), { dateStyle: "medium", timeStyle: "short" })}
+                  </p>
+                  <form onSubmit={(event) => void handleAssign(event, pass.id)} className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)_auto] sm:items-end">
+                    <Field id={`pass-trip-${pass.id}`} label={t("tripPasses.tripId")}>
+                      <Input id={`pass-trip-${pass.id}`} name="tripId" type="number" min={1} step={1} required />
+                    </Field>
+                    <Field id={`pass-email-${pass.id}`} label={t("tripPasses.payerEmail")}>
+                      <Input id={`pass-email-${pass.id}`} name="payerEmail" type="email" maxLength={254} required />
+                    </Field>
+                    <Button type="submit" size="sm" className="h-11">
+                      {t("tripPasses.assign")}
+                    </Button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card className="flex flex-col gap-4 p-6">
+          <h2 className="font-display text-headline-sm text-ink">{t("tripPasses.activeTitle")}</h2>
+          {data.active.length === 0 ? (
+            <p className="text-body-sm text-ink-soft">{t("tripPasses.activeEmpty")}</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {data.active.map((pass) => (
+                <li key={pass.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-muted px-4 py-3">
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-body-sm text-ink">{t("tripPasses.trip", pass.trip)}</span>
+                    <span className="text-label-sm text-ink-soft">
+                      {pass.gift ? t("tripPasses.gifted") : t("tripPasses.paid")} ·{" "}
+                      {format.dateTime(new Date(pass.assigned_at), { dateStyle: "medium" })}
+                    </span>
+                  </span>
+                  <Button variant="secondary" size="sm" onClick={() => void revoke(pass)}>
+                    {t("tripPasses.revoke")}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      <Card className="flex flex-col gap-4 p-6">
+        <div className="flex flex-col gap-1">
+          <h2 className="font-display text-headline-sm text-ink">{t("tripPasses.giftTitle")}</h2>
+          <p className="text-body-sm text-ink-soft">{t("tripPasses.giftHint")}</p>
+        </div>
+        <form onSubmit={(event) => void handleGift(event)} className="flex flex-col gap-3">
+          <Field id="pass-gift-trip" label={t("tripPasses.tripId")}>
+            <Input id="pass-gift-trip" name="tripId" type="number" min={1} step={1} required />
+          </Field>
+          <Button type="submit" className="gap-2">
+            <Icon name="sparkles" className="size-4" />
+            {t("tripPasses.gift")}
+          </Button>
+        </form>
+      </Card>
     </div>
   );
 }

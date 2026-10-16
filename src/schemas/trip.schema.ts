@@ -4,6 +4,10 @@ import { archetypeSlugSchema } from "@/schemas/archetype.schema";
 // 1 mois maximum, début et fin inclus.
 export const TRIP_MAX_DAYS = 31;
 export const TRIP_ITEM_CATEGORIES = ["transport", "lodging", "activity", "food"] as const;
+// Couleur d'une case (vue Tableau, PDF) : mêmes clés que la contrainte SQL et les tokens --color-cell-* de globals.css.
+export const TRIP_ITEM_COLORS = ["coral", "sky", "mint", "sun", "lavender", "sand", "rose", "slate"] as const;
+export const TRIP_SUGGESTION_ACTIONS = ["add", "update", "delete"] as const;
+export const TRIP_PDF_TEMPLATES = ["classic", "table", "booklet"] as const;
 // Court : limite le coût par message.
 export const TRIP_MESSAGE_MAX = 500;
 
@@ -15,6 +19,8 @@ const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const euros = z.number().int().min(0).max(1_000_000);
 
 export const idParamSchema = z.coerce.number().int().positive().max(2_147_483_647);
+// Jour d'un voyage dans l'URL (AAAA-MM-JJ).
+export const dayParamSchema = isoDate;
 
 export const createTripSchema = z
   .strictObject({
@@ -41,6 +47,13 @@ export const updateTripSchema = z
   .partial()
   .refine((changes) => Object.keys(changes).length > 0);
 
+// POST /api/v1/trips/[id]/pass : CGV acceptées et renonciation expresse au droit de rétractation (contenu numérique
+// fourni dès le paiement), cases cochées par l'acheteur.
+export const tripPassCheckoutSchema = z.strictObject({
+  acceptSales: z.literal(true),
+  waiveWithdrawal: z.literal(true),
+});
+
 export const sendTripMessageSchema = z.strictObject({
   content: z.string().trim().min(2).max(TRIP_MESSAGE_MAX),
 });
@@ -63,10 +76,14 @@ const tripItemFields = {
 
 export const createTripItemSchema = z.strictObject(tripItemFields);
 
+// color : null rend la couleur de la catégorie.
 export const updateTripItemSchema = z
-  .strictObject(tripItemFields)
+  .strictObject({ ...tripItemFields, color: z.enum(TRIP_ITEM_COLORS).nullable() })
   .partial()
   .refine((changes) => Object.keys(changes).length > 0);
+
+// GET /api/v1/trips/[id]/export/pdf?template=
+export const tripPdfQuerySchema = z.strictObject({ template: z.enum(TRIP_PDF_TEMPLATES).default("classic") });
 
 export const createTripTaskSchema = z.strictObject({
   label: z.string().trim().min(1).max(120),
@@ -86,3 +103,6 @@ export type CreateTripItemInput = z.infer<typeof createTripItemSchema>;
 export type UpdateTripItemInput = z.infer<typeof updateTripItemSchema>;
 export type UpdateTripTaskInput = z.infer<typeof updateTripTaskSchema>;
 export type TripItemCategory = (typeof TRIP_ITEM_CATEGORIES)[number];
+export type TripItemColor = (typeof TRIP_ITEM_COLORS)[number];
+export type TripSuggestionAction = (typeof TRIP_SUGGESTION_ACTIONS)[number];
+export type TripPdfTemplate = (typeof TRIP_PDF_TEMPLATES)[number];

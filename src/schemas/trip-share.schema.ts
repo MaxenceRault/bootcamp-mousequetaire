@@ -2,6 +2,8 @@ import { z } from "zod";
 import { USERNAME_PATTERN } from "@/schemas/user.schema";
 
 export const TRIP_MEMBER_ROLES = ["editor", "viewer"] as const;
+// Voyageurs par voyage : propriétaire + membres + participants sans compte (dépenses).
+export const TRIP_MAX_TRAVELERS = 10;
 export type TripMemberRole = (typeof TRIP_MEMBER_ROLES)[number];
 // Rôle d'un utilisateur sur un voyage : le propriétaire n'est pas dans trip_member.
 export type TripAccessRole = "owner" | TripMemberRole;

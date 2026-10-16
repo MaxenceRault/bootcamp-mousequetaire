@@ -21,6 +21,9 @@ env:
   SERVICE: brb
   APP_URL: https://brb-105103278561.europe-west9.run.app
   BMC_PAGE_URL: https://buymeacoffee.com/maxence_rault
+  # Pass voyage (article « Extra » Buy Me a Coffee, 9,99 €) : vides = pass pas en vente.
+  BMC_TRIP_PASS_URL: https://buymeacoffee.com/maxence_rault/e/587593
+  BMC_TRIP_PASS_EXTRA_ID: "587593"
   IMAGE: europe-west9-docker.pkg.dev/biirb-511608/brb/web:${{ github.sha }}
 
 jobs:
@@ -68,6 +71,6 @@ jobs:
             --cpu-boost \
             --min-instances=0 \
             --max-instances=1 \
-            --set-env-vars="CLOUD_SQL_INSTANCE=$PROJECT_ID:$REGION:biirb-db1,DB_NAME=brb,DB_USER=brb-run@$PROJECT_ID.iam,GCP_PROJECT_ID=$PROJECT_ID,VERTEX_LOCATION=$REGION,TRUSTED_PROXY_HOPS=1,BMC_PAGE_URL=$BMC_PAGE_URL" \
+            --set-env-vars="CLOUD_SQL_INSTANCE=$PROJECT_ID:$REGION:biirb-db1,DB_NAME=brb,DB_USER=brb-run@$PROJECT_ID.iam,GCP_PROJECT_ID=$PROJECT_ID,VERTEX_LOCATION=$REGION,TRUSTED_PROXY_HOPS=1,BMC_PAGE_URL=$BMC_PAGE_URL,BMC_TRIP_PASS_URL=$BMC_TRIP_PASS_URL,BMC_TRIP_PASS_EXTRA_ID=$BMC_TRIP_PASS_EXTRA_ID" \
             --set-secrets="JWT_SECRET=brb-jwt-secret:latest,JWT_REFRESH_SECRET=brb-jwt-refresh-secret:latest,BMC_WEBHOOK_SECRET=brb-bmc-webhook-secret:latest" \
             --quiet

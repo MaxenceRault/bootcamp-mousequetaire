@@ -1,6 +1,8 @@
 import "server-only";
 import type { PoolClient } from "pg";
 import { getDb } from "@/server/infra/db";
+import { TRAVELERS_COUNT } from "@/server/repositories/trip-share.repository";
+import { TRIP_MAX_TRAVELERS } from "@/schemas/trip-share.schema";
 import type { SplitMode } from "@/schemas/trip-expense.schema";
 
 export type ParticipantRow = {
@@ -84,9 +86,24 @@ export async function findParticipants(tripId: number): Promise<ParticipantRow[]
   return rows;
 }
 
-export async function insertGuest(tripId: number, name: string): Promise<void> {
-  const db = await getDb();
-  await db.query("insert into trip_participant (trip_id, name) values ($1, $2)", [tripId, name]);
+// false : voyage complet. Verrou sur le voyage, comme à l'arrivée d'un membre (trip-share.repository).
+export async function insertGuest(tripId: number, name: string): Promise<boolean> {
+  const client = await (await getDb()).connect();
+  try {
+    await client.query("begin");
+    await client.query("select 1 from trip where id = $1 for update", [tripId]);
+    const { rowCount } = await client.query(
+      `insert into trip_participant (trip_id, name) select $1, $2 where (${TRAVELERS_COUNT}) < $3`,
+      [tripId, name, TRIP_MAX_TRAVELERS],
+    );
+    await client.query("commit");
+    return rowCount === 1;
+  } catch (error) {
+    await client.query("rollback").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateGuestName(tripId: number, participantId: number, name: string): Promise<boolean> {

@@ -41,9 +41,26 @@ import {
 import { clearBannedTermsCache } from "@/server/services/banned-word.service";
 import { findTicketsForAdmin, updateTicketStatus } from "@/server/repositories/ticket.repository";
 import type { TicketStatus } from "@/schemas/ticket.schema";
+import { getBuyMeACoffeeConfig } from "@/server/config";
+import { findTripById } from "@/server/repositories/trip.repository";
+import {
+  assignTripPass,
+  findActiveTripPasses,
+  findUnassignedTripPassEmailHash,
+  findUnassignedTripPasses,
+  hasActiveTripPass,
+  insertGiftTripPass,
+  revokeTripPass,
+} from "@/server/repositories/trip-pass.repository";
+import { payerEmailHash } from "@/server/services/trip-pass.service";
 import type { CreateArchetypeInput, UpdateArchetypeInput } from "@/schemas/archetype.schema";
 import { ARCHETYPE_SLUG_PATTERN } from "@/schemas/archetype.schema";
-import type { AdminCreateBannedWordInput, AdminUpdateSettingsInput, AdminUpdateUserInput } from "@/schemas/admin.schema";
+import type {
+  AdminCreateBannedWordInput,
+  AdminGrantTripPassInput,
+  AdminUpdateSettingsInput,
+  AdminUpdateUserInput,
+} from "@/schemas/admin.schema";
 
 export class AdminError extends Error {
   constructor(
@@ -54,7 +71,11 @@ export class AdminError extends Error {
       | "CANNOT_TARGET_SELF"
       | "TARGET_IS_ADMIN"
       | "ARCHETYPE_TAKEN"
-      | "BANNED_WORD_TAKEN",
+      | "BANNED_WORD_TAKEN"
+      // Pass voyage.
+      | "TRIP_NOT_FOUND"
+      | "PASS_ALREADY_ACTIVE"
+      | "EMAIL_MISMATCH",
   ) {
     super(code);
   }
@@ -284,4 +305,40 @@ export async function setTicketStatus(adminId: string, ticketId: number, status:
   const updated = await updateTicketStatus(ticketId, status);
   if (!updated) throw new AdminError("NOT_FOUND");
   if (updated.previous !== status) await log(adminId, "ticket.status", "ticket", ticketId, { from: updated.previous, to: status });
+}
+
+const TRIP_PASSES_LIMIT = 100;
+
+// Achats à rattacher (autre email, commande expirée) et pass actifs.
+export async function listTripPasses() {
+  const [unassigned, active] = await Promise.all([findUnassignedTripPasses(), findActiveTripPasses(TRIP_PASSES_LIMIT)]);
+  return { unassigned, active };
+}
+
+// passId : rattache un achat payé, seulement si l'email déclaré par l'acheteur est bien celui du paiement
+// (personne ne peut se faire attribuer le paiement d'un autre). Sans passId : pass offert.
+export async function grantTripPass(adminId: string, { tripId, passId, payerEmail }: AdminGrantTripPassInput) {
+  if (!(await findTripById(tripId))) throw new AdminError("TRIP_NOT_FOUND");
+  if (await hasActiveTripPass(tripId)) throw new AdminError("PASS_ALREADY_ACTIVE");
+
+  if (passId === undefined) {
+    const id = await insertGiftTripPass(tripId, adminId);
+    await log(adminId, "trip_pass.gift", "trip", tripId, { passId: id });
+    return;
+  }
+
+  const purchase = await findUnassignedTripPassEmailHash(passId);
+  if (!purchase) throw new AdminError("NOT_FOUND");
+  const secret = getBuyMeACoffeeConfig()?.webhookSecret;
+  if (!secret || !payerEmail || purchase.payer_email_hash !== payerEmailHash(payerEmail, secret)) {
+    throw new AdminError("EMAIL_MISMATCH");
+  }
+  if (!(await assignTripPass(passId, tripId, adminId))) throw new AdminError("NOT_FOUND");
+  await log(adminId, "trip_pass.assign", "trip", tripId, { passId });
+}
+
+export async function removeTripPass(adminId: string, passId: number) {
+  const revoked = await revokeTripPass(passId);
+  if (!revoked) throw new AdminError("NOT_FOUND");
+  await log(adminId, "trip_pass.revoke", "trip", revoked.trip_id, { passId });
 }

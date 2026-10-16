@@ -22,5 +22,12 @@ export const bmcDonationSchema = z.looseObject({
 
 export type BmcDonation = z.infer<typeof bmcDonationSchema>;
 
+// Achat d'un article de la boutique (pass voyage) : mêmes champs que le don + les articles achetés.
+export const bmcExtraPurchaseSchema = bmcDonationSchema.extend({
+  extras: z.array(z.looseObject({ id: z.number().int().positive() })).max(50).default([]),
+});
+
+export type BmcExtraPurchase = z.infer<typeof bmcExtraPurchaseSchema>;
+
 // HMAC-SHA256 en hexadécimal.
 export const bmcSignatureSchema = z.string().regex(/^[a-f0-9]{64}$/i);
