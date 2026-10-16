@@ -339,7 +339,20 @@
     "create": {
       "title": "Nouveau voyage",
       "submit": "Planifier mon voyage avec Biirbou",
-      "reasoning": ["Biirbou déploie ses ailes", "Biirbou survole les récits de la communauté", "Biirbou vérifie la météo (et sort le parapluie)", "Biirbou négocie avec la mousson", "Biirbou plie la carte… dans le mauvais sens", "Biirbou évite les pièges à touristes", "Biirbou fait rentrer le budget dans la valise", "Biirbou réserve une place côté hublot", "Biirbou cherche le meilleur croissant du coin", "Biirbou se trompe de fuseau horaire", "Biirbou picore les meilleures adresses", "Biirbou boucle sa valise"],
+      "reasoning": [
+        "Biirbou déploie ses ailes",
+        "Biirbou survole les récits de la communauté",
+        "Biirbou vérifie la météo (et sort le parapluie)",
+        "Biirbou négocie avec la mousson",
+        "Biirbou plie la carte… dans le mauvais sens",
+        "Biirbou évite les pièges à touristes",
+        "Biirbou fait rentrer le budget dans la valise",
+        "Biirbou réserve une place côté hublot",
+        "Biirbou cherche le meilleur croissant du coin",
+        "Biirbou se trompe de fuseau horaire",
+        "Biirbou picore les meilleures adresses",
+        "Biirbou boucle sa valise"
+      ],
       "quota": "Requêtes Biirbou aujourd'hui : {used}/{limit}"
     },
     "list": {
@@ -430,7 +443,14 @@
       "label": "Message pour Biirbou",
       "placeholder": "Votre question sur ce voyage…",
       "send": "Envoyer",
-      "reasoning": ["Biirbou lisse ses plumes", "Biirbou feuillette vos récits", "Biirbou tourne sept fois son bec", "Biirbou consulte sa boussole", "Biirbou cherche un créneau entre deux musées", "Biirbou gazouille une réponse"],
+      "reasoning": [
+        "Biirbou lisse ses plumes",
+        "Biirbou feuillette vos récits",
+        "Biirbou tourne sept fois son bec",
+        "Biirbou consulte sa boussole",
+        "Biirbou cherche un créneau entre deux musées",
+        "Biirbou gazouille une réponse"
+      ],
       "offTopic": "Je suis là pour votre voyage ! Dites-moi une envie ou une question sur votre séjour.",
       "suggestions": "Activités proposées",
       "suggestionWhen": "Jour {number} · {date} · {time}",
@@ -946,7 +966,6 @@
     }
   },
   "TripExport": {
-    "metaTitle": "Planning à imprimer",
     "brand": "Biirb.",
     "documentTitle": "Planning de voyage",
     "exportedOn": "Exporté le {date}",
@@ -954,10 +973,8 @@
     "euros": "{amount} €",
     "total": "Total",
     "footer": "Planning généré avec Biirb, à partir des récits de la communauté",
-    "hint": "Choisissez « Enregistrer au format PDF » dans la fenêtre d'impression.",
-    "print": "Imprimer / PDF",
-    "loading": "Préparation du document…",
-    "error": "Impossible de charger ce voyage."
+    "notes": "Notes",
+    "page": "Page {page}/{total}"
   },
   "Comments": {
     "title": "{count, plural, =0 {Questions et commentaires} one {# commentaire} other {# commentaires}}",
@@ -1305,5 +1322,9 @@
         }
       ]
     }
+  },
+  "PasswordResetEmail": {
+    "subject": "Biirb : réinitialiser votre mot de passe",
+    "body": "Bonjour {name},\n\nVous avez demandé à changer le mot de passe de votre compte Biirb. Ouvrez ce lien pour en choisir un nouveau (valable {minutes} minutes, une seule fois) :\n\n{link}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email : votre mot de passe ne change pas.\n\nL'équipe Biirb"
   }
 }
