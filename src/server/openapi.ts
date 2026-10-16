@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { loginSchema, registerSchema } from "@/schemas/auth.schema";
+import { forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema } from "@/schemas/auth.schema";
 import { createInviteLinkSchema, inviteMemberSchema, joinTripSchema, updateMemberSchema } from "@/schemas/trip-share.schema";
 import {
   expenseSchema,
@@ -355,10 +355,10 @@ export function buildOpenApiDocument() {
   return {
     openapi: "3.0.3",
     info: {
-      title: "Brb API",
+      title: "Biirb API",
       version: "1.0.0",
       description:
-        "API de Brb (BeRightBack). Pour les routes protégées : se connecter via /auth/login, " +
+        "API de Biirb. Pour les routes protégées : se connecter via /auth/login, " +
         "copier le token, puis cliquer sur « Authorize ».",
     },
     servers: [{ url: "/api/v1" }],
@@ -437,6 +437,37 @@ export function buildOpenApiDocument() {
           responses: {
             204: { description: "Session révoquée, cookie effacé" },
             403: error("Origine absente ou différente du site", ["FORBIDDEN"]),
+            500: internalError,
+          },
+        },
+      },
+      "/auth/forgot-password": {
+        post: {
+          tags: ["Auth"],
+          summary: "Mot de passe oublié : envoyer un lien par email",
+          description:
+            "Répond 202 que le compte existe ou non, en au moins 2 s (ne révèle pas les comptes). Lien à usage unique, " +
+            "valable PASSWORD_RESET_TTL_MINUTES, construit avec APP_URL (jamais l'en-tête Host) : /login?view=reset#token=…",
+          requestBody: requestBody(forgotPasswordSchema),
+          responses: {
+            202: { description: "Demande prise en compte" },
+            400: invalidInput,
+            429: tooManyRequests,
+            503: error("Envoi d'emails non configuré", ["MAIL_UNAVAILABLE"]),
+            500: internalError,
+          },
+        },
+      },
+      "/auth/reset-password": {
+        post: {
+          tags: ["Auth"],
+          summary: "Choisir un nouveau mot de passe avec le code du lien",
+          description: "Code à usage unique (43 caractères base64url). Succès : mot de passe changé (bcrypt), toutes les sessions révoquées.",
+          requestBody: requestBody(resetPasswordSchema),
+          responses: {
+            204: { description: "Mot de passe changé" },
+            400: error("Champ invalide, ou lien expiré / déjà utilisé / inconnu", ["INVALID_INPUT", "INVALID_RESET_TOKEN"]),
+            429: tooManyRequests,
             500: internalError,
           },
         },

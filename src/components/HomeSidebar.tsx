@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { FeedFilterLink } from "@/components/FeedFilterLink";
 import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
@@ -37,9 +38,13 @@ export function HomeArchetypeNav({ archetypes, active }: { archetypes: Archetype
       <ul className="flex flex-col gap-1">
         {links.map((link) => (
           <li key={link.key}>
-            <Link href={link.href} aria-current={link.isActive ? "page" : undefined} className={sidebarLinkClassName(link.isActive)}>
+            <FeedFilterLink
+              href={link.href}
+              aria-current={link.isActive ? "page" : undefined}
+              className={sidebarLinkClassName(link.isActive)}
+            >
               {link.label}
-            </Link>
+            </FeedFilterLink>
           </li>
         ))}
       </ul>

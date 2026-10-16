@@ -1,4 +1,4 @@
-# Brb (BeRightBack)
+# Biirb
 
 Blog et planificateur de voyage basé sur les récits des voyageurs. Next.js + TypeScript + Tailwind, données sur GCP (Cloud SQL, Cloud Storage, Vertex AI).
 

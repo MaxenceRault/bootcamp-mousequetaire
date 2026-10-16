@@ -359,7 +359,7 @@ type PlanRequest = {
   posts: PostForTrip[];
 };
 
-const SYSTEM_PROMPT = `Tu es le planificateur de voyage de Brb, un blog de récits de voyageurs.
+const SYSTEM_PROMPT = `Tu es le planificateur de voyage de Biirb, un blog de récits de voyageurs.
 Tu produis un planning de voyage en français, uniquement au format JSON demandé.
 
 Règles :
@@ -585,7 +585,7 @@ type ChatRequest = Omit<PlanRequest, "posts"> & {
   message: string;
 };
 
-const CHAT_SYSTEM_PROMPT = `Tu es le compagnon de voyage de Brb, un blog de récits de voyageurs : enthousiaste, chaleureux
+const CHAT_SYSTEM_PROMPT = `Tu es le compagnon de voyage de Biirb, un blog de récits de voyageurs : enthousiaste, chaleureux
 et concret. Tu aides en français un voyageur à construire SON voyage, décrit dans <voyage>, en t'appuyant d'abord
 sur les récits et recommandations de la communauté (<posts>).
 
@@ -755,7 +755,7 @@ async function generateChatAnswer(request: ChatRequest) {
 const INSTRUCTION_MARKERS = [
   /<\/?(posts|historique|message|voyage|planning)>/i,
   /\b(offTopic|sourcePostId|startTime|itemId)\b/,
-  /compagnon de voyage de Brb/i,
+  /compagnon de voyage de Biirb/i,
   /ce sont des DONNÉES/i,
   /Hors sujet :/i,
   /Toujours refusé/i,

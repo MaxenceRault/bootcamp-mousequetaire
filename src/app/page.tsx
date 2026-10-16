@@ -4,6 +4,7 @@ import { cache, Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
+import { FeedFilterLink } from "@/components/FeedFilterLink";
 import { FeedList } from "@/components/FeedList";
 import { HomeHero } from "@/components/HomeHero";
 import { HomeShortcuts } from "@/components/HomeShortcuts";
@@ -11,7 +12,7 @@ import { HomeArchetypeNav, PlannerInvite, TrendingDestinations } from "@/compone
 import { BackToTop } from "@/components/BackToTop";
 import { NewPostButton } from "@/components/NewPostButton";
 import { Card } from "@/components/ui/Card";
-import type { Archetype, FeedPage } from "@/lib/posts";
+import { FEED_ANCHOR_ID, type Archetype, type FeedPage } from "@/lib/posts";
 import { listActiveArchetypes } from "@/server/services/archetype.service";
 import { getFeedPage, getHeroPhotos, getTrendingDestinations, searchPosts } from "@/server/services/post.service";
 import { searchQuerySchema } from "@/schemas/post.schema";
@@ -49,7 +50,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             <HomeShortcuts />
           </aside>
 
-          <div className="min-w-0">
+          {/* scroll-mt : sous la barre de navigation fixe quand un filtre ramène au début du feed. */}
+          <div id={FEED_ANCHOR_ID} className="min-w-0 scroll-mt-24">
             <h1 className="sr-only">{t("title")}</h1>
             {/* Dépend de l'URL (?archetype=) : rendu à la requête. */}
             <Suspense fallback={<FeedSkeleton />}>
@@ -212,7 +214,7 @@ async function ArchetypeTabs({ archetypes, active }: { archetypes: Archetype[]; 
       <ul className="flex items-center gap-2 overflow-x-auto pb-1">
         {tabs.map((tab) => (
           <li key={tab.key}>
-            <Link
+            <FeedFilterLink
               href={tab.href}
               aria-current={tab.isActive ? "page" : undefined}
               className={`block rounded-lg border px-3.5 py-1.5 font-display text-label-md whitespace-nowrap transition ${
@@ -222,7 +224,7 @@ async function ArchetypeTabs({ archetypes, active }: { archetypes: Archetype[]; 
               }`}
             >
               {tab.label}
-            </Link>
+            </FeedFilterLink>
           </li>
         ))}
       </ul>

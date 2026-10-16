@@ -40,6 +40,15 @@ const envSchema = z.object({
   RATE_LIMIT_REFRESH_WINDOW_SECONDS: seconds.default(15 * 60),
   RATE_LIMIT_REGISTER_MAX: count.default(5),
   RATE_LIMIT_REGISTER_WINDOW_SECONDS: seconds.default(15 * 60),
+  // Mot de passe oublié : par IP, et par email visé (une boîte mail ne peut pas être inondée de liens).
+  RATE_LIMIT_FORGOT_PASSWORD_MAX: count.default(5),
+  RATE_LIMIT_FORGOT_PASSWORD_WINDOW_SECONDS: seconds.default(15 * 60),
+  RATE_LIMIT_FORGOT_PASSWORD_EMAIL_MAX: count.default(3),
+  RATE_LIMIT_FORGOT_PASSWORD_EMAIL_WINDOW_SECONDS: seconds.default(60 * 60),
+  RATE_LIMIT_RESET_PASSWORD_MAX: count.default(10),
+  RATE_LIMIT_RESET_PASSWORD_WINDOW_SECONDS: seconds.default(15 * 60),
+  // Durée de validité du lien de réinitialisation.
+  PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(120).default(30),
   RATE_LIMIT_LOCATIONS_MAX: count.default(60),
   RATE_LIMIT_LOCATIONS_WINDOW_SECONDS: seconds.default(60),
   RATE_LIMIT_POST_CREATE_MAX: count.default(10),
@@ -94,13 +103,14 @@ export type ServerConfig = {
   jwtExpiresIn: string;
   refreshTokenTtlMs: { remember: number; session: number };
   bcryptSaltRounds: number;
+  passwordResetTtlMs: number;
   trustedProxyHops: number;
   // null : IA non configurée.
   vertex: { project: string; location: string } | null;
   aiDailyLimitPerUser: number;
   aiDailyLimitTripPass: number;
   rateLimits: Record<
-    "login" | "loginEmail" | "refresh" | "register" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "ticket" | "admin" | "comment" | "tripAi" | "tripChat" | "tripShare" | "tripExpense" | "tripExport",
+    "login" | "loginEmail" | "refresh" | "register" | "forgotPassword" | "forgotPasswordEmail" | "resetPassword" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "ticket" | "admin" | "comment" | "tripAi" | "tripChat" | "tripShare" | "tripExpense",
     RateLimit
   >;
 };
@@ -131,6 +141,7 @@ export function getConfig(): ServerConfig {
       session: env.REFRESH_TOKEN_SESSION_HOURS * 60 * 60 * 1000,
     },
     bcryptSaltRounds: env.BCRYPT_SALT_ROUNDS,
+    passwordResetTtlMs: env.PASSWORD_RESET_TTL_MINUTES * 60 * 1000,
     trustedProxyHops: env.TRUSTED_PROXY_HOPS,
     vertex:
       env.GCP_PROJECT_ID && env.VERTEX_LOCATION ? { project: env.GCP_PROJECT_ID, location: env.VERTEX_LOCATION } : null,
@@ -141,6 +152,9 @@ export function getConfig(): ServerConfig {
       loginEmail: rateLimit(env.RATE_LIMIT_LOGIN_EMAIL_MAX, env.RATE_LIMIT_LOGIN_EMAIL_WINDOW_SECONDS),
       refresh: rateLimit(env.RATE_LIMIT_REFRESH_MAX, env.RATE_LIMIT_REFRESH_WINDOW_SECONDS),
       register: rateLimit(env.RATE_LIMIT_REGISTER_MAX, env.RATE_LIMIT_REGISTER_WINDOW_SECONDS),
+      forgotPassword: rateLimit(env.RATE_LIMIT_FORGOT_PASSWORD_MAX, env.RATE_LIMIT_FORGOT_PASSWORD_WINDOW_SECONDS),
+      forgotPasswordEmail: rateLimit(env.RATE_LIMIT_FORGOT_PASSWORD_EMAIL_MAX, env.RATE_LIMIT_FORGOT_PASSWORD_EMAIL_WINDOW_SECONDS),
+      resetPassword: rateLimit(env.RATE_LIMIT_RESET_PASSWORD_MAX, env.RATE_LIMIT_RESET_PASSWORD_WINDOW_SECONDS),
       locations: rateLimit(env.RATE_LIMIT_LOCATIONS_MAX, env.RATE_LIMIT_LOCATIONS_WINDOW_SECONDS),
       feed: rateLimit(env.RATE_LIMIT_FEED_MAX, env.RATE_LIMIT_FEED_WINDOW_SECONDS),
       postCreate: rateLimit(env.RATE_LIMIT_POST_CREATE_MAX, env.RATE_LIMIT_POST_CREATE_WINDOW_SECONDS),
@@ -228,4 +242,40 @@ function readTripPassConfig(): TripPassConfig | null {
 function logInvalid(label: string, error: z.ZodError) {
   const names = error.issues.map((issue) => issue.path.join(".")).join(", ");
   logError("config", `invalid ${label} env (payment disabled): ${names}`);
+// Envoi d'emails (Gmail en SMTP) : validé à part, une valeur invalide coupe seulement les emails, jamais toute l'API.
+const mailSchema = z.object({
+  SMTP_USER: z.string().trim().toLowerCase().max(254).pipe(z.email()),
+  // Mot de passe d'application Google : 16 lettres (affichées par groupes de 4, espaces retirés).
+  SMTP_PASSWORD: z
+    .string()
+    .transform((value) => value.replace(/\s/g, ""))
+    .pipe(z.string().regex(/^[a-z]{16}$/i)),
+  // URL publique du site : seule base des liens envoyés (jamais l'en-tête Host de la requête).
+  APP_URL: z.url({ protocol: /^https?$/ }).optional(),
+});
+
+export type MailConfig = { user: string; password: string; appUrl: string | null };
+
+let mail: MailConfig | null | undefined;
+
+// null : emails non configurés (variables absentes) ou invalides (signalé dans les logs).
+export function getMailConfig(): MailConfig | null {
+  if (mail !== undefined) return mail;
+
+  const { SMTP_USER, SMTP_PASSWORD, APP_URL } = process.env;
+  if (!SMTP_USER && !SMTP_PASSWORD) return (mail = null);
+
+  const parsed = mailSchema.safeParse({ SMTP_USER, SMTP_PASSWORD, APP_URL });
+  // En production, un lien ne se construit jamais depuis la requête : APP_URL obligatoire.
+  const missingAppUrl = parsed.success && !parsed.data.APP_URL && process.env.NODE_ENV === "production";
+  if (!parsed.success || missingAppUrl) {
+    const names = parsed.success ? "APP_URL" : parsed.error.issues.map((issue) => issue.path.join(".")).join(", ");
+    logError("config", `invalid mail env (emails disabled): ${names}`);
+    return (mail = null);
+  }
+  return (mail = {
+    user: parsed.data.SMTP_USER,
+    password: parsed.data.SMTP_PASSWORD,
+    appUrl: parsed.data.APP_URL?.replace(/\/+$/, "") ?? null,
+  });
 }

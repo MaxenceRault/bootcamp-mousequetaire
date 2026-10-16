@@ -16,7 +16,7 @@ export const bmcDonationSchema = z.looseObject({
     .string()
     .regex(/^[A-Za-z]{3}$/)
     .transform((currency) => currency.toUpperCase()),
-  // Les emails des comptes Brb sont en minuscules.
+  // Les emails des comptes Biirb sont en minuscules.
   supporter_email: z.string().trim().toLowerCase().max(254).pipe(z.email()).nullish(),
 });
 

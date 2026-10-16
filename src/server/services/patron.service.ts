@@ -76,7 +76,7 @@ export async function handleBuyMeACoffeeWebhook(rawBody: string, signature: stri
   if (currency !== "EUR" || amount < bmc.patronMinEur) {
     return logInfo("patron", { ignored: type, paymentId: id, reason: "below_minimum_eur", amount, currency });
   }
-  // Pas de compte Brb avec cet email : le don reste un simple don (jamais l'email dans les logs).
+  // Pas de compte Biirb avec cet email : le don reste un simple don (jamais l'email dans les logs).
   const userId = email ? await findActiveUserIdByEmail(email) : null;
   if (!userId) return logInfo("patron", { ignored: type, paymentId: id, reason: "no_matching_account" });
 
