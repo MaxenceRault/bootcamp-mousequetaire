@@ -9,9 +9,14 @@ export const TICKET_MESSAGE_MAX = 2000;
 export const TICKET_STATUSES = ["open", "in_progress", "resolved"] as const;
 export type TicketStatus = (typeof TICKET_STATUSES)[number];
 
+// trip_pass : paiement ou activation du pass voyage, les admins sont prévenus par email.
+export const TICKET_CATEGORIES = ["trip_pass", "bug", "report", "account", "other"] as const;
+export type TicketCategory = (typeof TICKET_CATEGORIES)[number];
+
 export const createTicketSchema = z.strictObject({
   subject: z.string().trim().min(TICKET_SUBJECT_MIN).max(TICKET_SUBJECT_MAX),
   message: z.string().trim().min(TICKET_MESSAGE_MIN).max(TICKET_MESSAGE_MAX),
+  category: z.enum(TICKET_CATEGORIES),
 });
 
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;

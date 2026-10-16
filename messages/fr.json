@@ -966,6 +966,13 @@
         "open": "Ouverts",
         "in_progress": "En cours",
         "resolved": "Résolus"
+      },
+      "categories": {
+        "trip_pass": "Pass voyage",
+        "bug": "Bug",
+        "report": "Signalement",
+        "account": "Compte",
+        "other": "Autre"
       }
     },
     "tripPasses": {
@@ -1077,7 +1084,19 @@
       "TOO_MANY_REQUESTS": "Trop de tickets d'affilée. Réessayez dans une heure.",
       "FORBIDDEN": "Votre compte ne peut pas ouvrir de ticket.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
-    }
+    },
+    "category": "Sujet de la demande",
+    "categories": {
+      "trip_pass": "Pass voyage (paiement, activation)",
+      "bug": "Bug ou problème technique",
+      "report": "Signalement (contenu, utilisateur)",
+      "account": "Compte et connexion",
+      "other": "Autre"
+    },
+    "passPrefillSubject": "Activation de mon pass voyage",
+    "passPrefillMessage": "ID du voyage : {id}\nEmail utilisé pour le paiement : \n\n",
+    "passHint": "Indiquez l'adresse email utilisée pour payer : l'équipe vérifie le paiement puis active le pass au plus vite.",
+    "categoryPlaceholder": "Choisissez une catégorie…"
   },
   "Legal": {
     "nav": "Documents légaux",
@@ -1354,5 +1373,10 @@
   "PasswordResetEmail": {
     "subject": "Biirb : réinitialiser votre mot de passe",
     "body": "Bonjour {name},\n\nVous avez demandé à changer le mot de passe de votre compte Biirb. Ouvrez ce lien pour en choisir un nouveau (valable {minutes} minutes, une seule fois) :\n\n{link}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email : votre mot de passe ne change pas.\n\nL'équipe Biirb"
+  },
+  "TripPassRequestEmail": {
+    "subject": "Biirb : demande de pass voyage à traiter (ticket #{id})",
+    "body": "Bonjour,\n\n@{username} a ouvert le ticket #{id} au sujet du pass voyage (paiement ou activation).\n\nÀ faire au plus vite :\n1. Lire le ticket : Administration → Tickets.\n2. Rattacher l'achat ou activer le pass : Administration → Pass voyage.\n\n{adminUrl}\n\nCet email est envoyé à tous les administrateurs de Biirb.",
+    "adminPath": "Administration (/admin)"
   }
 }

@@ -17,7 +17,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { FIELD_CLASS_NAME, Input } from "@/components/ui/Input";
 import { USER_ROLES, type UserRole } from "@/lib/roles";
 import { apiFetch, getSessionSnapshot, parseSessionUser, subscribeSession, type ApiResult } from "@/client/session";
-import { TICKET_STATUSES, type TicketStatus } from "@/schemas/ticket.schema";
+import { TICKET_STATUSES, type TicketCategory, type TicketStatus } from "@/schemas/ticket.schema";
 
 type Dashboard = {
   counts: {
@@ -83,6 +83,7 @@ type AdminTicket = {
   subject: string;
   message: string;
   status: TicketStatus;
+  category: TicketCategory;
   created_at: string;
   updated_at: string;
   author: { id: string; username: string; display_name: string };
@@ -496,7 +497,10 @@ function TicketsTab({ call }: { call: Call }) {
                         {format.dateTime(new Date(ticket.created_at), { dateStyle: "medium", timeStyle: "short" })}
                       </span>
                     </div>
-                    <TicketStatusBadge status={ticket.status} />
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <Badge tone={ticket.category === "trip_pass" ? "accent" : "neutral"}>{t(`tickets.categories.${ticket.category}`)}</Badge>
+                      <TicketStatusBadge status={ticket.status} />
+                    </span>
                   </div>
                   <p className="rounded-lg bg-surface-muted px-3 py-2 text-body-sm whitespace-pre-line text-ink">{ticket.message}</p>
                   <div className="flex flex-wrap items-center justify-end gap-2">
