@@ -742,7 +742,12 @@
     "selected": "{count, plural, one {# jour} other {# jours}}",
     "required": "Choisissez une date de départ et une date de retour.",
     "clear": "Effacer",
-    "done": "Valider"
+    "done": "Valider",
+    "typedPlaceholder": "JJ/MM/AAAA",
+    "typedInvalid": "Cette date n'existe pas : vérifiez le jour et le mois (JJ/MM/AAAA).",
+    "typedPast": "Choisissez une date à partir d'aujourd'hui.",
+    "typedStartFirst": "Saisissez d'abord la date de départ.",
+    "typedBeforeStart": "Le retour doit être le même jour que le départ ou après."
   },
   "StoryCard": {
     "hidden": "Masqué",
