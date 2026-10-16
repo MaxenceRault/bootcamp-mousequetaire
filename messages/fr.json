@@ -180,7 +180,14 @@
     "brand": "Biirb",
     "rights": "© 2026 Biirb. Tous droits réservés.",
     "patron": "Devenir mécène",
-    "patronPitch": "Biirb est gratuit : soutenez le projet"
+    "patronPitch": "Brb est gratuit : soutenez le projet",
+    "legal": {
+      "terms": "CGU",
+      "sales": "CGV",
+      "notice": "Mentions légales",
+      "privacy": "Confidentialité"
+    },
+    "legalLabel": "Informations légales"
   },
   "PasswordInput": {
     "show": "Afficher le mot de passe",
@@ -211,7 +218,8 @@
       "subtitle": "Rejoignez la communauté pour partager vos voyages et planifier les prochains.",
       "submit": "Créer mon compte",
       "switchPrompt": "Déjà un compte ?",
-      "switchLink": "Se connecter"
+      "switchLink": "Se connecter",
+      "acceptTerms": "J'accepte les <terms>conditions générales d'utilisation</terms> et j'ai lu la <privacy>politique de confidentialité</privacy>."
     },
     "forgot": {
       "title": "Mot de passe oublié",
@@ -367,7 +375,11 @@
       "dayTab": "Jour {number} · {date}",
       "heading": "Jour {number} — {date}",
       "count": "{count, plural, =0 {Aucune activité} one {# activité} other {# activités}}",
-      "empty": "Aucune activité ce jour-là."
+      "empty": "Aucune activité ce jour-là.",
+      "regenerate": "Re-générer ce jour",
+      "regenerating": "Génération du jour…",
+      "regenerateConfirm": "Re-générer remplace les activités de ce jour (les autres jours ne changent pas). Continuer ?",
+      "maps": "Itinéraire du jour"
     },
     "item": {
       "edit": "Modifier l'activité {title}",
@@ -422,12 +434,26 @@
       "offTopic": "Je suis là pour votre voyage ! Dites-moi une envie ou une question sur votre séjour.",
       "suggestions": "Activités proposées",
       "suggestionWhen": "Jour {number} · {date} · {time}",
-      "question": "L'ajouter au planning ?",
       "yes": "Oui",
       "no": "Non",
-      "accepted": "Ajoutée au planning",
       "rejected": "Refusée",
-      "remaining": "{count, plural, one {Encore # message possible pour ce voyage} other {Encore # messages possibles pour ce voyage}}"
+      "remaining": "{count, plural, one {Encore # message possible pour ce voyage} other {Encore # messages possibles pour ce voyage}}",
+      "actions": {
+        "add": "Ajout",
+        "update": "Modification",
+        "delete": "Suppression"
+      },
+      "questions": {
+        "add": "L'ajouter au planning ?",
+        "update": "Appliquer cette modification ?",
+        "delete": "La retirer du planning ?"
+      },
+      "applied": {
+        "add": "Ajoutée au planning",
+        "update": "Modification appliquée",
+        "delete": "Retirée du planning"
+      },
+      "before": "Avant : {date} · {time} · {title}"
     },
     "errors": {
       "INVALID_INPUT": "Vérifiez les champs du formulaire.",
@@ -438,13 +464,43 @@
       "UNAUTHORIZED": "Votre session a expiré. Reconnectez-vous.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
       "CHAT_LIMIT_REACHED": "Vous avez atteint la limite de messages pour ce voyage.",
-      "DAILY_LIMIT_REACHED": "Vous avez utilisé vos 15 requêtes Biirbou du jour. Revenez demain !",
-      "AI_DISABLED": "Biirbou est momentanément indisponible. Réessayez plus tard.",
-      "FORBIDDEN": "Vous n'avez pas les droits pour cette action."
+      "DAILY_LIMIT_REACHED": "Vous avez utilisé vos 15 requêtes IA du jour. Revenez demain !",
+      "AI_DISABLED": "L'IA est momentanément indisponible. Réessayez plus tard.",
+      "FORBIDDEN": "Vous n'avez pas les droits pour cette action.",
+      "PASS_REQUIRED": "Cette fonction fait partie du pass voyage.",
+      "PASS_ALREADY_ACTIVE": "Ce voyage a déjà le pass voyage.",
+      "PASS_UNAVAILABLE": "Le pass voyage n'est pas en vente pour le moment.",
+      "SUGGESTION_OUTDATED": "Cette proposition n'est plus valable : l'activité concernée a été modifiée ou supprimée entre-temps."
+    },
+    "pass": {
+      "title": "Pass voyage",
+      "hint": "Débloquez les outils premium de ce voyage, pour tous ses membres. Un seul paiement, valable pour toujours sur ce voyage.",
+      "benefits": {
+        "ai": "Plus de requêtes IA par jour sur ce voyage et une discussion 4 fois plus longue",
+        "day": "Re-générer un seul jour sans toucher au reste du planning",
+        "exports": "Export PDF, calendrier (.ics) et itinéraire Google Maps de chaque jour"
+      },
+      "buy": "Débloquer pour {price}",
+      "opening": "Ouverture du paiement…",
+      "email": "Payez avec l'adresse de votre compte Brb : {email}. C'est elle qui relie le paiement à ce voyage.",
+      "emailUnknown": "Payez avec l'adresse de votre compte Brb : c'est elle qui relie le paiement à ce voyage.",
+      "openPayment": "Ouvrir la page de paiement",
+      "refresh": "J'ai payé : actualiser",
+      "notYet": "Pas encore actif : le paiement peut prendre quelques minutes. Réessayez un peu plus tard.",
+      "ownerOnly": "Seul le propriétaire du voyage peut acheter le pass. Il profite ensuite à tous les membres.",
+      "unavailable": "Le pass voyage sera bientôt disponible.",
+      "active": "Pass voyage",
+      "locked": "{feature} : inclus dans le pass voyage",
+      "confirmEmail": "Je paierai avec cette adresse",
+      "otherEmail": "Une autre adresse ? Le pass ne s'activera pas tout seul : contactez le support avec l'ID de ce voyage ({id}) et l'adresse utilisée pour payer.",
+      "support": "Contacter le support",
+      "acceptSales": "J'accepte les <sales>conditions générales de vente</sales> du pass voyage.",
+      "waiveWithdrawal": "Je demande l'activation immédiate du pass après le paiement et je reconnais perdre mon droit de rétractation de 14 jours dès son activation."
     },
     "export": {
       "csv": "CSV",
       "pdf": "PDF",
+      "calendar": "Calendrier",
       "columns": {
         "day": "Jour",
         "date": "Date",
@@ -453,6 +509,17 @@
         "title": "Activité",
         "description": "Description",
         "source": "Récit source"
+      },
+      "templatesLabel": "Modèle du PDF",
+      "templates": {
+        "classic": "Classique",
+        "table": "Tableau",
+        "booklet": "Livret jour par jour"
+      },
+      "templateHints": {
+        "classic": "Le planning complet à la suite (A4)",
+        "table": "Jours en colonnes, cases colorées (A4 paysage)",
+        "booklet": "Une page par jour, avec un espace de notes (A5)"
       }
     },
     "share": {
@@ -512,13 +579,15 @@
         "TOO_MANY_REQUESTS": "Trop d'invitations d'un coup. Réessayez dans quelques minutes.",
         "FORBIDDEN": "Seul le propriétaire du voyage peut gérer les membres.",
         "NOT_FOUND": "Élément introuvable.",
-        "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+        "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
+        "TRIP_FULL": "Ce voyage est complet : 10 voyageurs maximum (membres, invitations en attente et participants sans compte)."
       }
     },
     "views": {
       "label": "Vue du voyage",
       "plan": "Planning",
-      "expenses": "Dépenses"
+      "expenses": "Dépenses",
+      "table": "Tableau"
     },
     "expenses": {
       "add": "Nouvelle dépense",
@@ -596,10 +665,31 @@
         "CURRENCY_LOCKED": "La devise ne peut plus changer : des dépenses sont déjà saisies.",
         "RATE_UNAVAILABLE": "Le taux de change est indisponible pour l'instant. Réessayez dans un moment.",
         "TOO_MANY_REQUESTS": "Trop de modifications d'un coup. Réessayez dans quelques minutes.",
-        "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
+        "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
+        "TRIP_FULL": "Ce voyage est complet : 10 voyageurs maximum, membres compris."
       }
     },
-    "offline": "Hors ligne : vous consultez la dernière version enregistrée sur cet appareil. Les modifications reviendront avec le réseau."
+    "offline": "Hors ligne : vous consultez la dernière version enregistrée sur cet appareil. Les modifications reviendront avec le réseau.",
+    "table": {
+      "title": "Vue tableau",
+      "hint": "Le voyage d'un coup d'œil, jour par jour et heure par heure.",
+      "hintEditor": "Le voyage d'un coup d'œil. Cliquez sur une case pour changer sa couleur (visible par tous les membres et dans le PDF).",
+      "caption": "Planning de {title}, par jour et par heure",
+      "hour": "Heure",
+      "changeColor": "Changer la couleur de {title}",
+      "palette": "Couleurs",
+      "reset": "Par défaut",
+      "colors": {
+        "coral": "Corail",
+        "sky": "Ciel",
+        "mint": "Menthe",
+        "sun": "Soleil",
+        "lavender": "Lavande",
+        "sand": "Sable",
+        "rose": "Rose",
+        "slate": "Ardoise"
+      }
+    }
   },
   "DateRangePicker": {
     "start": "Départ",
@@ -655,6 +745,7 @@
       "users": "Utilisateurs",
       "archetypes": "Types de récit",
       "bannedWords": "Mots bannis",
+      "tripPasses": "Pass voyage",
       "ai": "Biirbou",
       "journal": "Journal"
     },
@@ -766,6 +857,9 @@
         "comment_delete": "Commentaire supprimé",
         "banned_word_create": "Terme banni",
         "banned_word_delete": "Terme retiré",
+        "trip_pass_gift": "Pass voyage offert",
+        "trip_pass_assign": "Achat de pass rattaché",
+        "trip_pass_revoke": "Pass voyage retiré",
         "ticket_status": "État d'un ticket modifié"
       },
       "targets": {
@@ -773,7 +867,8 @@
         "post": "Récit",
         "archetype": "Type de récit",
         "settings": "Réglages",
-        "ticket": "Ticket"
+        "ticket": "Ticket",
+        "trip": "Voyage"
       }
     },
     "errors": {
@@ -785,7 +880,10 @@
       "ARCHETYPE_TAKEN": "Un type de récit porte déjà ce nom.",
       "TOO_MANY_REQUESTS": "Trop d'actions d'affilée. Patientez une minute.",
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard.",
-      "BANNED_WORD_TAKEN": "Ce terme est déjà dans la liste."
+      "BANNED_WORD_TAKEN": "Ce terme est déjà dans la liste.",
+      "TRIP_NOT_FOUND": "Aucun voyage avec cet ID.",
+      "PASS_ALREADY_ACTIVE": "Ce voyage a déjà un pass actif.",
+      "EMAIL_MISMATCH": "Cet email n'est pas celui utilisé pour ce paiement : rattachement refusé."
     },
     "bannedWords": {
       "createTitle": "Bannir un terme",
@@ -822,6 +920,29 @@
         "in_progress": "En cours",
         "resolved": "Résolus"
       }
+    },
+    "tripPasses": {
+      "unassignedTitle": "Achats à rattacher",
+      "unassignedHint": "Payés avec une adresse sans compte Brb, ou sans voyage choisi dans les 24 h. Demandez à l'acheteur (ticket de support) l'ID de son voyage (le nombre dans l'adresse /planner/…) et l'email utilisé pour payer : il est vérifié avant le rattachement.",
+      "unassignedEmpty": "Aucun achat à rattacher.",
+      "payer": "Payé par {hint}",
+      "payerUnknown": "Email du paiement inconnu",
+      "payerAccount": "compte @{username}",
+      "tripId": "ID du voyage",
+      "payerEmail": "Email de paiement déclaré",
+      "assign": "Rattacher",
+      "giftTitle": "Offrir un pass",
+      "giftHint": "Geste commercial ou souci de paiement : le pass est offert, sans paiement. Inscrit au journal.",
+      "gift": "Offrir le pass",
+      "giftConfirm": "Offrir le pass voyage au voyage n° {id} ?",
+      "activeTitle": "Pass actifs",
+      "activeEmpty": "Aucun pass actif.",
+      "gifted": "Offert",
+      "paid": "Payé",
+      "revoke": "Retirer",
+      "revokeConfirm": "Retirer le pass du voyage « {title} » ? Un éventuel remboursement se fait sur Buy Me a Coffee.",
+      "trip": "{title} · @{owner} · n° {id}",
+      "done": "Pass attribué."
     }
   },
   "TripExport": {
@@ -913,8 +1034,276 @@
       "INTERNAL_ERROR": "Une erreur est survenue. Réessayez plus tard."
     }
   },
-  "PasswordResetEmail": {
-    "subject": "Brb : réinitialiser votre mot de passe",
-    "body": "Bonjour {name},\n\nVous avez demandé à changer le mot de passe de votre compte Brb. Ouvrez ce lien pour en choisir un nouveau (valable {minutes} minutes, une seule fois) :\n\n{link}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email : votre mot de passe ne change pas.\n\nL'équipe Brb"
+  "Legal": {
+    "nav": "Documents légaux",
+    "updated": "Version du {date}",
+    "draft": "Document provisoire : Brb est encore un projet étudiant sans structure juridique. Ces conditions seront mises à jour lors de sa création.",
+    "terms": {
+      "short": "CGU",
+      "title": "Conditions générales d'utilisation",
+      "date": "17 octobre 2026",
+      "sections": [
+        {
+          "title": "1. Objet",
+          "paragraphs": [
+            "Les présentes conditions générales d'utilisation (CGU) encadrent l'utilisation de Brb (BeRightBack), un site de récits de voyage et de planification de voyages. Créer un compte vaut acceptation des CGU dans leur version en vigueur."
+          ]
+        },
+        {
+          "title": "2. Éditeur",
+          "paragraphs": [
+            "Brb est édité par l'équipe Brb, projet étudiant indépendant développé par des étudiants de l'IIM (Paris – La Défense), sans structure juridique à ce jour. Ses coordonnées figurent dans les mentions légales. Si une structure (entreprise ou association) est créée, elle reprendra l'édition du site et les CGU seront mises à jour."
+          ]
+        },
+        {
+          "title": "3. Accès au service",
+          "paragraphs": [
+            "La lecture des récits est libre. Publier, commenter, réagir, planifier un voyage ou utiliser l'IA nécessite un compte. Le service est réservé aux personnes âgées d'au moins 15 ans.",
+            "Le service est fourni gratuitement, à l'exception des fonctions du pass voyage, régies par les conditions générales de vente. Brb peut suspendre ou faire évoluer le service, notamment pour maintenance."
+          ]
+        },
+        {
+          "title": "4. Compte",
+          "paragraphs": [
+            "Vous fournissez des informations exactes et gardez votre mot de passe confidentiel. Vous êtes responsable de l'activité de votre compte. Une seule personne par compte."
+          ]
+        },
+        {
+          "title": "5. Contenus publiés",
+          "paragraphs": [
+            "Vous restez propriétaire des récits, photos et commentaires que vous publiez et garantissez en détenir les droits. Vous accordez à Brb une licence gratuite et non exclusive pour les afficher sur le site, le temps de leur publication.",
+            "Sont interdits notamment : les contenus haineux, injurieux, violents ou sexuellement explicites, le harcèlement, les contenus illicites, la publicité non sollicitée, les données personnelles d'autrui sans son accord et toute atteinte aux droits d'un tiers.",
+            "Les textes sont filtrés automatiquement et les photos analysées par une IA avant publication. Tout utilisateur peut signaler un contenu ; l'équipe peut masquer ou supprimer un contenu contraire aux CGU."
+          ]
+        },
+        {
+          "title": "6. Intelligence artificielle",
+          "paragraphs": [
+            "Le planificateur et la discussion de voyage utilisent un modèle d'IA (Gemini, Google). Les plannings, budgets et conseils générés sont indicatifs et peuvent être inexacts ou datés : vérifiez horaires, prix, accès, formalités et conditions de sécurité avant de partir. Ne saisissez pas de données sensibles dans la discussion.",
+            "L'usage de l'IA est limité (quotas quotidiens) et peut être suspendu."
+          ]
+        },
+        {
+          "title": "7. Voyages partagés et dépenses",
+          "paragraphs": [
+            "Le propriétaire d'un voyage peut inviter d'autres utilisateurs, dans la limite de 10 voyageurs par voyage. Les montants, conversions de devises (taux de la Banque centrale européenne) et équilibrages calculés par Brb sont indicatifs et ne constituent pas un service de paiement."
+          ]
+        },
+        {
+          "title": "8. Dons",
+          "paragraphs": [
+            "Le soutien à Brb via Buy Me a Coffee est un don sans contrepartie autre que le badge « Mécène »."
+          ]
+        },
+        {
+          "title": "9. Sanctions",
+          "paragraphs": [
+            "En cas de manquement aux CGU, l'équipe peut retirer un contenu, suspendre ou supprimer un compte, sans préjudice d'éventuelles poursuites."
+          ]
+        },
+        {
+          "title": "10. Responsabilité",
+          "paragraphs": [
+            "Brb met en œuvre des moyens raisonnables pour assurer le service mais ne garantit pas son fonctionnement sans interruption. Brb n'est pas responsable des contenus publiés par les utilisateurs ni des décisions de voyage prises sur la base du site."
+          ]
+        },
+        {
+          "title": "11. Données personnelles",
+          "paragraphs": [
+            "Le traitement de vos données est décrit dans la politique de confidentialité."
+          ]
+        },
+        {
+          "title": "12. Modification des CGU",
+          "paragraphs": [
+            "Les CGU peuvent évoluer. Vous serez informé de toute modification importante et invité à accepter la nouvelle version."
+          ]
+        },
+        {
+          "title": "13. Droit applicable",
+          "paragraphs": [
+            "Les CGU sont soumises au droit français. En cas de litige, une solution amiable sera recherchée avant toute action ; à défaut, les tribunaux français sont compétents. Contact : la page Support du site (ticket)."
+          ]
+        }
+      ]
+    },
+    "sales": {
+      "short": "CGV",
+      "title": "Conditions générales de vente — Pass voyage",
+      "date": "17 octobre 2026",
+      "sections": [
+        {
+          "title": "1. Vendeur",
+          "paragraphs": [
+            "Le pass voyage est vendu par l'équipe Brb, projet étudiant indépendant développé par des étudiants de l'IIM (Paris – La Défense), sans structure juridique à ce jour, qui encaisse le paiement par sa page Buy Me a Coffee. Contact : la page Support du site (ticket).",
+            "Lorsqu'une structure immatriculée (entreprise ou association) reprendra la vente, ses coordonnées complètes (dénomination, numéro SIREN, adresse) figureront ici et les CGV seront mises à jour."
+          ]
+        },
+        {
+          "title": "2. Objet",
+          "paragraphs": [
+            "Les présentes conditions générales de vente (CGV) s'appliquent à l'achat du « pass voyage » sur Brb par un consommateur. Elles sont acceptées avant chaque paiement."
+          ]
+        },
+        {
+          "title": "3. Produit",
+          "paragraphs": [
+            "Le pass voyage est un contenu numérique rattaché à un seul voyage du planificateur. Il débloque, pour tous les membres de ce voyage : davantage de requêtes IA par jour sur ce voyage et une discussion plus longue, la re-génération d'un seul jour, l'export PDF, le calendrier (.ics) et l'itinéraire Google Maps de chaque jour.",
+            "Le pass est valable sans limite de durée, tant que le voyage et le service existent. Il n'est ni transférable à un autre voyage ni remboursable en cas de suppression du voyage par son propriétaire."
+          ]
+        },
+        {
+          "title": "4. Prix",
+          "paragraphs": [
+            "Le prix est de 9,99 €, affiché avant l'achat. Aucune TVA n'est facturée : le vendeur n'y est pas assujetti à ce jour."
+          ]
+        },
+        {
+          "title": "5. Commande et paiement",
+          "paragraphs": [
+            "Le propriétaire du voyage choisit le pass sur la page du voyage, accepte les présentes CGV, puis paie sur la page Buy Me a Coffee du vendeur. Le paiement est traité par Buy Me a Coffee et son prestataire de paiement : Brb ne reçoit ni ne conserve aucune donnée bancaire.",
+            "Le paiement doit être effectué avec l'adresse email du compte Brb : c'est elle qui relie le paiement au voyage. Avec une autre adresse, l'activation n'est pas automatique ; contactez le support avec l'identifiant du voyage et l'adresse utilisée."
+          ]
+        },
+        {
+          "title": "6. Activation",
+          "paragraphs": [
+            "Le pass est activé automatiquement dès la confirmation du paiement par Buy Me a Coffee, en général en quelques instants. En cas de problème, contactez le support."
+          ]
+        },
+        {
+          "title": "7. Droit de rétractation",
+          "paragraphs": [
+            "Conformément à l'article L221-28, 13° du Code de la consommation, le droit de rétractation ne peut être exercé pour un contenu numérique fourni sans support matériel dont l'exécution a commencé avec votre accord préalable exprès et votre renoncement exprès à ce droit. Avant le paiement, vous demandez l'activation immédiate du pass et reconnaissez perdre votre droit de rétractation dès son activation."
+          ]
+        },
+        {
+          "title": "8. Garanties légales",
+          "paragraphs": [
+            "Le pass bénéficie de la garantie légale de conformité des contenus numériques (articles L224-25-12 et suivants du Code de la consommation). En cas de défaut, contactez le support : le vendeur mettra le pass en conformité ou, à défaut, le remboursera."
+          ]
+        },
+        {
+          "title": "9. Arrêt du service",
+          "paragraphs": [
+            "Si Brb devait fermer, les utilisateurs seraient prévenus par un message sur le site au moins 30 jours avant l'arrêt, et la vente du pass serait suspendue dès cette annonce.",
+            "Les pass achetés moins de 12 mois avant la date d'arrêt seraient remboursés au prorata : le prix payé multiplié par le nombre de mois entiers restant à courir sur ces 12 mois, divisé par 12. Exemple : un pass acheté 2 mois avant l'arrêt serait remboursé de 10/12 de son prix. Le remboursement passe par Buy Me a Coffee, sur le moyen de paiement utilisé."
+          ]
+        },
+        {
+          "title": "10. Réclamations et médiation",
+          "paragraphs": [
+            "Toute réclamation peut être adressée via la page Support du site (ticket).",
+            "Le vendeur désignera un médiateur de la consommation lors de son immatriculation ; ses coordonnées figureront alors ici. En attendant, les litiges sont traités à l'amiable via le support."
+          ]
+        },
+        {
+          "title": "11. Droit applicable",
+          "paragraphs": [
+            "Les présentes CGV sont soumises au droit français."
+          ]
+        }
+      ]
+    },
+    "notice": {
+      "short": "Mentions légales",
+      "title": "Mentions légales",
+      "date": "17 octobre 2026",
+      "sections": [
+        {
+          "title": "Éditeur du site",
+          "paragraphs": [
+            "Brb est édité par l'équipe Brb, projet étudiant indépendant développé par des étudiants de l'IIM (Paris – La Défense), sans structure juridique à ce jour."
+          ]
+        },
+        {
+          "title": "Directeur de la publication",
+          "paragraphs": [
+            "L'équipe Brb."
+          ]
+        },
+        {
+          "title": "Hébergement",
+          "paragraphs": [
+            "Google Cloud EMEA Limited, Velasco, Clanwilliam Place, Dublin 2, Irlande. Serveurs et base de données situés à Paris (région europe-west9)."
+          ]
+        },
+        {
+          "title": "Propriété intellectuelle",
+          "paragraphs": [
+            "La marque Brb, le logo et la conception du site appartiennent à leurs auteurs. Les récits et photos appartiennent aux utilisateurs qui les publient. Toute reproduction sans autorisation est interdite."
+          ]
+        },
+        {
+          "title": "Contact",
+          "paragraphs": [
+            "Pour toute question (contenu, compte, achat, données personnelles) : la page Support du site (ticket)."
+          ]
+        }
+      ]
+    },
+    "privacy": {
+      "short": "Confidentialité",
+      "title": "Politique de confidentialité",
+      "date": "17 octobre 2026",
+      "sections": [
+        {
+          "title": "Responsable du traitement",
+          "paragraphs": [
+            "Le responsable du traitement est l'équipe Brb, projet étudiant indépendant développé par des étudiants de l'IIM (Paris – La Défense), sans structure juridique à ce jour. Contact : la page Support du site (ticket)."
+          ]
+        },
+        {
+          "title": "Données collectées",
+          "paragraphs": [
+            "Compte : adresse email, mot de passe (stocké uniquement sous forme chiffrée irréversible), nom affiché, pseudo, photo ou avatar, ville facultative, préférences de confidentialité, date d'acceptation des CGU.",
+            "Contenus : récits, photos, commentaires, mentions « j'aime » et enregistrements, signalements, tickets de support.",
+            "Planificateur : voyages, activités, checklist, budget, dépenses partagées (y compris le nom des participants sans compte que vous ajoutez), messages échangés avec l'IA.",
+            "Pass voyage : empreinte chiffrée et aperçu masqué de l'email de paiement, montant, date, consentements donnés. Aucune donnée bancaire.",
+            "Technique : journaux du serveur (erreurs, adresse IP utilisée temporairement pour limiter les abus)."
+          ]
+        },
+        {
+          "title": "Finalités et bases légales",
+          "paragraphs": [
+            "Fournir le service et votre compte (exécution des CGU) ; vendre et activer le pass voyage (exécution du contrat, obligations comptables) ; modération et sécurité, lutte contre les abus (intérêt légitime) ; respect des obligations légales."
+          ]
+        },
+        {
+          "title": "Destinataires et sous-traitants",
+          "paragraphs": [
+            "Google Cloud (hébergement, base de données, stockage des photos, journaux) et Google Vertex AI (modèle Gemini : génération des plannings, discussion, vérification des photos), dans l'Union européenne. Buy Me a Coffee (dons et paiement du pass), qui traite vos données de paiement selon sa propre politique, avec des transferts possibles hors de l'Union européenne. Les images d'illustration peuvent être chargées depuis Unsplash. Vos données ne sont jamais vendues."
+          ]
+        },
+        {
+          "title": "Durées de conservation",
+          "paragraphs": [
+            "Compte, récits, photos, commentaires et voyages : tant que le compte existe. Vous pouvez demander la suppression de votre compte via la page Support ; elle efface vos données, sauf celles qui doivent être gardées comme preuve (ci-dessous).",
+            "Sessions de connexion : valables 30 jours au plus. Commande de pass en cours : 24 heures.",
+            "Journaux techniques du serveur : 30 jours.",
+            "Achats du pass et preuves des consentements (CGU, CGV, renonciation au droit de rétractation) : 5 ans après l'achat ou l'acceptation, pour faire valoir ou défendre un droit.",
+            "Adresses IP utilisées contre les abus : en mémoire uniquement, le temps de la limitation (1 heure au plus)."
+          ]
+        },
+        {
+          "title": "Cookies et stockage local",
+          "paragraphs": [
+            "Brb n'utilise ni publicité ni mesure d'audience. Un seul cookie, strictement nécessaire, maintient votre connexion (brb_refresh). Le navigateur garde aussi votre profil affiché et, pour la consultation hors ligne, une copie de vos voyages, effacée à la déconnexion. Ces éléments ne nécessitent pas de consentement."
+          ]
+        },
+        {
+          "title": "Sécurité",
+          "paragraphs": [
+            "Connexion chiffrée (HTTPS), mots de passe hachés, accès limité aux données, sessions révocables."
+          ]
+        },
+        {
+          "title": "Vos droits",
+          "paragraphs": [
+            "Vous disposez des droits d'accès, de rectification, d'effacement, de limitation, d'opposition et de portabilité, ainsi que du droit de définir des directives après votre décès. Pour les exercer : la page Support du site (ticket). Vous pouvez introduire une réclamation auprès de la CNIL (www.cnil.fr)."
+          ]
+        }
+      ]
+    }
   }
 }

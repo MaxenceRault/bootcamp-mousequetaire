@@ -9,6 +9,7 @@ import {
   refundDonationAndRevokePatron,
 } from "@/server/repositories/patron.repository";
 import { findUserAccess } from "@/server/repositories/user.repository";
+import { handleTripPassEvent, TripPassError } from "@/server/services/trip-pass.service";
 import { bmcDonationSchema, bmcEventSchema, bmcSignatureSchema } from "@/schemas/patron.schema";
 
 export class PatronError extends Error {
@@ -40,7 +41,7 @@ export async function getPatronStatus(userId: string): Promise<PatronStatus> {
   };
 }
 
-// Rôle attribué / retiré uniquement ici, sur un événement signé par Buy Me a Coffee.
+// Rôle mécène et pass voyage attribués / retirés uniquement ici, sur un événement signé par Buy Me a Coffee.
 export async function handleBuyMeACoffeeWebhook(rawBody: string, signature: string) {
   const bmc = getBuyMeACoffeeConfig();
   if (!bmc) throw new PatronError("UNAVAILABLE");
@@ -52,6 +53,14 @@ export async function handleBuyMeACoffeeWebhook(rawBody: string, signature: stri
 
   // Événements de test du tableau de bord (données d'exemple) : jamais pris en compte en production.
   if (!liveMode && process.env.NODE_ENV === "production") return logInfo("patron", { ignored: type, reason: "test_event" });
+  if (type.startsWith("extra_purchase.")) {
+    try {
+      return await handleTripPassEvent(type, event.data.data);
+    } catch (error) {
+      if (error instanceof TripPassError) throw new PatronError("INVALID_PAYLOAD");
+      throw error;
+    }
+  }
   if (type !== "donation.created" && type !== "donation.refunded") return logInfo("patron", { ignored: type });
 
   const donation = bmcDonationSchema.safeParse(event.data.data);

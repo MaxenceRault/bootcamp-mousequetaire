@@ -2,6 +2,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import {
   answerUserInvitation,
+  countTripTravelers,
   deleteMember,
   deleteTripInvitation,
   findActiveUserIdByUsername,
@@ -14,10 +15,10 @@ import {
   upsertUserInvitation,
 } from "@/server/repositories/trip-share.repository";
 import { requireTripRole } from "@/server/services/trip-access.service";
-import type { InviteMemberInput, TripMemberRole } from "@/schemas/trip-share.schema";
+import { TRIP_MAX_TRAVELERS, type InviteMemberInput, type TripMemberRole } from "@/schemas/trip-share.schema";
 
 export class TripShareError extends Error {
-  constructor(public readonly code: "INVALID_INPUT" | "NOT_FOUND" | "USER_NOT_FOUND" | "ALREADY_MEMBER" | "INVITE_INVALID") {
+  constructor(public readonly code: "INVALID_INPUT" | "NOT_FOUND" | "USER_NOT_FOUND" | "ALREADY_MEMBER" | "INVITE_INVALID" | "TRIP_FULL") {
     super(code);
   }
 }
@@ -39,6 +40,8 @@ export async function inviteByUsername(userId: string, tripId: number, input: In
   const inviteeId = await findActiveUserIdByUsername(input.username);
   if (!inviteeId) throw new TripShareError("USER_NOT_FOUND");
   if (inviteeId === userId) throw new TripShareError("INVALID_INPUT");
+  // Places réservées par les invitations en attente ; la limite est revérifiée à l'acceptation.
+  if ((await countTripTravelers(tripId, { pendingInvitations: true })) >= TRIP_MAX_TRAVELERS) throw new TripShareError("TRIP_FULL");
   if (!(await upsertUserInvitation(tripId, inviteeId, input.role, userId, expiry()))) throw new TripShareError("ALREADY_MEMBER");
   return getTripSharing(userId, tripId);
 }
@@ -46,6 +49,7 @@ export async function inviteByUsername(userId: string, tripId: number, input: In
 // Le code n'est renvoyé qu'une fois : seule son empreinte est stockée.
 export async function createInviteLink(userId: string, tripId: number, role: TripMemberRole) {
   await requireTripRole(userId, tripId, "owner");
+  if ((await countTripTravelers(tripId)) >= TRIP_MAX_TRAVELERS) throw new TripShareError("TRIP_FULL");
   const code = randomBytes(32).toString("base64url");
   const expiresAt = expiry();
   const id = await insertLinkInvitation(tripId, hashCode(code), role, userId, expiresAt);
@@ -76,15 +80,17 @@ export function listMyInvitations(userId: string) {
 }
 
 export async function answerInvitation(userId: string, invitationId: number, accepted: boolean) {
-  const tripId = await answerUserInvitation(invitationId, userId, accepted);
-  if (tripId === null) throw new TripShareError("NOT_FOUND");
-  return { tripId: accepted ? tripId : null };
+  const result = await answerUserInvitation(invitationId, userId, accepted);
+  if (result === null) throw new TripShareError("NOT_FOUND");
+  if (result.full) throw new TripShareError("TRIP_FULL");
+  return { tripId: accepted ? result.tripId : null };
 }
 
 export async function joinTrip(userId: string, code: string) {
-  const tripId = await joinWithLink(hashCode(code), userId);
-  if (tripId === null) throw new TripShareError("INVITE_INVALID");
-  return { tripId };
+  const result = await joinWithLink(hashCode(code), userId);
+  if (result === null) throw new TripShareError("INVITE_INVALID");
+  if (result.full) throw new TripShareError("TRIP_FULL");
+  return { tripId: result.tripId };
 }
 
 function hashCode(code: string) {

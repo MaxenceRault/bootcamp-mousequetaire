@@ -35,7 +35,7 @@ type Invitation = {
 
 type Sharing = { role: TripRole; members: Member[]; invitations: Invitation[] };
 
-const SHARE_ERRORS = ["INVALID_INPUT", "USER_NOT_FOUND", "ALREADY_MEMBER", "TOO_MANY_REQUESTS", "FORBIDDEN", "NOT_FOUND", "INTERNAL_ERROR"] as const;
+const SHARE_ERRORS = ["INVALID_INPUT", "USER_NOT_FOUND", "ALREADY_MEMBER", "TRIP_FULL", "TOO_MANY_REQUESTS", "FORBIDDEN", "NOT_FOUND", "INTERNAL_ERROR"] as const;
 type ShareError = (typeof SHARE_ERRORS)[number];
 
 // Membres et invitations d'un voyage. Seul le propriétaire invite, change les rôles et retire des membres.

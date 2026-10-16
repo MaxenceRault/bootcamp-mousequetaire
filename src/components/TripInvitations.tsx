@@ -23,7 +23,7 @@ export function TripInvitations() {
   const format = useFormatter();
   const router = useRouter();
   const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<"TRIP_FULL" | "INTERNAL_ERROR" | null>(null);
 
   useEffect(() => {
     apiFetch<{ invitations: PendingInvitation[] }>("/api/v1/trips/invitations").then((result) => {
@@ -32,9 +32,9 @@ export function TripInvitations() {
   }, []);
 
   async function answer(invitation: PendingInvitation, accepted: boolean) {
-    setError(false);
+    setError(null);
     const result = await apiFetch(`/api/v1/trips/invitations/${invitation.id}`, { method: "PATCH", body: { accepted } });
-    if (!("data" in result) && result.error !== "NOT_FOUND") return setError(true);
+    if (!("data" in result) && result.error !== "NOT_FOUND") return setError(result.error === "TRIP_FULL" ? "TRIP_FULL" : "INTERNAL_ERROR");
     if (accepted && "data" in result) return router.push(`/planner/${invitation.trip.id}`);
     setInvitations((current) => current.filter((item) => item.id !== invitation.id));
   }
@@ -79,7 +79,7 @@ export function TripInvitations() {
           </li>
         ))}
       </ul>
-      {error && <FormError>{t("errors.INTERNAL_ERROR")}</FormError>}
+      {error && <FormError>{t(`errors.${error}`)}</FormError>}
     </section>
   );
 }

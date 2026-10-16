@@ -73,6 +73,8 @@ const envSchema = z.object({
   RATE_LIMIT_ADMIN_WINDOW_SECONDS: seconds.default(60),
   // Quota IA par utilisateur et par jour (heure de Paris), admins exclus ; compteur en base (ai_usage).
   AI_DAILY_LIMIT_PER_USER: count.default(15),
+  // Appels IA sur un voyage qui a le pass voyage (même compteur journalier, plafond plus haut).
+  AI_DAILY_LIMIT_TRIP_PASS: count.default(50),
   // IA du planificateur, par utilisateur : génération d'un côté, discussion de l'autre.
   RATE_LIMIT_TRIP_AI_MAX: count.default(20),
   RATE_LIMIT_TRIP_AI_WINDOW_SECONDS: seconds.default(60 * 60),
@@ -84,6 +86,9 @@ const envSchema = z.object({
   // Écritures sur les dépenses d'un voyage, par utilisateur (une devise étrangère appelle l'API de taux de change).
   RATE_LIMIT_TRIP_EXPENSE_MAX: count.default(120),
   RATE_LIMIT_TRIP_EXPENSE_WINDOW_SECONDS: seconds.default(15 * 60),
+  // Exports PDF / .ics et commandes du pass voyage, par utilisateur : un PDF se calcule sur l'unique instance.
+  RATE_LIMIT_TRIP_EXPORT_MAX: count.default(20),
+  RATE_LIMIT_TRIP_EXPORT_WINDOW_SECONDS: seconds.default(15 * 60),
 }).refine((env) => env.JWT_REFRESH_SECRET !== env.JWT_SECRET, {
   path: ["JWT_REFRESH_SECRET"],
   message: "doit être différente de JWT_SECRET",
@@ -103,8 +108,9 @@ export type ServerConfig = {
   // null : IA non configurée.
   vertex: { project: string; location: string } | null;
   aiDailyLimitPerUser: number;
+  aiDailyLimitTripPass: number;
   rateLimits: Record<
-    "login" | "loginEmail" | "refresh" | "register" | "forgotPassword" | "forgotPasswordEmail" | "resetPassword" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "ticket" | "admin" | "comment" | "tripAi" | "tripChat" | "tripShare" | "tripExpense",
+    "login" | "loginEmail" | "refresh" | "register" | "forgotPassword" | "forgotPasswordEmail" | "resetPassword" | "locations" | "feed" | "postCreate" | "postEdit" | "postReact" | "profileView" | "profileUpdate" | "report" | "ticket" | "admin" | "comment" | "tripAi" | "tripChat" | "tripShare" | "tripExpense" | "tripExport",
     RateLimit
   >;
 };
@@ -140,6 +146,7 @@ export function getConfig(): ServerConfig {
     vertex:
       env.GCP_PROJECT_ID && env.VERTEX_LOCATION ? { project: env.GCP_PROJECT_ID, location: env.VERTEX_LOCATION } : null,
     aiDailyLimitPerUser: env.AI_DAILY_LIMIT_PER_USER,
+    aiDailyLimitTripPass: env.AI_DAILY_LIMIT_TRIP_PASS,
     rateLimits: {
       login: rateLimit(env.RATE_LIMIT_LOGIN_MAX, env.RATE_LIMIT_LOGIN_WINDOW_SECONDS),
       loginEmail: rateLimit(env.RATE_LIMIT_LOGIN_EMAIL_MAX, env.RATE_LIMIT_LOGIN_EMAIL_WINDOW_SECONDS),
@@ -163,12 +170,13 @@ export function getConfig(): ServerConfig {
       tripChat: rateLimit(env.RATE_LIMIT_TRIP_CHAT_MAX, env.RATE_LIMIT_TRIP_CHAT_WINDOW_SECONDS),
       tripShare: rateLimit(env.RATE_LIMIT_TRIP_SHARE_MAX, env.RATE_LIMIT_TRIP_SHARE_WINDOW_SECONDS),
       tripExpense: rateLimit(env.RATE_LIMIT_TRIP_EXPENSE_MAX, env.RATE_LIMIT_TRIP_EXPENSE_WINDOW_SECONDS),
+      tripExport: rateLimit(env.RATE_LIMIT_TRIP_EXPORT_MAX, env.RATE_LIMIT_TRIP_EXPORT_WINDOW_SECONDS),
     },
   };
   return config;
 }
 
-// Buy Me a Coffee (rôle mécène) : validé à part, une valeur invalide coupe seulement le paiement, jamais toute l'API.
+// Buy Me a Coffee (rôle mécène, pass voyage) : validé à part, une valeur invalide coupe seulement le paiement, jamais toute l'API.
 const buyMeACoffeeSchema = z.object({
   BMC_WEBHOOK_SECRET: z.string().regex(/^\S{16,200}$/),
   BMC_PAGE_URL: z.url({ protocol: /^https$/, hostname: /^(www\.)?buymeacoffee\.com$/ }),
@@ -176,7 +184,22 @@ const buyMeACoffeeSchema = z.object({
   BMC_PATRON_MIN_EUR: z.coerce.number().positive().max(1000).default(5),
 });
 
-export type BuyMeACoffeeConfig = { webhookSecret: string; pageUrl: string; patronMinEur: number };
+// Pass voyage : article « Extra » de la boutique Buy Me a Coffee. Absent ou invalide : seul le pass est coupé.
+const tripPassSchema = z.object({
+  BMC_TRIP_PASS_URL: z.url({ protocol: /^https$/, hostname: /^(www\.)?buymeacoffee\.com$/ }),
+  BMC_TRIP_PASS_EXTRA_ID: z.coerce.number().int().positive(),
+  BMC_TRIP_PASS_PRICE_EUR: z.coerce.number().positive().max(1000).default(9.99),
+});
+
+export type TripPassConfig = { url: string; extraId: number; priceEur: number };
+
+export type BuyMeACoffeeConfig = {
+  webhookSecret: string;
+  pageUrl: string;
+  patronMinEur: number;
+  // null : pass voyage non configuré.
+  tripPass: TripPassConfig | null;
+};
 
 let buyMeACoffee: BuyMeACoffeeConfig | null | undefined;
 
@@ -189,15 +212,36 @@ export function getBuyMeACoffeeConfig(): BuyMeACoffeeConfig | null {
 
   const parsed = buyMeACoffeeSchema.safeParse({ BMC_WEBHOOK_SECRET, BMC_PAGE_URL, BMC_PATRON_MIN_EUR });
   if (!parsed.success) {
-    const names = parsed.error.issues.map((issue) => issue.path.join(".")).join(", ");
-    logError("config", `invalid Buy Me a Coffee env (payment disabled): ${names}`);
+    logInvalid("Buy Me a Coffee", parsed.error);
     return (buyMeACoffee = null);
   }
   return (buyMeACoffee = {
     webhookSecret: parsed.data.BMC_WEBHOOK_SECRET,
     pageUrl: parsed.data.BMC_PAGE_URL,
     patronMinEur: parsed.data.BMC_PATRON_MIN_EUR,
+    tripPass: readTripPassConfig(),
   });
+}
+
+function readTripPassConfig(): TripPassConfig | null {
+  const { BMC_TRIP_PASS_URL, BMC_TRIP_PASS_EXTRA_ID, BMC_TRIP_PASS_PRICE_EUR } = process.env;
+  if (!BMC_TRIP_PASS_URL && !BMC_TRIP_PASS_EXTRA_ID) return null;
+
+  const parsed = tripPassSchema.safeParse({ BMC_TRIP_PASS_URL, BMC_TRIP_PASS_EXTRA_ID, BMC_TRIP_PASS_PRICE_EUR });
+  if (!parsed.success) {
+    logInvalid("trip pass", parsed.error);
+    return null;
+  }
+  return {
+    url: parsed.data.BMC_TRIP_PASS_URL,
+    extraId: parsed.data.BMC_TRIP_PASS_EXTRA_ID,
+    priceEur: parsed.data.BMC_TRIP_PASS_PRICE_EUR,
+  };
+}
+
+function logInvalid(label: string, error: z.ZodError) {
+  const names = error.issues.map((issue) => issue.path.join(".")).join(", ");
+  logError("config", `invalid ${label} env (payment disabled): ${names}`);
 }
 
 // Envoi d'emails (Gmail en SMTP) : validé à part, une valeur invalide coupe seulement les emails, jamais toute l'API.

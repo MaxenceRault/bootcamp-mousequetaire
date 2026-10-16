@@ -22,6 +22,8 @@ type NewUser = {
   username: string;
   display_name: string;
   password_hash: string;
+  // Version des CGU acceptées (src/lib/legal.ts), enregistrée avec la date.
+  terms_version: string;
 };
 
 // Jamais d'email ni de hash.
@@ -59,10 +61,10 @@ export async function findUserByEmail(email: string): Promise<UserWithPassword |
 export async function createUser(user: NewUser): Promise<PublicUser> {
   const db = await getDb();
   const { rows } = await db.query<PublicUser>(
-    `insert into users (email, username, display_name, password_hash)
-     values ($1, $2, $3, $4)
+    `insert into users (email, username, display_name, password_hash, terms_version, terms_accepted_at)
+     values ($1, $2, $3, $4, $5, now())
      returning ${PUBLIC_COLUMNS}`,
-    [user.email, user.username, user.display_name, user.password_hash],
+    [user.email, user.username, user.display_name, user.password_hash, user.terms_version],
   );
   return rows[0];
 }

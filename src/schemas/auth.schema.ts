@@ -19,6 +19,8 @@ export const registerSchema = z.strictObject({
   name: z.string().trim().min(1).max(60),
   email,
   password: newPassword,
+  // Case des CGU cochée : sans elle, pas de compte.
+  acceptTerms: z.literal(true),
 });
 
 export const forgotPasswordSchema = z.strictObject({ email });

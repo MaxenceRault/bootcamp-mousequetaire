@@ -36,7 +36,7 @@ import type { TripAccessRole } from "@/schemas/trip-share.schema";
 
 export class TripExpenseError extends Error {
   constructor(
-    public readonly code: "INVALID_INPUT" | "NOT_FOUND" | "FORBIDDEN" | "PARTICIPANT_IN_USE" | "CURRENCY_LOCKED" | "RATE_UNAVAILABLE",
+    public readonly code: "INVALID_INPUT" | "NOT_FOUND" | "FORBIDDEN" | "PARTICIPANT_IN_USE" | "CURRENCY_LOCKED" | "RATE_UNAVAILABLE" | "TRIP_FULL",
   ) {
     super(code);
   }
@@ -112,7 +112,7 @@ export async function settle(userId: string, tripId: number, input: SettlementIn
 
 export async function addGuest(userId: string, tripId: number, name: string) {
   const { role } = await context(userId, tripId, "editor");
-  await insertGuest(tripId, name);
+  if (!(await insertGuest(tripId, name))) throw new TripExpenseError("TRIP_FULL");
   return buildLedger(userId, tripId, role);
 }
 

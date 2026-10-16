@@ -11,10 +11,13 @@ import {
   deleteTrip,
   deleteTripItem,
   deleteTripTask,
+  exportTripCalendar,
+  exportTripPdf,
   getTrip,
   getTripMessages,
   listTrips,
   regenerateTrip,
+  regenerateTripDay,
   sendTripMessage,
   TripError,
   updateTrip,
@@ -22,13 +25,17 @@ import {
   updateTripTask,
 } from "@/server/services/trip.service";
 import { TripAccessError } from "@/server/services/trip-access.service";
+import { startTripPassCheckout, TripPassError } from "@/server/services/trip-pass.service";
 import {
   answerTripSuggestionSchema,
   createTripItemSchema,
   createTripSchema,
   createTripTaskSchema,
+  dayParamSchema,
   idParamSchema,
   sendTripMessageSchema,
+  tripPassCheckoutSchema,
+  tripPdfQuerySchema,
   updateTripItemSchema,
   updateTripSchema,
   updateTripTaskSchema,
@@ -81,6 +88,46 @@ export function regenerateTripController(request: Request, { params }: { params:
     if (isAiRateLimited(userId)) return errorResponse(429, "TOO_MANY_REQUESTS");
     await regenerateTrip(userId, tripId);
     return json(await getTrip(userId, tripId));
+  });
+}
+
+// POST /api/v1/trips/[id]/days/[day]/regenerate (pass voyage)
+export function regenerateTripDayController(request: Request, { params }: { params: Params }) {
+  return withTrip(request, params, async (userId, tripId, routeParams) => {
+    const day = dayParamSchema.safeParse(routeParams.day);
+    if (!day.success) return errorResponse(400, "INVALID_INPUT");
+    if (isAiRateLimited(userId)) return errorResponse(429, "TOO_MANY_REQUESTS");
+    return json(await regenerateTripDay(userId, tripId, day.data));
+  });
+}
+
+// GET /api/v1/trips/[id]/export/pdf (pass voyage)
+export function exportTripPdfController(request: Request, { params }: { params: Params }) {
+  return withTrip(request, params, async (userId, tripId) => {
+    if (isExportRateLimited(userId)) return errorResponse(429, "TOO_MANY_REQUESTS");
+    const query = tripPdfQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+    if (!query.success) return errorResponse(400, "INVALID_INPUT");
+    const { fileName, bytes } = await exportTripPdf(userId, tripId, query.data.template);
+    return fileResponse(new Uint8Array(bytes), "application/pdf", fileName);
+  });
+}
+
+// GET /api/v1/trips/[id]/export/calendar (pass voyage)
+export function exportTripCalendarController(request: Request, { params }: { params: Params }) {
+  return withTrip(request, params, async (userId, tripId) => {
+    if (isExportRateLimited(userId)) return errorResponse(429, "TOO_MANY_REQUESTS");
+    const { fileName, content } = await exportTripCalendar(userId, tripId);
+    return fileResponse(content, "text/calendar; charset=utf-8", fileName);
+  });
+}
+
+// POST /api/v1/trips/[id]/pass : commande du pass voyage (propriétaire), avant le paiement sur Buy Me a Coffee.
+export function startTripPassCheckoutController(request: Request, { params }: { params: Params }) {
+  return withTrip(request, params, async (userId, tripId) => {
+    // Sans les deux cases cochées : pas de lien de paiement.
+    if (!(await parseBody(request, tripPassCheckoutSchema))) return errorResponse(400, "INVALID_INPUT");
+    if (isExportRateLimited(userId)) return errorResponse(429, "TOO_MANY_REQUESTS");
+    return json(await startTripPassCheckout(userId, tripId));
   });
 }
 
@@ -199,9 +246,22 @@ async function parseBody<T extends z.ZodType>(request: Request, schema: T): Prom
   return body.success ? body.data : null;
 }
 
+// Exports et commandes du pass : une même fenêtre par utilisateur (RATE_LIMIT_TRIP_EXPORT_*).
+function isExportRateLimited(userId: string) {
+  const { max, windowMs } = getConfig().rateLimits.tripExport;
+  return isRateLimited(`trips:export:${userId}`, max, windowMs);
+}
+
 function isAiRateLimited(userId: string) {
   const { max, windowMs } = getConfig().rateLimits.tripAi;
   return isRateLimited(`trips:ai:${userId}`, max, windowMs);
+}
+
+// Nom de fichier ASCII (exportFileName) : sûr dans l'en-tête.
+function fileResponse(body: BodyInit, type: string, fileName: string) {
+  return new Response(body, {
+    headers: { "Content-Type": type, "Content-Disposition": `attachment; filename="${fileName}"`, "Cache-Control": "private, no-store" },
+  });
 }
 
 function json(data: unknown, status = 200) {
@@ -214,10 +274,16 @@ function errorResponse(status: number, code: string) {
 
 function handleError(error: unknown) {
   if (error instanceof TripAccessError) return errorResponse(error.code === "FORBIDDEN" ? 403 : 404, error.code);
+  if (error instanceof TripPassError) {
+    if (error.code === "PASS_REQUIRED") return errorResponse(402, "PASS_REQUIRED");
+    if (error.code === "PASS_ALREADY_ACTIVE") return errorResponse(409, "PASS_ALREADY_ACTIVE");
+    if (error.code === "PASS_UNAVAILABLE") return errorResponse(503, "PASS_UNAVAILABLE");
+  }
   if (error instanceof TripError) {
     if (error.code === "NOT_FOUND") return errorResponse(404, "NOT_FOUND");
     if (error.code === "AI_UNAVAILABLE") return errorResponse(503, "AI_UNAVAILABLE");
     if (error.code === "CHAT_LIMIT_REACHED") return errorResponse(429, "CHAT_LIMIT_REACHED");
+    if (error.code === "SUGGESTION_OUTDATED") return errorResponse(409, "SUGGESTION_OUTDATED");
     if (error.code === "DAILY_LIMIT_REACHED") return errorResponse(429, "DAILY_LIMIT_REACHED");
     if (error.code === "AI_DISABLED") return errorResponse(503, "AI_DISABLED");
     if (error.code === "FORBIDDEN") return errorResponse(403, "FORBIDDEN");

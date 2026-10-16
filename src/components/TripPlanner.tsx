@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { useFormatter, useNow, useTranslations } from "next-intl";
+import { Badge } from "@/components/ui/Badge";
 import { ReasoningText } from "@/components/ui/ReasoningText";
 import { Button, buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -16,11 +17,16 @@ import { FIELD_CLASS_NAME, Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { countryName, flagEmoji } from "@/lib/country";
 import type { Archetype } from "@/lib/posts";
-import { apiFetch, getSessionSnapshot, parseSessionUser } from "@/client/session";
+import { apiDownload, apiFetch, getSessionSnapshot, parseSessionUser } from "@/client/session";
 import { TripExpenses } from "@/components/TripExpenses";
 import { useOnline } from "@/client/hooks/useOnline";
 import { TripSharePanel, type TripRole } from "@/components/TripSharePanel";
 import { buildTripCsv, downloadFile } from "@/client/tripExport";
+import { TRIP_PASS_CARD_ID, TripPassCard, type TripPass } from "@/components/TripPassCard";
+import { exportFileName } from "@/lib/fileName";
+import { TripTableView } from "@/components/TripTableView";
+import { TRIP_PDF_TEMPLATES, type TripItemColor, type TripPdfTemplate } from "@/schemas/trip.schema";
+import { useDismiss } from "@/client/hooks/useDismiss";
 
 const ITEM_CATEGORIES = ["transport", "lodging", "activity", "food"] as const;
 export type ItemCategory = (typeof ITEM_CATEGORIES)[number];
@@ -51,14 +57,32 @@ export type TripItem = {
   title: string;
   description: string | null;
   category: ItemCategory;
+  // null : couleur de la catégorie (vue Tableau, PDF).
+  color: TripItemColor | null;
   source_post: { id: number; title: string; slug: string } | null;
 };
 
 export type TripTask = { id: number; label: string; detail: string | null; done: boolean };
 
-export type TripDetail = { trip: Trip; items: TripItem[]; tasks: TripTask[]; role: TripRole };
+export type TripDetail = {
+  trip: Trip;
+  items: TripItem[];
+  tasks: TripTask[];
+  role: TripRole;
+  pass: TripPass;
+  // Messages possibles dans la discussion IA (plus avec le pass).
+  chatLimit: number;
+  // Pass voyage : lien Google Maps de chaque jour (AAAA-MM-JJ).
+  mapsUrls: Record<string, string> | null;
+};
 
-type TripSuggestion = Omit<TripItem, "id"> & { id: number; status: "pending" | "accepted" | "rejected" };
+type TripSuggestion = Omit<TripItem, "id" | "color"> & {
+  id: number;
+  status: "pending" | "accepted" | "rejected";
+  action: "add" | "update" | "delete";
+  // Activité modifiée ou supprimée, telle qu'elle est maintenant (null : ajout, ou activité déjà supprimée).
+  target: { id: number; day: string; start_time: string; title: string } | null;
+};
 
 type TripMessage = {
   id: number;
@@ -69,9 +93,8 @@ type TripMessage = {
   suggestions: TripSuggestion[];
 };
 
-// Alignées sur trip.schema et trip.service.
+// Alignée sur trip.schema.
 const CHAT_MESSAGE_MAX = 500;
-const CHAT_MAX_USER_MESSAGES = 50;
 
 const PLANNER_ERRORS = [
   "INVALID_INPUT",
@@ -79,9 +102,13 @@ const PLANNER_ERRORS = [
   "TOO_MANY_REQUESTS",
   "AI_UNAVAILABLE",
   "CHAT_LIMIT_REACHED",
+  "SUGGESTION_OUTDATED",
   "DAILY_LIMIT_REACHED",
   "AI_DISABLED",
   "FORBIDDEN",
+  "PASS_REQUIRED",
+  "PASS_ALREADY_ACTIVE",
+  "PASS_UNAVAILABLE",
   "NOT_FOUND",
   "UNAUTHORIZED",
   "INTERNAL_ERROR",
@@ -136,7 +163,7 @@ export function TripPlanner({ tripId }: { tripId: number }) {
   const [error, setError] = useState<PlannerError | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [sharing, setSharing] = useState(false);
-  const [view, setView] = useState<"plan" | "expenses">("plan");
+  const [view, setView] = useState<"plan" | "table" | "expenses">("plan");
   const online = useOnline();
   const basePath = `/api/v1/trips/${tripId}`;
 
@@ -149,6 +176,18 @@ export function TripPlanner({ tripId }: { tripId: number }) {
       setState({ status: "error", error: plannerError(result.error) });
     });
   }, [router, tripId]);
+
+  // Après le paiement : true si le pass est maintenant actif.
+  async function reloadPass() {
+    const result = await apiFetch<TripDetail>(basePath);
+    if (!("data" in result)) return false;
+    setState({ status: "ready", data: result.data });
+    return result.data.pass.active;
+  }
+
+  function showPass() {
+    document.getElementById(TRIP_PASS_CARD_ID)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   const mutate: Mutate = async (path, method, body) => {
     setError(null);
@@ -189,7 +228,7 @@ export function TripPlanner({ tripId }: { tripId: number }) {
     );
   }
 
-  const { trip, items, tasks, role } = state.data;
+  const { trip, items, tasks, role, pass, chatLimit, mapsUrls } = state.data;
   // Lecteur : consultation seule (l'API refuse de toute façon les modifications).
   const canEdit = role !== "viewer";
 
@@ -199,7 +238,10 @@ export function TripPlanner({ tripId }: { tripId: number }) {
         trip={trip}
         items={items}
         role={role}
+        passActive={pass.active}
         mutate={mutate}
+        onError={setError}
+        onLocked={showPass}
         regenerating={regenerating}
         sharing={sharing}
         onToggleSharing={() => setSharing((open) => !open)}
@@ -223,7 +265,7 @@ export function TripPlanner({ tripId }: { tripId: number }) {
       )}
 
       <div role="tablist" aria-label={t("views.label")} className="flex gap-1 self-start rounded-lg bg-surface-muted p-1">
-        {(["plan", "expenses"] as const).map((value) => (
+        {(["plan", "table", "expenses"] as const).map((value) => (
           <button
             key={value}
             type="button"
@@ -234,7 +276,7 @@ export function TripPlanner({ tripId }: { tripId: number }) {
               view === value ? "bg-surface text-ink shadow-sm" : "text-ink-soft hover:text-ink"
             }`}
           >
-            <Icon name={value === "plan" ? "calendar" : "book"} className="size-4.5" />
+            <Icon name={value === "plan" ? "calendar" : value === "table" ? "category" : "book"} className="size-4.5" />
             {t(`views.${value}`)}
           </button>
         ))}
@@ -242,13 +284,29 @@ export function TripPlanner({ tripId }: { tripId: number }) {
 
       {view === "expenses" ? (
         <TripExpenses tripId={tripId} />
+      ) : view === "table" ? (
+        <TripTableView
+          trip={trip}
+          items={items}
+          canEdit={canEdit}
+          onColor={(item, color) => mutate(`/items/${item.id}`, "PATCH", { color })}
+        />
       ) : (
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-          <DayPlanner trip={trip} items={items} mutate={mutate} canEdit={canEdit} />
+          <DayPlanner
+            trip={trip}
+            items={items}
+            mutate={mutate}
+            canEdit={canEdit}
+            passActive={pass.active}
+            mapsUrls={mapsUrls}
+            onLocked={showPass}
+          />
           <aside className="flex flex-col gap-6">
+            {!pass.active && <TripPassCard tripId={tripId} pass={pass} role={role} onRefresh={reloadPass} />}
             <TaskChecklist tasks={tasks} mutate={mutate} canEdit={canEdit} />
             <BudgetCard trip={trip} mutate={mutate} canEdit={canEdit} />
-            <TripChat basePath={basePath} trip={trip} mutate={mutate} canEdit={canEdit} />
+            <TripChat basePath={basePath} trip={trip} mutate={mutate} canEdit={canEdit} chatLimit={chatLimit} />
           </aside>
         </div>
       )}
@@ -260,7 +318,10 @@ function TripHeader({
   trip,
   items,
   role,
+  passActive,
   mutate,
+  onError,
+  onLocked,
   regenerating,
   sharing,
   onToggleSharing,
@@ -270,7 +331,10 @@ function TripHeader({
   trip: Trip;
   items: TripItem[];
   role: TripRole;
+  passActive: boolean;
   mutate: Mutate;
+  onError: (error: PlannerError) => void;
+  onLocked: () => void;
   regenerating: boolean;
   sharing: boolean;
   onToggleSharing: () => void;
@@ -284,12 +348,30 @@ function TripHeader({
 
   function exportCsv() {
     const days = tripDays(trip.start_date, trip.end_date);
-    const csv = buildTripCsv({ trip, items, tasks: [], role }, days, {
+    const csv = buildTripCsv({ trip, items }, days, {
       headers: ["day", "date", "time", "category", "title", "description", "source"].map((key) => t(`export.columns.${key}`)),
       category: (category) => t(`categories.${category as ItemCategory}`),
       dayLabel: (number) => t("days.label", { number }),
     });
     downloadFile(csv.name, csv.content, "text/csv;charset=utf-8");
+  }
+
+  const [downloading, setDownloading] = useState<"pdf" | "calendar" | null>(null);
+  const [pdfMenu, setPdfMenu] = useState(false);
+  const pdfMenuRef = useRef<HTMLDivElement>(null);
+  useDismiss(pdfMenuRef, pdfMenu, () => setPdfMenu(false));
+
+  // Pass voyage : fichier généré par le serveur, qui vérifie lui-même le pass.
+  async function download(kind: "pdf" | "calendar", template?: TripPdfTemplate) {
+    if (!passActive) return onLocked();
+    setPdfMenu(false);
+    setDownloading(kind);
+    const query = template ? `?${new URLSearchParams({ template })}` : "";
+    const result = await apiDownload(`/api/v1/trips/${trip.id}/export/${kind}${query}`);
+    setDownloading(null);
+    if ("error" in result) return onError(plannerError(result.error));
+    const [extension, type] = kind === "pdf" ? ["pdf", "application/pdf"] : ["ics", "text/calendar"];
+    downloadFile(`${exportFileName(trip.title)}.${extension}`, result.data, type);
   }
   const total = budgetTotal(trip);
 
@@ -351,10 +433,51 @@ function TripHeader({
             <Icon name="download" className="size-4" />
             {t("export.csv")}
           </Button>
-          <Link href={`/planner/${trip.id}/print`} target="_blank" className={buttonClassName("sm", "gap-1.5", "secondary")}>
-            <Icon name="print" className="size-4" />
-            {t("export.pdf")}
-          </Link>
+          <div ref={pdfMenuRef} className="relative">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => (passActive ? setPdfMenu((open) => !open) : onLocked())}
+              disabled={downloading !== null}
+              aria-expanded={passActive ? pdfMenu : undefined}
+              title={passActive ? undefined : t("pass.locked", { feature: t("export.pdf") })}
+              className="gap-1.5"
+            >
+              <Icon name={passActive ? "download" : "lock"} className="size-4" />
+              {t("export.pdf")}
+              {passActive && <Icon name="chevronDown" className="size-4" />}
+            </Button>
+            {pdfMenu && (
+              <ul
+                aria-label={t("export.templatesLabel")}
+                className="absolute right-0 z-20 mt-1 flex w-72 flex-col rounded-lg border border-line bg-surface p-1 shadow-sm"
+              >
+                {TRIP_PDF_TEMPLATES.map((template) => (
+                  <li key={template}>
+                    <button
+                      type="button"
+                      onClick={() => void download("pdf", template)}
+                      className="flex w-full flex-col items-start rounded-lg px-3 py-2 text-left transition hover:bg-surface-muted focus-visible:bg-surface-muted focus-visible:outline-none"
+                    >
+                      <span className="font-display text-label-lg text-ink">{t(`export.templates.${template}`)}</span>
+                      <span className="text-label-sm text-ink-soft">{t(`export.templateHints.${template}`)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void download("calendar")}
+            disabled={downloading !== null}
+            title={passActive ? undefined : t("pass.locked", { feature: t("export.calendar") })}
+            className="gap-1.5"
+          >
+            <Icon name={passActive ? "calendar" : "lock"} className="size-4" />
+            {t("export.calendar")}
+          </Button>
           {role === "owner" && (
             <Button variant="secondary" size="sm" onClick={onDelete} disabled={regenerating} className="gap-1.5">
               <Icon name="delete" className="size-4" />
@@ -392,6 +515,7 @@ function TripHeader({
           </Chip>
         )}
         <Chip icon="explore">{t("trip.sources", { count: trip.source_post_count })}</Chip>
+        {passActive && <Chip icon="sparkles">{t("pass.active")}</Chip>}
         {role !== "owner" && <Chip icon="share">{t(`share.yourRole.${role}`)}</Chip>}
       </ul>
 
@@ -417,16 +541,42 @@ function Chip({ icon, children }: { icon: IconName; children: ReactNode }) {
   );
 }
 
-function DayPlanner({ trip, items, mutate, canEdit }: { trip: Trip; items: TripItem[]; mutate: Mutate; canEdit: boolean }) {
+function DayPlanner({
+  trip,
+  items,
+  mutate,
+  canEdit,
+  passActive,
+  mapsUrls,
+  onLocked,
+}: {
+  trip: Trip;
+  items: TripItem[];
+  mutate: Mutate;
+  canEdit: boolean;
+  passActive: boolean;
+  mapsUrls: Record<string, string> | null;
+  onLocked: () => void;
+}) {
   const t = useTranslations("Planner");
   const format = useFormatter();
   const days = tripDays(trip.start_date, trip.end_date);
   const [selectedDay, setSelectedDay] = useState(days[0]);
   const [adding, setAdding] = useState(false);
+  const [regeneratingDay, setRegeneratingDay] = useState(false);
   // Le voyage a pu être régénéré entre-temps.
   const day = days.includes(selectedDay) ? selectedDay : days[0];
   const dayNumber = days.indexOf(day) + 1;
   const dayItems = items.filter((item) => item.day === day);
+  const mapsUrl = mapsUrls?.[day];
+
+  async function regenerateDay() {
+    if (!passActive) return onLocked();
+    if (!window.confirm(t("days.regenerateConfirm"))) return;
+    setRegeneratingDay(true);
+    await mutate(`/days/${day}/regenerate`, "POST");
+    setRegeneratingDay(false);
+  }
 
   return (
     <Card className="flex flex-col gap-5 p-6">
@@ -469,6 +619,46 @@ function DayPlanner({ trip, items, mutate, canEdit }: { trip: Trip; items: TripI
           <span className="rounded-lg bg-surface-muted px-2.5 py-1 text-label-sm text-ink-soft">
             {t("days.count", { count: dayItems.length })}
           </span>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {canEdit && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void regenerateDay()}
+              disabled={regeneratingDay}
+              title={passActive ? undefined : t("pass.locked", { feature: t("days.regenerate") })}
+              className="gap-1.5"
+            >
+              <Icon name={passActive ? "refresh" : "lock"} className="size-4" />
+              {regeneratingDay ? t("days.regenerating") : t("days.regenerate")}
+            </Button>
+          )}
+          {mapsUrl ? (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonClassName("sm", "gap-1.5", "secondary")}
+            >
+              <Icon name="pin" className="size-4" />
+              {t("days.maps")}
+            </a>
+          ) : (
+            !passActive && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onLocked}
+                title={t("pass.locked", { feature: t("days.maps") })}
+                className="gap-1.5"
+              >
+                <Icon name="lock" className="size-4" />
+                {t("days.maps")}
+              </Button>
+            )
+          )}
         </div>
 
         {dayItems.length === 0 && <p className="text-body-sm text-ink-soft">{t("days.empty")}</p>}
@@ -786,7 +976,19 @@ function BudgetCard({ trip, mutate, canEdit }: { trip: Trip; mutate: Mutate; can
 }
 
 // Une proposition n'est ajoutée au planning que si l'utilisateur répond oui.
-function TripChat({ basePath, trip, mutate, canEdit }: { basePath: string; trip: Trip; mutate: Mutate; canEdit: boolean }) {
+function TripChat({
+  basePath,
+  trip,
+  mutate,
+  canEdit,
+  chatLimit,
+}: {
+  basePath: string;
+  trip: Trip;
+  mutate: Mutate;
+  canEdit: boolean;
+  chatLimit: number;
+}) {
   const t = useTranslations("Planner");
   const me = parseSessionUser(getSessionSnapshot());
   const router = useRouter();
@@ -796,7 +998,7 @@ function TripChat({ basePath, trip, mutate, canEdit }: { basePath: string; trip:
   const [error, setError] = useState<PlannerError | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const days = tripDays(trip.start_date, trip.end_date);
-  const remaining = CHAT_MAX_USER_MESSAGES - (messages ?? []).filter((message) => message.role === "user").length;
+  const remaining = chatLimit - (messages ?? []).filter((message) => message.role === "user").length;
 
   const loadMessages = useCallback(
     () =>
@@ -983,7 +1185,10 @@ function SuggestionCard({
         suggestion.status === "rejected" ? "opacity-60" : "bg-surface"
       }`}
     >
-      <span className="flex items-center gap-1.5 text-label-sm text-ink-soft">
+      <span className="flex flex-wrap items-center gap-1.5 text-label-sm text-ink-soft">
+        <Badge tone={suggestion.action === "delete" ? "danger" : suggestion.action === "update" ? "accent" : "neutral"}>
+          {t(`chat.actions.${suggestion.action}`)}
+        </Badge>
         <Icon name={CATEGORY_ICONS[suggestion.category]} className="size-4" />
         {t("chat.suggestionWhen", {
           number: dayNumber,
@@ -991,7 +1196,18 @@ function SuggestionCard({
           time: suggestion.start_time,
         })}
       </span>
-      <span className="font-display text-label-lg text-ink">{suggestion.title}</span>
+      <span className={`font-display text-label-lg text-ink ${suggestion.action === "delete" ? "line-through" : ""}`}>
+        {suggestion.title}
+      </span>
+      {suggestion.action === "update" && suggestion.target && (
+        <span className="text-label-sm text-ink-soft">
+          {t("chat.before", {
+            date: format.dateTime(parseDay(suggestion.target.day), { day: "numeric", month: "short" }),
+            time: suggestion.target.start_time,
+            title: suggestion.target.title,
+          })}
+        </span>
+      )}
       {suggestion.description && <p className="text-body-sm text-ink-soft">{suggestion.description}</p>}
       {suggestion.source_post && (
         <p className="text-body-sm text-ink-soft">
@@ -1004,7 +1220,7 @@ function SuggestionCard({
 
       {suggestion.status === "pending" && !onAnswer ? null : suggestion.status === "pending" ? (
         <div className="mt-1 flex items-center gap-2">
-          <span className="mr-auto text-label-sm text-ink-soft">{t("chat.question")}</span>
+          <span className="mr-auto text-label-sm text-ink-soft">{t(`chat.questions.${suggestion.action}`)}</span>
           <Button size="sm" variant="secondary" disabled={pending} onClick={() => void handleAnswer(false)}>
             {t("chat.no")}
           </Button>
@@ -1020,7 +1236,7 @@ function SuggestionCard({
           }`}
         >
           {suggestion.status === "accepted" && <Icon name="check" className="size-4" />}
-          {t(suggestion.status === "accepted" ? "chat.accepted" : "chat.rejected")}
+          {suggestion.status === "accepted" ? t(`chat.applied.${suggestion.action}`) : t("chat.rejected")}
         </span>
       )}
     </li>

@@ -16,6 +16,8 @@ import {
   createTripSchema,
   createTripTaskSchema,
   sendTripMessageSchema,
+  TRIP_PDF_TEMPLATES,
+  tripPassCheckoutSchema,
   updateTripItemSchema,
   updateTripSchema,
   updateTripTaskSchema,
@@ -24,6 +26,7 @@ import { createPostSchema, FEED_MAX_LIMIT, reportPostSchema, updatePostSchema } 
 import {
   adminCloseReportsSchema,
   adminCreateBannedWordSchema,
+  adminGrantTripPassSchema,
   adminUpdatePostSchema,
   adminUpdateSettingsSchema,
   adminUpdateUserSchema,
@@ -206,8 +209,19 @@ const tripDetail = {
     trip: { type: "object", description: "Voyage (destination, dates, archetype, budget, source_post_count, generated_at)" },
     items: { type: "array", items: { type: "object" }, description: "Activités, triées par jour et heure" },
     tasks: { type: "array", items: { type: "object" }, description: "Checklist de préparation" },
+    role: { type: "string", enum: ["owner", "editor", "viewer"] },
+    pass: {
+      type: "object",
+      description: "Pass voyage : actif, en vente, prix",
+      properties: { active: { type: "boolean" }, available: { type: "boolean" }, priceEur: { type: "number", nullable: true } },
+    },
+    chatLimit: { type: "integer", description: "Messages possibles dans la discussion IA (50, 200 avec le pass)" },
+    mapsUrls: { type: "object", nullable: true, description: "Pass voyage : lien Google Maps de l'itinéraire de chaque jour (clé AAAA-MM-JJ)" },
   },
 };
+const tripFull = error("Voyage complet : 10 voyageurs maximum (propriétaire, membres, participants sans compte)", ["TRIP_FULL"]);
+const exportRateLimited = error("Trop d'exports ou de commandes (RATE_LIMIT_TRIP_EXPORT_*, par utilisateur)", ["TOO_MANY_REQUESTS"]);
+const passRequired = error("Fonction du pass voyage : le voyage n'a pas de pass actif", ["PASS_REQUIRED"]);
 const tripNotFound = error("Voyage (ou élément) introuvable, ou appartenant à un autre utilisateur", ["NOT_FOUND"]);
 const tripMessages = {
   type: "object",
@@ -242,6 +256,11 @@ const tripLedger = json("Registre des dépenses à jour", {
     "role, currency, me, participants, expenses (montant d'origine, taux figé, montant converti, parts), total, " +
     "spentByCategory, budget, balances, settlements, paymentTasks",
 });
+
+// Ajoute des paramètres de requête (?…) à une route déjà décrite.
+function withQuery<T extends { parameters: object[] }>(route: T, query: object[]): T {
+  return { ...route, parameters: [...route.parameters, ...query] };
+}
 
 function tripRoute(summary: string, options: { params?: string[]; body?: z.ZodType; ok?: object; ai?: boolean; description?: string }) {
   return {
@@ -557,6 +576,54 @@ export function buildOpenApiDocument() {
           description: "Remplace toutes les activités, la checklist et le budget.",
         }),
       },
+      "/trips/{id}/pass": {
+        post: tripRoute("Commander le pass voyage (propriétaire)", {
+          body: tripPassCheckoutSchema,
+          description:
+            "acceptSales et waiveWithdrawal doivent valoir true (CGV acceptées, renonciation au droit de rétractation), enregistrés avec la commande. " +
+            "Enregistre le voyage choisi (24 h) puis renvoie le lien de l'article Buy Me a Coffee. Le pass est activé par le webhook " +
+            "extra_purchase.created payé avec l'email du compte (renvoyé ici à son titulaire), d'au moins BMC_TRIP_PASS_PRICE_EUR en euros.",
+          ok: {
+            200: json("Lien de paiement", {
+              type: "object",
+              properties: { url: { type: "string", format: "uri" }, email: { type: "string", nullable: true } },
+            }),
+            403: error("Réservé au propriétaire du voyage", ["FORBIDDEN"]),
+            429: exportRateLimited,
+            409: error("Le voyage a déjà le pass", ["PASS_ALREADY_ACTIVE"]),
+            503: error("Pass voyage pas en vente (non configuré)", ["PASS_UNAVAILABLE"]),
+          },
+        }),
+      },
+      "/trips/{id}/days/{day}/regenerate": {
+        post: {
+          ...tripRoute("Re-générer un seul jour avec l'IA (pass voyage)", {
+            ai: true,
+            description: "Remplace les activités de ce jour seulement, sans doublon avec les autres jours. Éditeur ou propriétaire.",
+            ok: { 200: json("Voyage à jour", tripDetail), 402: passRequired, 403: error("Lecteur : action interdite", ["FORBIDDEN"]) },
+          }),
+          parameters: [idParam("id"), { name: "day", in: "path", required: true, schema: { type: "string", format: "date" } }],
+        },
+      },
+      "/trips/{id}/export/pdf": {
+        get: withQuery(tripRoute("Télécharger le planning en PDF (pass voyage)", {
+          description: "template : classic (planning à la suite), table (A4 paysage, jours en colonnes, cases colorées) ou booklet (A5, une page par jour).",
+          ok: {
+            200: { description: "Fichier PDF", content: { "application/pdf": { schema: { type: "string", format: "binary" } } } },
+            402: passRequired,
+            429: exportRateLimited,
+          },
+        }), [{ name: "template", in: "query", schema: { type: "string", enum: [...TRIP_PDF_TEMPLATES], default: "classic" } }]),
+      },
+      "/trips/{id}/export/calendar": {
+        get: tripRoute("Télécharger le calendrier .ics (pass voyage)", {
+          ok: {
+            200: { description: "Calendrier iCalendar", content: { "text/calendar": { schema: { type: "string" } } } },
+            402: passRequired,
+            429: exportRateLimited,
+          },
+        }),
+      },
       "/trips/{id}/messages": {
         get: tripRoute("Discussion avec l'IA", { ok: { 200: json("Messages et propositions", tripMessages) } }),
         post: tripRoute("Envoyer un message à l'IA", {
@@ -564,7 +631,7 @@ export function buildOpenApiDocument() {
           ai: true,
           ok: {
             201: json("Discussion à jour", tripMessages),
-            429: error("30 messages maximum par utilisateur et par heure, 50 par voyage", ["TOO_MANY_REQUESTS", "CHAT_LIMIT_REACHED"]),
+            429: error("30 messages maximum par utilisateur et par heure, 50 par voyage (200 avec le pass voyage)", ["TOO_MANY_REQUESTS", "CHAT_LIMIT_REACHED"]),
           },
           description:
             "Limitée au voyage et à sa destination (hors sujet : off_topic, aucune proposition). Message traité comme " +
@@ -596,7 +663,7 @@ export function buildOpenApiDocument() {
         get: tripRoute("Membres du voyage (et invitations en cours pour le propriétaire)", { ok: { 200: tripSharing } }),
         post: tripRoute("Inviter par pseudo (propriétaire)", {
           body: inviteMemberSchema,
-          description: "L'invitation attend l'acceptation de l'invité (7 jours). 404 USER_NOT_FOUND, 409 ALREADY_MEMBER, 403 si pas propriétaire.",
+          description: "L'invitation attend l'acceptation de l'invité (7 jours). 404 USER_NOT_FOUND, 409 ALREADY_MEMBER, 409 TRIP_FULL (invitations en attente comprises), 403 si pas propriétaire.",
           ok: { 201: tripSharing },
         }),
       },
@@ -611,7 +678,10 @@ export function buildOpenApiDocument() {
         post: tripRoute("Créer un lien d'invitation (propriétaire)", {
           body: createInviteLinkSchema,
           description: "Code renvoyé une seule fois (seule son empreinte SHA-256 est stockée). Lien : /planner/join#<code>, réutilisable 7 jours.",
-          ok: { 201: json("Lien créé", { type: "object", properties: { id: { type: "integer" }, code: { type: "string" }, role: { type: "string" }, expiresAt: { type: "string" } } }) },
+          ok: {
+            201: json("Lien créé", { type: "object", properties: { id: { type: "integer" }, code: { type: "string" }, role: { type: "string" }, expiresAt: { type: "string" } } }),
+            409: tripFull,
+          },
         }),
       },
       "/trips/{id}/invitations/{invitationId}": {
@@ -624,7 +694,7 @@ export function buildOpenApiDocument() {
         patch: tripRoute("Accepter ou refuser une invitation reçue", {
           params: ["invitationId"],
           body: answerTripSuggestionSchema,
-          ok: { 200: json("tripId du voyage rejoint (null si refusée)", { type: "object" }) },
+          ok: { 200: json("tripId du voyage rejoint (null si refusée)", { type: "object" }), 409: tripFull },
         }),
       },
       "/trips/join": {
@@ -632,7 +702,7 @@ export function buildOpenApiDocument() {
           params: [],
           body: joinTripSchema,
           description: "404 INVITE_INVALID : lien expiré, annulé ou inventé. Limité par utilisateur (RATE_LIMIT_TRIP_SHARE_*).",
-          ok: { 200: json("Voyage rejoint", { type: "object", properties: { tripId: { type: "integer" } } }) },
+          ok: { 200: json("Voyage rejoint", { type: "object", properties: { tripId: { type: "integer" } } }), 409: tripFull },
         }),
       },
       "/trips/{id}/expenses": {
@@ -651,7 +721,7 @@ export function buildOpenApiDocument() {
         delete: tripRoute("Supprimer une dépense", { params: ["id", "expenseId"], ok: { 200: tripLedger } }),
       },
       "/trips/{id}/participants": {
-        post: tripRoute("Ajouter un participant sans compte (éditeur)", { body: participantSchema, ok: { 201: tripLedger } }),
+        post: tripRoute("Ajouter un participant sans compte (éditeur)", { body: participantSchema, ok: { 201: tripLedger, 409: tripFull } }),
       },
       "/trips/{id}/participants/{participantId}": {
         patch: tripRoute("Renommer un participant sans compte", { params: ["id", "participantId"], body: participantSchema, ok: { 200: tripLedger } }),
@@ -785,6 +855,7 @@ export function buildOpenApiDocument() {
           description:
             "Signature HMAC-SHA256 du corps brut vérifiée (en-tête x-signature-sha256, BMC_WEBHOOK_SECRET). " +
             "donation.created d'au moins BMC_PATRON_MIN_EUR en euros : rôle mécène au compte non banni de même email. donation.refunded : rôle précédent rendu. " +
+            "extra_purchase.created de l'article BMC_TRIP_PASS_EXTRA_ID : pass voyage du dernier voyage commandé (24 h) par ce compte ; extra_purchase.refunded : pass retiré. " +
             "Idempotent ; événements de test ignorés en production.",
           responses: {
             200: json("Événement reçu", { type: "object", properties: { received: { type: "boolean" } } }),
@@ -1029,6 +1100,22 @@ export function buildOpenApiDocument() {
       },
       "/admin/tickets/{id}": {
         patch: adminRoute("Changer l'état d'un ticket", { params: [numericIdParam("id")], body: adminUpdateTicketSchema, ok: noContent, description: "Inscrit au journal (état avant / après)." }),
+      },
+      "/admin/trip-passes": {
+        get: adminRoute("Pass voyage : achats à rattacher et pass actifs", {
+          description: "Achat à rattacher : payé avec un email sans compte ou sans commande en cours. Email jamais renvoyé, seulement un aperçu masqué.",
+        }),
+        post: adminRoute("Rattacher un achat à un voyage, ou offrir un pass", {
+          body: adminGrantTripPassSchema,
+          ok: noContent,
+          description:
+            "passId : rattache l'achat si payerEmail (déclaré par l'acheteur) correspond à l'empreinte de l'email du paiement, sinon 409 EMAIL_MISMATCH. " +
+            "Sans passId : pass offert. 404 TRIP_NOT_FOUND, 409 PASS_ALREADY_ACTIVE. Inscrit au journal.",
+          conflict: true,
+        }),
+      },
+      "/admin/trip-passes/{id}": {
+        delete: adminRoute("Retirer un pass voyage", { params: [numericIdParam("id")], ok: noContent, description: "Inscrit au journal." }),
       },
       "/admin/archetypes": {
         get: adminRoute("Types de récit (actifs ou non)", {}),

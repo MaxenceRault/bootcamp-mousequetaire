@@ -144,7 +144,7 @@ function handleError(error: unknown) {
   if (error instanceof InvalidParamError) return errorResponse(400, "INVALID_INPUT");
   if (error instanceof TripAccessError) return errorResponse(error.code === "FORBIDDEN" ? 403 : 404, error.code);
   if (error instanceof TripExpenseError) {
-    const status = { INVALID_INPUT: 400, NOT_FOUND: 404, FORBIDDEN: 403, PARTICIPANT_IN_USE: 409, CURRENCY_LOCKED: 409, RATE_UNAVAILABLE: 503 }[
+    const status = { INVALID_INPUT: 400, NOT_FOUND: 404, FORBIDDEN: 403, PARTICIPANT_IN_USE: 409, CURRENCY_LOCKED: 409, RATE_UNAVAILABLE: 503, TRIP_FULL: 409 }[
       error.code
     ];
     return errorResponse(status, error.code);

@@ -1,6 +1,6 @@
 import "server-only";
 import { getDb } from "@/server/infra/db";
-import type { TripAccessRole, TripMemberRole } from "@/schemas/trip-share.schema";
+import { TRIP_MAX_TRAVELERS, type TripAccessRole, type TripMemberRole } from "@/schemas/trip-share.schema";
 
 export type TripMemberRow = {
   user_id: string;
@@ -152,7 +152,12 @@ export async function findPendingInvitations(userId: string): Promise<PendingInv
 }
 
 // Accepte (crée le membre) ou refuse une invitation par pseudo ; renvoie l'id du voyage, null si introuvable ou expirée.
-export async function answerUserInvitation(invitationId: number, userId: string, accepted: boolean): Promise<number | null> {
+// full : voyage complet (TRIP_MAX_TRAVELERS) ; l'invitation est gardée.
+export async function answerUserInvitation(
+  invitationId: number,
+  userId: string,
+  accepted: boolean,
+): Promise<{ tripId: number; full: boolean } | null> {
   const client = await (await getDb()).connect();
   try {
     await client.query("begin");
@@ -161,9 +166,12 @@ export async function answerUserInvitation(invitationId: number, userId: string,
       [invitationId, userId],
     );
     const invitation = rows[0];
-    if (invitation && accepted) await addMember(client, invitation.trip_id, userId, invitation.role);
+    if (invitation && accepted && !(await addMember(client, invitation.trip_id, userId, invitation.role))) {
+      await client.query("rollback");
+      return { tripId: invitation.trip_id, full: true };
+    }
     await client.query("commit");
-    return invitation?.trip_id ?? null;
+    return invitation ? { tripId: invitation.trip_id, full: false } : null;
   } catch (error) {
     await client.query("rollback");
     throw error;
@@ -173,7 +181,7 @@ export async function answerUserInvitation(invitationId: number, userId: string,
 }
 
 // Lien d'invitation : réutilisable jusqu'à expiration. Le propriétaire et les membres existants gardent leur rôle.
-export async function joinWithLink(tokenHash: string, userId: string): Promise<number | null> {
+export async function joinWithLink(tokenHash: string, userId: string): Promise<{ tripId: number; full: boolean } | null> {
   const client = await (await getDb()).connect();
   try {
     await client.query("begin");
@@ -184,9 +192,12 @@ export async function joinWithLink(tokenHash: string, userId: string): Promise<n
       [tokenHash],
     );
     const invitation = rows[0];
-    if (invitation && invitation.owner_id !== userId) await addMember(client, invitation.trip_id, userId, invitation.role);
+    if (invitation && invitation.owner_id !== userId && !(await addMember(client, invitation.trip_id, userId, invitation.role))) {
+      await client.query("rollback");
+      return { tripId: invitation.trip_id, full: true };
+    }
     await client.query("commit");
-    return invitation?.trip_id ?? null;
+    return invitation ? { tripId: invitation.trip_id, full: false } : null;
   } catch (error) {
     await client.query("rollback");
     throw error;
@@ -195,16 +206,41 @@ export async function joinWithLink(tokenHash: string, userId: string): Promise<n
   }
 }
 
+// false : voyage complet. Verrou sur le voyage : deux arrivées simultanées ne dépassent pas la limite.
 async function addMember(
-  client: { query: (text: string, values: unknown[]) => Promise<unknown> },
+  client: { query: (text: string, values: unknown[]) => Promise<{ rowCount: number | null; rows: unknown[] }> },
   tripId: number,
   userId: string,
   role: TripMemberRole,
-) {
-  await client.query(
-    `insert into trip_member (trip_id, user_id, role) values ($1, $2, $3) on conflict (trip_id, user_id) do nothing`,
-    [tripId, userId, role],
-  );
+): Promise<boolean> {
+  await client.query("select 1 from trip where id = $1 for update", [tripId]);
+  const { rows: existing } = await client.query("select 1 from trip_member where trip_id = $1 and user_id = $2", [tripId, userId]);
+  if (existing.length === 0) {
+    const { rowCount } = await client.query(
+      `insert into trip_member (trip_id, user_id, role)
+       select $1, $2, $3 where (${TRAVELERS_COUNT}) < $4
+       on conflict (trip_id, user_id) do nothing`,
+      [tripId, userId, role, TRIP_MAX_TRAVELERS],
+    );
+    if (rowCount === 0) return false;
+  }
   // Une invitation par pseudo en attente devient inutile.
   await client.query("delete from trip_invitation where trip_id = $1 and invitee_id = $2", [tripId, userId]);
+  return true;
+}
+
+// Propriétaire + membres + participants sans compte ($1 : id du voyage).
+export const TRAVELERS_COUNT = `1 + (select count(*) from trip_member where trip_id = $1)
+  + (select count(*) from trip_participant where trip_id = $1 and user_id is null)`;
+
+// pendingInvitations : compte aussi les invitations par pseudo encore valides (places réservées).
+export async function countTripTravelers(tripId: number, { pendingInvitations = false } = {}): Promise<number> {
+  const db = await getDb();
+  const { rows } = await db.query<{ total: number }>(
+    `select (${TRAVELERS_COUNT}
+       ${pendingInvitations ? "+ (select count(*) from trip_invitation where trip_id = $1 and invitee_id is not null and expires_at > now())" : ""}
+     )::int as total`,
+    [tripId],
+  );
+  return rows[0].total;
 }

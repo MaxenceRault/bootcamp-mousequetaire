@@ -151,7 +151,7 @@ function errorResponse(status: number, code: string) {
 function handleError(error: unknown) {
   if (error instanceof TripAccessError) return errorResponse(error.code === "FORBIDDEN" ? 403 : 404, error.code);
   if (error instanceof TripShareError) {
-    const status = { INVALID_INPUT: 400, NOT_FOUND: 404, USER_NOT_FOUND: 404, ALREADY_MEMBER: 409, INVITE_INVALID: 404 }[error.code];
+    const status = { INVALID_INPUT: 400, NOT_FOUND: 404, USER_NOT_FOUND: 404, ALREADY_MEMBER: 409, INVITE_INVALID: 404, TRIP_FULL: 409 }[error.code];
     return errorResponse(status, error.code);
   }
   logError("trips.share", error);

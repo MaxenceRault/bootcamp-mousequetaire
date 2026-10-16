@@ -13,6 +13,23 @@
   --color-on-accent: #ffffff; /* texte posé sur l'accent */
   --color-logo: #868e96; /* logo : contraste ≥ 3:1 sur blanc (WCAG) */
   --color-error: #ba1a1a;
+  /* Cases de la vue Tableau et des PDF (fond pâle + bande foncée) : clés de TRIP_ITEM_COLORS, valeurs reprises dans src/server/tripPdf.ts */
+  --color-cell-coral: #ffe1dc;
+  --color-cell-coral-strong: #e5484d;
+  --color-cell-sky: #dcecfb;
+  --color-cell-sky-strong: #3b82c4;
+  --color-cell-mint: #dcf3e6;
+  --color-cell-mint-strong: #2f9e66;
+  --color-cell-sun: #fff1c7;
+  --color-cell-sun-strong: #c98f00;
+  --color-cell-lavender: #ebe3fb;
+  --color-cell-lavender-strong: #8a63d2;
+  --color-cell-sand: #f1e9dc;
+  --color-cell-sand-strong: #a07a4a;
+  --color-cell-rose: #fbe0ec;
+  --color-cell-rose-strong: #d6487e;
+  --color-cell-slate: #e3e8ec;
+  --color-cell-slate-strong: #5f7380;
 
   /* Typographie : Space Grotesk (display/titres/labels) + Inter (texte) */
   --text-display-lg: 56px;

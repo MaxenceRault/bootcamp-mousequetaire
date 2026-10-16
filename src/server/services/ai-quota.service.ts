@@ -23,7 +23,8 @@ export class AiQuotaError extends Error {
 }
 
 // Compte la tentative même si l'IA échoue ensuite : pas de relance en boucle.
-export async function consumeAiCall(userId: string) {
+// tripPass : appel sur un voyage qui a le pass voyage (même compteur, plafond plus haut).
+export async function consumeAiCall(userId: string, { tripPass = false }: { tripPass?: boolean } = {}) {
   const [access, settings] = await Promise.all([findUserAccess(userId), findAppSettings()]);
   if (!access || access.banned_at) throw new AiQuotaError("FORBIDDEN");
 
@@ -32,7 +33,8 @@ export async function consumeAiCall(userId: string) {
     throw new AiQuotaError("AI_DISABLED");
   }
 
-  const limit = access.role === "admin" ? null : aiDailyLimitPerUser();
+  const { aiDailyLimitTripPass } = getConfig();
+  const limit = access.role === "admin" ? null : tripPass ? Math.max(aiDailyLimitTripPass, aiDailyLimitPerUser()) : aiDailyLimitPerUser();
   if (!(await incrementAiUsage(userId, limit))) throw new AiQuotaError("DAILY_LIMIT_REACHED");
 }
 

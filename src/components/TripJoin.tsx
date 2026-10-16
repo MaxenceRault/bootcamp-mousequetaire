@@ -15,7 +15,7 @@ const CODE_KEY = "brb_join_code";
 const CODE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const JOIN_PATH = "/planner/join";
 
-type JoinState = "loading" | "login" | "invalid" | "error";
+type JoinState = "loading" | "login" | "invalid" | "full" | "error";
 
 // Code pris dans le # (puis retiré de l'URL) ou gardé depuis le passage par /login.
 function readCode() {
@@ -46,6 +46,7 @@ export function TripJoin() {
               return null;
             }
             if (result.error === "UNAUTHORIZED") return "login";
+            if (result.error === "TRIP_FULL") return "full";
             if (result.error === "INVITE_INVALID" || result.error === "INVALID_INPUT") {
               sessionStorage.removeItem(CODE_KEY);
               return "invalid";
@@ -79,9 +80,9 @@ export function TripJoin() {
           </div>
         </>
       )}
-      {(state === "invalid" || state === "error") && (
+      {(state === "invalid" || state === "full" || state === "error") && (
         <>
-          <FormError>{t(state === "invalid" ? "joinInvalid" : "errors.INTERNAL_ERROR")}</FormError>
+          <FormError>{t(state === "invalid" ? "joinInvalid" : state === "full" ? "errors.TRIP_FULL" : "errors.INTERNAL_ERROR")}</FormError>
           <Link href="/planner" className="text-label-lg text-accent hover:underline">
             {t("backToTrips")}
           </Link>

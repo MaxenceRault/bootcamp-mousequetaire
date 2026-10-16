@@ -39,6 +39,16 @@ export const adminCreateBannedWordSchema = z.strictObject({
   kind: z.enum(BANNED_KINDS),
 });
 
+// POST /api/v1/admin/trip-passes : passId (achat à rattacher) exige l'email de paiement déclaré par l'acheteur.
+export const adminGrantTripPassSchema = z
+  .strictObject({
+    tripId: z.number().int().positive().max(2_147_483_647),
+    passId: z.number().int().positive().max(2_147_483_647).optional(),
+    payerEmail: z.string().trim().toLowerCase().max(254).pipe(z.email()).optional(),
+  })
+  .refine((input) => input.passId === undefined || input.payerEmail !== undefined, { path: ["payerEmail"] });
+
+export type AdminGrantTripPassInput = z.infer<typeof adminGrantTripPassSchema>;
 export type AdminCreateBannedWordInput = z.infer<typeof adminCreateBannedWordSchema>;
 export type AdminUpdateUserInput = z.infer<typeof adminUpdateUserSchema>;
 export type AdminUpdateSettingsInput = z.infer<typeof adminUpdateSettingsSchema>;
