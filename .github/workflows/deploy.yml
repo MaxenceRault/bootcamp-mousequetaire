@@ -21,6 +21,7 @@ env:
   SERVICE: brb
   APP_URL: https://brb-105103278561.europe-west9.run.app
   BMC_PAGE_URL: https://buymeacoffee.com/maxence_rault
+  SMTP_USER: biirb.app@gmail.com
   IMAGE: europe-west9-docker.pkg.dev/biirb-511608/brb/web:${{ github.sha }}
 
 jobs:
@@ -68,6 +69,6 @@ jobs:
             --cpu-boost \
             --min-instances=0 \
             --max-instances=1 \
-            --set-env-vars="CLOUD_SQL_INSTANCE=$PROJECT_ID:$REGION:biirb-db1,DB_NAME=brb,DB_USER=brb-run@$PROJECT_ID.iam,GCP_PROJECT_ID=$PROJECT_ID,VERTEX_LOCATION=$REGION,TRUSTED_PROXY_HOPS=1,APP_URL=$APP_URL,BMC_PAGE_URL=$BMC_PAGE_URL" \
-            --set-secrets="JWT_SECRET=brb-jwt-secret:latest,JWT_REFRESH_SECRET=brb-jwt-refresh-secret:latest,BMC_WEBHOOK_SECRET=brb-bmc-webhook-secret:latest" \
+            --set-env-vars="CLOUD_SQL_INSTANCE=$PROJECT_ID:$REGION:biirb-db1,DB_NAME=brb,DB_USER=brb-run@$PROJECT_ID.iam,GCP_PROJECT_ID=$PROJECT_ID,VERTEX_LOCATION=$REGION,TRUSTED_PROXY_HOPS=1,APP_URL=$APP_URL,BMC_PAGE_URL=$BMC_PAGE_URL,SMTP_USER=$SMTP_USER" \
+            --set-secrets="JWT_SECRET=brb-jwt-secret:latest,JWT_REFRESH_SECRET=brb-jwt-refresh-secret:latest,BMC_WEBHOOK_SECRET=brb-bmc-webhook-secret:latest,SMTP_PASSWORD=brb-smtp-password:latest" \
             --quiet

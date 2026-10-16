@@ -83,7 +83,7 @@ export async function forgotPasswordController(request: Request) {
 
   const startedAt = Date.now();
   // Hors production seulement : en ligne, le lien est toujours construit avec APP_URL (jamais l'en-tête Host).
-  const devOrigin = process.env.NODE_ENV === "production" ? null : new URL(request.url).origin;
+  const devOrigin = process.env.NODE_ENV === "production" ? null : devRequestOrigin(request);
   try {
     await requestPasswordReset(body.data.email, devOrigin);
   } catch (error) {
@@ -92,6 +92,13 @@ export async function forgotPasswordController(request: Request) {
   }
   await new Promise((resolve) => setTimeout(resolve, Math.max(0, FORGOT_MIN_RESPONSE_MS - (Date.now() - startedAt))));
   return new Response(null, { status: 202 });
+}
+
+// Dev : adresse tapée dans le navigateur (en-tête Host), pas celle d'écoute du serveur (0.0.0.0 dans Docker).
+function devRequestOrigin(request: Request) {
+  const url = new URL(request.url);
+  const host = request.headers.get("host");
+  return host && /^[a-z0-9.-]+(:\d+)?$/i.test(host) ? `${url.protocol}//${host}` : url.origin;
 }
 
 // POST /api/v1/auth/reset-password { token, password } → 204 ; toutes les sessions du compte sont révoquées.
