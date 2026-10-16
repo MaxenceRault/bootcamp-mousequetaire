@@ -3,8 +3,17 @@ import { connection } from "next/server";
 import { getConfig } from "@/server/config";
 import { getUserIdFromRequest } from "@/server/jwt";
 import { clientIp, isRateLimited } from "@/server/rateLimit";
-import { getMyProfile, getPublicProfile, ProfileError, setMyAvatar, updateMyProfile } from "@/server/services/user.service";
 import {
+  getMyBadges,
+  getMyProfile,
+  getPublicProfile,
+  ProfileError,
+  setMyAvatar,
+  setMyBadge,
+  updateMyProfile,
+} from "@/server/services/user.service";
+import {
+  displayedBadgeSchema,
   PROFILE_IMAGE_MAX_BYTES,
   profileImageSchema,
   updateProfileSchema,
@@ -21,6 +30,36 @@ export async function getMeController(request: Request) {
 
   try {
     return Response.json(await getMyProfile(userId));
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// GET /api/v1/users/me/badge : badges débloqués, badge affiché, progression.
+export async function getMyBadgesController(request: Request) {
+  await connection();
+  const userId = await getUserIdFromRequest(request);
+  if (!userId) return errorResponse(401, "UNAUTHORIZED");
+  try {
+    return Response.json(await getMyBadges(userId));
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// PUT /api/v1/users/me/badge { badge } : choisir le badge affiché (même limite que la modification du profil).
+export async function setMyBadgeController(request: Request) {
+  const userId = await getUserIdFromRequest(request);
+  if (!userId) return errorResponse(401, "UNAUTHORIZED");
+
+  const { max, windowMs } = getConfig().rateLimits.profileUpdate;
+  if (isRateLimited(`users:update:${userId}`, max, windowMs)) return errorResponse(429, "TOO_MANY_REQUESTS");
+
+  const body = displayedBadgeSchema.safeParse(await readJson(request));
+  if (!body.success) return errorResponse(400, "INVALID_INPUT");
+
+  try {
+    return Response.json(await setMyBadge(userId, body.data.badge));
   } catch (error) {
     return handleError(error);
   }
@@ -109,6 +148,7 @@ function handleError(error: unknown) {
   if (error instanceof ProfileError) {
     if (error.code === "USERNAME_TAKEN") return errorResponse(409, "USERNAME_TAKEN");
     if (error.code === "INVALID_INPUT") return errorResponse(400, "INVALID_INPUT");
+    if (error.code === "BADGE_LOCKED") return errorResponse(403, "BADGE_LOCKED");
     return errorResponse(401, "UNAUTHORIZED");
   }
 

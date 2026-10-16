@@ -12,7 +12,9 @@ export type PublicUser = {
   avatar_url: string | null;
   avatar_seed: string | null;
   avatar_background_color: string | null;
+  // role : droits (admin) et logique du mécène ; badge : ce qui s'affiche (choisi parmi les badges débloqués).
   role: UserRole;
+  badge: UserRole;
 };
 
 export type UserWithPassword = PublicUser & { password_hash: string | null; banned_at: string | null };
@@ -45,7 +47,8 @@ export class UsernameTakenError extends Error {
   }
 }
 
-const PUBLIC_COLUMNS = "id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role";
+const PUBLIC_COLUMNS =
+  "id, username, display_name, avatar_url, avatar_seed, avatar_background_color, role, coalesce(displayed_badge, role) as badge";
 const PROFILE_COLUMNS = `${PUBLIC_COLUMNS}, location, created_at, is_private, show_saved`;
 const UNIQUE_VIOLATION = "23505";
 
@@ -154,6 +157,27 @@ export async function findUserAccess(id: string): Promise<UserAccess | null> {
   const db = await getDb();
   const { rows } = await db.query<UserAccess>("select role, banned_at from users where id = $1", [id]);
   return rows[0] ?? null;
+}
+
+export type BadgeState = { role: UserRole; displayed_badge: UserRole | null; post_count: number; like_count: number };
+
+// De quoi calculer les badges débloqués : rôle, récits publiés, récits aimés.
+export async function findBadgeState(id: string): Promise<BadgeState | null> {
+  const db = await getDb();
+  const { rows } = await db.query<BadgeState>(
+    `select role, displayed_badge,
+       (select count(*)::int from post where author_id = users.id) as post_count,
+       (select count(*)::int from post_like where user_id = users.id) as like_count
+     from users where id = $1`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+// null : badge du rôle.
+export async function updateDisplayedBadge(id: string, badge: UserRole | null) {
+  const db = await getDb();
+  await db.query("update users set displayed_badge = $2 where id = $1", [id, badge]);
 }
 
 // Destinataires des alertes internes (ex. demande de pass voyage) : jamais renvoyé au client.

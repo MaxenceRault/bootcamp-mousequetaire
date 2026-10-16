@@ -34,7 +34,8 @@ import {
 import { createArchetypeSchema, updateArchetypeSchema } from "@/schemas/archetype.schema";
 import { createCommentSchema } from "@/schemas/comment.schema";
 import { adminUpdateTicketSchema, createTicketSchema, TICKET_STATUSES } from "@/schemas/ticket.schema";
-import { profileImageSchema, updateProfileSchema } from "@/schemas/user.schema";
+import { displayedBadgeSchema, profileImageSchema, updateProfileSchema } from "@/schemas/user.schema";
+import { USER_ROLES } from "@/lib/roles";
 
 // Générés depuis les schémas Zod des controllers : la doc suit la validation.
 function requestBody(schema: z.ZodType) {
@@ -870,6 +871,46 @@ export function buildOpenApiDocument() {
             401: error("Signature absente ou invalide", ["INVALID_SIGNATURE"]),
             413: error("Corps trop volumineux", ["PAYLOAD_TOO_LARGE"]),
             503: error("Paiement non configuré", ["PAYMENT_UNAVAILABLE"]),
+            500: internalError,
+          },
+        },
+      },
+      "/users/me/badge": {
+        get: {
+          tags: ["Utilisateurs"],
+          summary: "Mes badges : débloqués, affiché, progression",
+          description: "Voyageur toujours ; globe-trotteur dès BADGE_THRESHOLDS.globetrotter récits publiés, rêveur dès BADGE_THRESHOLDS.dreamer récits aimés (ou attribués par un admin) ; mécène et admin selon le rôle.",
+          security: [{ bearerAuth: [] }],
+          responses: { 200: json("Badges", {
+            type: "object",
+            properties: {
+              badges: { type: "array", items: { type: "object", properties: { badge: { type: "string", enum: [...USER_ROLES] }, unlocked: { type: "boolean" } } } },
+              displayed: { type: "string", enum: [...USER_ROLES] },
+              progress: { type: "object", properties: { posts: { type: "integer" }, likes: { type: "integer" } } },
+              thresholds: { type: "object", properties: { globetrotter: { type: "integer" }, dreamer: { type: "integer" } } },
+            },
+          }), 401: unauthorized, 500: internalError },
+        },
+        put: {
+          tags: ["Utilisateurs"],
+          summary: "Choisir le badge affiché",
+          description: "badge null : badge du rôle. Affiché sur le profil, les récits et les commentaires ; le rôle (droits) ne change pas.",
+          security: [{ bearerAuth: [] }],
+          requestBody: requestBody(displayedBadgeSchema),
+          responses: {
+            200: json("Badges à jour", {
+            type: "object",
+            properties: {
+              badges: { type: "array", items: { type: "object", properties: { badge: { type: "string", enum: [...USER_ROLES] }, unlocked: { type: "boolean" } } } },
+              displayed: { type: "string", enum: [...USER_ROLES] },
+              progress: { type: "object", properties: { posts: { type: "integer" }, likes: { type: "integer" } } },
+              thresholds: { type: "object", properties: { globetrotter: { type: "integer" }, dreamer: { type: "integer" } } },
+            },
+          }),
+            400: invalidInput,
+            401: unauthorized,
+            403: error("Badge pas encore débloqué", ["BADGE_LOCKED"]),
+            429: tooManyRequests,
             500: internalError,
           },
         },

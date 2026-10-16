@@ -21,7 +21,9 @@ export type CommentRow = {
 
 const COMMENT_SELECT = `select c.id, c.parent_id, c.content, c.created_at,
     json_build_object('id', u.id, 'username', u.username, 'display_name', u.display_name, 'avatar_url', u.avatar_url,
-      'avatar_seed', u.avatar_seed, 'avatar_background_color', u.avatar_background_color, 'role', u.role) as author
+      'avatar_seed', u.avatar_seed, 'avatar_background_color', u.avatar_background_color,
+      -- Badge affiché (affichage seulement).
+      'role', coalesce(u.displayed_badge, u.role)) as author
   from post_comment c join users u on u.id = c.author_id`;
 
 export async function findCommentsByPost(postId: number, limit: number): Promise<CommentRow[]> {

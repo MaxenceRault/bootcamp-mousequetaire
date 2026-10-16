@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { USER_ROLES } from "@/lib/roles";
 
 // Mêmes règles que la table users.
 export const USERNAME_PATTERN = "^[a-z0-9_]{3,30}$";
@@ -33,6 +34,9 @@ export const updateProfileSchema = z.strictObject({
   is_private: z.boolean().optional(),
   show_saved: z.boolean().optional(),
 });
+
+// PUT /api/v1/users/me/badge : null rend le badge du rôle. Débloqué ou non : vérifié par le service.
+export const displayedBadgeSchema = z.strictObject({ badge: z.enum(USER_ROLES).nullable() });
 
 // Pseudo dans l'URL (/api/v1/users/{pseudo}, /profile/{pseudo}) : mêmes règles que la table users.
 export const usernameParamSchema = z.string().regex(new RegExp(USERNAME_PATTERN));
